@@ -84,7 +84,6 @@ time_out_input = 'User: ### *remains silent* ### Aiko: '
 
 
 # Set OpenAPI key here
-# openai.api_key = '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'
 openai.api_key = open("key_openai.txt", "r").read().strip('\n')
 
 
@@ -383,7 +382,7 @@ if __name__ == "__main__":
     print()
 
     # voices aiko. set elevenlabs = True if you want to use elevenlabs TTS (needs elevenlabs API key set in key_elevenlabs.txt)
-    say(text=aiko_completion_text, elevenlabs = True, audiodevice = "2", lang = "pt-br")
+    say(text=aiko_completion_text, elevenlabs = False, audiodevice = "2")
 
     # updates aiko's context lists based on the latest interaction
 

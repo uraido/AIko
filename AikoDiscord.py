@@ -4,7 +4,7 @@ import asyncio
 import os
 from gtts import gTTS
 from AikoSpeechInterface import modify_pitch
-from AIko063 import *
+from AIko import *
 
 intents = discord.Intents.all()
 client = discord.Client(intents = intents)

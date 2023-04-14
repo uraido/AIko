@@ -8,6 +8,7 @@ from AIko import *
 
 intents = discord.Intents.all()
 client = discord.Client(intents = intents)
+discord_token = open("discord_token.txt", "r").read().strip('\n')
 
 # aiko functionality related variables
 
@@ -81,4 +82,4 @@ async def listen_to_voice(voice, say_func):
                 print(f'Could not request results from Google Speech Recognition service; {e}')
             await asyncio.sleep(0.1)
 
-client.run('MTA5MjIwNzA0ODA1MTE0NjkyMw.Gzo4yu.3abCFcmFp2J6PiQhq_mIDsbVOfYgjkXnQ_C4vw')
+client.run(discord_token)

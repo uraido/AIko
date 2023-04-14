@@ -130,10 +130,12 @@ def listen(prompt=''):
     if prompt != '':
         print(prompt)
 
-    
-    with sr.Microphone() as source:
-        audio = r.listen(source)
-        text = r.recognize_google(audio)
+    try:    
+        with sr.Microphone() as source:
+            audio = r.listen(source)
+            text = r.recognize_google(audio)
+    except sr.exceptions.UnknownValueError:
+        pass
 
 
     return text 

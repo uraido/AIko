@@ -3,15 +3,22 @@ from AikoSpeechInterface import listen
 from AikoSpeechInterface import say
 from threading import Thread
 from random import randint
+from time import sleep
 
 # Set livestream ID here
 chat = pytchat.create(video_id="RWwY3NyS9jg")
 
-prompt_list = []
+chat_list = []
+mic_list = []
 to_break = False
+is_saying = False
 
-def thread_add_chat():
-    global prompt_list
+def thread_update_chat_list():
+    """
+    Adds chat messages to a queue list.
+    """
+
+    global chat_list
     global to_break
     global chat
 
@@ -24,12 +31,16 @@ def thread_add_chat():
 
         for c in chat.get().sync_items():
             message = c.message
-            prompt_list.append(message)
+            chat_list.append(message)
 
-            print(f'Added chat message to prompt_list:\n{message}')
+            print(f'Added chat message to chat_list:\n{message}')
 
-def thread_add_mic_input():
-    global prompt_list
+def thread_update_mic_list():
+    """
+    Adds microphone messages to a queue list.
+    """
+
+    global mic_list
     global to_break
 
     while True:
@@ -38,32 +49,79 @@ def thread_add_mic_input():
 
         mic_input = listen('Listening...', 'hey')
         if mic_input != None:
-            prompt_list.append(mic_input)
+            mic_list.append(mic_input)
 
-            print(f'Added microphone message to prompt_list:\n{mic_input}')
+            print(f'Added microphone message to mic_list:\n{mic_input}')
 
-def thread_read_from_list():
-    global prompt_list
+def thread_answer_chat():
+    """
+    Will pick a random chat message from the queue. If there are microphone messages on the mic queue, will wait until
+    all microphone messages on queue have been cleared before going back to reading chat messages.
+    """
+
+    global chat_list
+    global mic_list
     global to_break
+    global is_saying
+
+    while True:
+
+        if to_break:
+            break
+
+        if chat_list == []:
+            continue
+
+        if mic_list != []:
+            continue
+
+        if is_saying:
+            continue
+
+
+        is_saying = True
+        prompt_index = randint(0, len(chat_list) - 1)
+        prompt = chat_list[prompt_index]
+
+        print(f'\nSelected CHAT prompt to answer:\n{prompt}')
+
+        say(prompt)
+        chat_list.clear()
+        print('Cleared chat_list')
+        is_saying = False
+
+        # Time AIko will wait before reading any other chat messages, when reading from chat is possible.
+        sleep(randint(1, 10))
+
+def thread_answer_mic():
+    global mic_list
+    global to_break
+    global is_saying
 
     while True:
         if to_break:
             break
 
-        if prompt_list == []:
+        if mic_list == []:
             continue
 
-        prompt_index = randint(0, len(prompt_list) - 1)
-        prompt = prompt_list[prompt_index]
+        if is_saying:
+            continue
 
-        print(f'Selected prompt to speak:\n{prompt}')
+        is_saying = True
+        prompt_index = randint(0, len(mic_list) - 1)
+        prompt = mic_list[prompt_index]
+
+        print(f'\nSelected MIC prompt to answer:\n{prompt}')
 
         say(prompt)
-        prompt_list.clear()
-        print('Cleared prompt_list')
+        mic_list.clear()
+        print('Cleared mic_list')
+        is_saying = False
 
 if __name__ == '__main__':
-    Thread(target=thread_add_chat).start()
-    Thread(target=thread_add_mic_input).start()
-    Thread(target=thread_read_from_list).start()
+    Thread(target=thread_update_chat_list).start()
+    Thread(target=thread_update_mic_list).start()
+    Thread(target=thread_answer_chat).start()
+    Thread(target=thread_answer_mic).start()
 

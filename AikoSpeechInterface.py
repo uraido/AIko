@@ -1,6 +1,6 @@
 """
 AikoSpeechInterface.py (former TextToSpeech.py)
-Version 3.1
+Version 3.2
 
 Library of text to speech functions for Aiko.
 
@@ -17,13 +17,7 @@ pip install:
 - pyaudio
 
 Changelog:
-
-- Separated gtts text-to-speech into its own function (generate_mp3_gtts). 
-- Added a new function to include elevenlabs text-to-speech functionality (generate_mp3_elevenlabs).
-- Major rework to the say() function:
-- Now, instead of generating audio, it serves as a controler for Aiko's tts. If the elevenlabs parameter is set to true,
-it will generate audio using the elevenlab function. If not, it will generate audio using the gtts function.
-
+- Added optional "catchword" parameter to the listen() function.
 """
 
 import gtts                     # text to mp3 file
@@ -118,12 +112,22 @@ def say(text: str, elevenlabs = False, lang = 'en', audiodevice = "2"):
     os.system(f"mpg123 -q --audiodevice {audiodevice} {audio}")
     os.remove(audio)
 
-def listen(prompt=''):
+def listen(prompt='', catchword=''):
     """
     Uses SpeechRecognition library to listen to audio input from a microphone and convert any speech it detects to text using 
-    Google's speech recognition API. Returns the recognized text as a string or None if no speech is detected. Takes an 
-    optional prompt parameter to print a prompt text to the console before listening for audio input.
+    Google's speech recognition API. Returns the recognized text as a string or None if no speech is detected. 
+    
+    Parameters:
+    prompt (str): Optional prompt text to print to the console before listening for audio input.
+    catchword (str): Optional catchword that specifies a particular word or phrase that should be included at the very 
+    beginning of the recognized text. If provided, the function will only return text that includes the catchword at the 
+    beginning. 
+    
+    Returns:
+    str or None: The recognized text as a string, or None if no speech is detected that meets the specified catchword 
+    criteria.
     """
+
     r = sr.Recognizer()
     text = None
 
@@ -133,17 +137,21 @@ def listen(prompt=''):
     try:    
         with sr.Microphone() as source:
             audio = r.listen(source)
-            text = r.recognize_google(audio)
+            microphone_output = r.recognize_google(audio)
+        if catchword == '':
+            text = microphone_output
+        elif catchword.lower() in microphone_output[:len(catchword)].lower():
+            text = microphone_output
+
     except sr.exceptions.UnknownValueError:
         pass
-
 
     return text 
 
 if __name__ == "__main__":
-    #userspeech = listen('Listening...')
-    #print(userspeech)
-    say("Hello Rchart-Kun!", elevenlabs=True)
+    userspeech = listen('Listening...', 'hey')
+    print(userspeech)
+    #say("Hello Rchart-Kun!", elevenlabs=True)
     #say("Hello Rchart-Kun! 1", audiodevice = 1)
     #say("Hello Rchart-Kun! 2", audiodevice = 2)
     #say("Hello Rchart-Kun! 3", audiodevice = 3)

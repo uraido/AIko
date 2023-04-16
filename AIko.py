@@ -367,7 +367,7 @@ if __name__ == "__main__":
 
 
     if timed_out:
-      chosen_prompt = randint(0, len(time_out_prompts))
+      chosen_prompt = randint(0, len(time_out_prompts - 1))
       user_input = time_out_prompts[chosen_prompt]
     if breaker in user_input.lower():
       user_input += ' (Code red means goodbye)'

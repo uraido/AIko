@@ -172,6 +172,8 @@ def get_user_input(timer : int):
   return user_input, timed_out
 
 def create_log(is_summarizing : bool, summary_instruction : str):
+  global build_version
+
   time = datetime.now()
   hour = f'[{time.hour}:{time.minute}:{time.second}]'
   time = time.strftime("%d/%m/%Y %H:%M:%S")
@@ -227,12 +229,12 @@ def update_log_with_summarization_data(log_filepath : str, user_string : str, co
     log.write(f'{hour} Total tokens used (Prompt + Output + Summarization): {completion_data[1][2] + sum_completion_data[1][2]}\n')
     log.write('\n')
 
-def update_context_list(list_to_update : list, memory : str):
-  memory_list = list_to_update.copy()
-  memory_list = memory_list[1:]
-  memory_list.append(memory)
+def update_context_list(list_to_update : list, context : str):
+  context_list = list_to_update.copy()
+  context_list = context_list[1:]
+  context_list.append(context)
 
-  return(memory_list)
+  return(context_list)
 
 def update_context_string(user_input_list : list, gpt_output_list):
   # context string which will be used when requesting completions

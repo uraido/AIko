@@ -31,7 +31,7 @@ Changelog:
 060:
 - Moved log functionality into create_log(), update_log() and update_log_with_summarization_data() functions
 - Renamed create_limited_list() to create_context_list()
-- Moved context functionality into update_context_list(), update_context_string() update_context_summaries_string() functions
+- Moved context functionality into update_context_list(), update_context_string() update_context_string_with_summaries() functions
 061:
 - Add "silence breaker" into the loop, which makes AIko talks when time has passed without interact with her
 062:
@@ -258,7 +258,7 @@ def update_context_string(user_input_list : list, gpt_output_list):
 
   return(context_string)
   
-def update_context_summaries_string(summaries_list : list):
+def update_context_string_with_summaries(summaries_list : list):
   context_string = ''
 
   if summaries_list[4] != '':
@@ -353,7 +353,7 @@ if __name__ == "__main__":
     # updates aikos context string
 
     if context_summarization:
-      aikos_memory = update_context_summaries_string(summary_list)
+      aikos_memory = update_context_string_with_summaries(summary_list)
     else:
       aikos_memory = update_context_string(inputList, outputList)
 

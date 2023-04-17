@@ -14,6 +14,7 @@ to_break = False
 is_saying = False
 
 chat_list_lock = Lock()
+mic_list_lock = Lock()
 
 def thread_update_chat_list():
     """
@@ -74,13 +75,13 @@ def thread_update_mic_list():
 
     while not to_break:
 
-        mic_input = listen('Listening...', 'hey')
+        mic_input = listen('Listening...') #('Listening...', 'hey')
 
         if mic_input != None:
 
-            
+            mic_list_lock.acquire()
             mic_list.append(mic_input)
-            
+            mic_list_lock.release()
 
             print(f'Added microphone message to mic_list:\n{mic_input}')
 
@@ -104,8 +105,11 @@ def thread_answer_chat():
             continue
         chat_list_lock.release()
         
+        mic_list_lock.acquire()
         if mic_list != []:
+            mic_list_lock.release()
             continue
+        mic_list_lock.release()
         
         if is_saying:
             continue
@@ -113,10 +117,8 @@ def thread_answer_chat():
         is_saying = True
 
         chat_list_lock.acquire()
-
         prompt_index = randint(0, len(chat_list) - 1)
         prompt = chat_list.pop(prompt_index)
-
         chat_list_lock.release()
 
         print(f'\nSelected CHAT prompt to answer:\n{prompt}\nRemoved it from queue.')
@@ -138,9 +140,11 @@ def thread_answer_mic():
 
     while not to_break:
 
-        
+        mic_list_lock.acquire()
         if mic_list == []:
+            mic_list_lock.release()
             continue
+        mic_list_lock.release()
         
 
         if is_saying:
@@ -148,14 +152,13 @@ def thread_answer_mic():
 
         is_saying = True
 
-        
+        mic_list_lock.acquire()
         prompt = mic_list.pop(0)
-        
+        mic_list_lock.release()
 
-        print(f'\nSelected MIC prompt to answer:\n{prompt}')
+        print(f'\nSelected MIC prompt to answer:\n{prompt}\nRemoved it from queue.')
 
         say(prompt)
-        print('Removed selected prompt from mic_list.')
 
         is_saying = False
 

@@ -1,6 +1,5 @@
 import pytchat
-from AikoSpeechInterface import listen
-from AikoSpeechInterface import say
+from AikoSpeechInterface import listen, say
 from threading import Thread
 from random import randint
 from time import sleep
@@ -15,13 +14,14 @@ is_saying = False
 
 def thread_update_chat_list():
     """
-    Adds chat messages to a queue list.
+    Adds chat messages to a queue list. Removes the first item from the list if the length limit is reached.
     """
 
     global chat_list
     global to_break
     global chat
 
+    chat_list_length_limit = 10
     message = ''
 
     while chat.is_alive():
@@ -31,6 +31,10 @@ def thread_update_chat_list():
 
         for c in chat.get().sync_items():
             message = c.message
+
+            if len(chat_list) > chat_list_length_limit:
+                chat_list = chat_list[1:]
+                print(f'chat_list length has surpassed {chat_list_length_limit}. First item was removed.')
 
             chat_list.append(message)
             print(f'Added chat message to chat_list:\n{message}')
@@ -54,9 +58,9 @@ def thread_update_mic_list():
 
 def thread_answer_chat():
     """
-    Picks a random chat message from the queue and answers it, then clears the queue list
-    and sleeps for a random amount of time in seconds. If there are microphone messages on the mic queue,
-    waits until all microphone messages have been cleared before going back to answering chat messages.
+    Pops (removes) a random message from the chat queue list and then answers it, then sleeps for a random
+    amount of time in seconds. If there are microphone messages on the mic queue, waits until all microphone
+    messages have been cleared before going back to answering chat messages.
     """
 
     global chat_list
@@ -79,19 +83,16 @@ def thread_answer_chat():
         is_saying = True
 
         prompt_index = randint(0, len(chat_list) - 1)
-        prompt = chat_list[prompt_index]
-
+        prompt = chat_list.pop(prompt_index)
         print(f'\nSelected CHAT prompt to answer:\n{prompt}')
 
         say(prompt)
-
-        chat_list.clear()
-        print('Cleared chat_list')
+        print('Removed selected chat prompt from chat_list.')
 
         is_saying = False
 
         # Time AIko will wait before reading any other chat messages, when reading from chat is possible.
-        sleep(randint(1, 10))
+        sleep(randint(1, 90))
 
 def thread_answer_mic():
     """

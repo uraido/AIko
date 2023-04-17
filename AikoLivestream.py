@@ -1,20 +1,24 @@
 import pytchat
 from AikoSpeechInterface import listen, say
-from threading import Thread
+from threading import Thread, Lock
 from random import randint
 from time import sleep
 
 # Set livestream ID here
-chat = pytchat.create(video_id="ID HERE")
+chat = pytchat.create(video_id="d_Koe8olEVE")
 
 chat_list = []
 mic_list = []
+
 to_break = False
 is_saying = False
 
+chat_list_lock = Lock()
+
 def thread_update_chat_list():
     """
-    Adds chat messages to a queue list. Removes the first item from the list if the length limit is reached.
+    Adds chat messages to a queue list. Removes the first item (oldest item) from the list if the length
+    limit is reached.
     """
 
     global chat_list
@@ -22,22 +26,43 @@ def thread_update_chat_list():
     global chat
 
     chat_list_length_limit = 10
-    message = ''
+    last_message = ''
 
     while chat.is_alive():
-        if 'code red' in message.lower():
+
+        # breaks this loop if the defined string is read from youtube chat and sets a variable to turn off the loops
+        # in the other threads.
+
+        if 'code red' in last_message.lower():
             to_break = True
             break
+        
+        # code below tries to keep chat_list's number of items under the defined chat_list_length_limit.
+        # the lock is necessary to prevent this function from removing items from the list while 
+        # thread_answer_chat() is controlling it, among other issues that can occur when multiple
+        # threads try to modify the same variable.
+
+        chat_list_lock.acquire()
+        if len(chat_list) > chat_list_length_limit:
+
+            exceeding_entries_count = len(chat_list) - chat_list_length_limit
+            print(f'chat_list exceeding limit by {exceeding_entries_count}:', chat_list)    
+            chat_list = chat_list[exceeding_entries_count : ]
+            print('corrected chat_list:', chat_list)
+
+            print(f'chat_list has surpassed the entry limit of {chat_list_length_limit}\nExceeding old entries have been removed.')
+        chat_list_lock.release()
+
+        # executes for every message sent in the youtube chat.
 
         for c in chat.get().sync_items():
-            message = c.message
+            last_message = c.message
 
-            if len(chat_list) > chat_list_length_limit:
-                chat_list = chat_list[1:]
-                print(f'chat_list length has surpassed {chat_list_length_limit}. First item was removed.')
+            chat_list_lock.acquire()
+            chat_list.append(last_message)
+            chat_list_lock.release()
 
-            chat_list.append(message)
-            print(f'Added chat message to chat_list:\n{message}')
+            print(f'Added chat message to chat_list:\n{last_message}')
 
 def thread_update_mic_list():
     """
@@ -53,7 +78,10 @@ def thread_update_mic_list():
 
         if mic_input != None:
 
+            
             mic_list.append(mic_input)
+            
+
             print(f'Added microphone message to mic_list:\n{mic_input}')
 
 def thread_answer_chat():
@@ -70,29 +98,35 @@ def thread_answer_chat():
 
     while not to_break:
 
+        chat_list_lock.acquire()
         if chat_list == []:
+            chat_list_lock.release()
             continue
-
+        chat_list_lock.release()
+        
         if mic_list != []:
             continue
-
+        
         if is_saying:
             continue
 
-
         is_saying = True
+
+        chat_list_lock.acquire()
 
         prompt_index = randint(0, len(chat_list) - 1)
         prompt = chat_list.pop(prompt_index)
-        print(f'\nSelected CHAT prompt to answer:\n{prompt}')
+
+        chat_list_lock.release()
+
+        print(f'\nSelected CHAT prompt to answer:\n{prompt}\nRemoved it from queue.')
 
         say(prompt)
-        print('Removed selected chat prompt from chat_list.')
 
         is_saying = False
 
         # Time AIko will wait before reading any other chat messages, when reading from chat is possible.
-        sleep(randint(1, 90))
+        #sleep(randint(1, 90))
 
 def thread_answer_mic():
     """
@@ -104,15 +138,20 @@ def thread_answer_mic():
 
     while not to_break:
 
+        
         if mic_list == []:
             continue
+        
 
         if is_saying:
             continue
 
         is_saying = True
 
+        
         prompt = mic_list.pop(0)
+        
+
         print(f'\nSelected MIC prompt to answer:\n{prompt}')
 
         say(prompt)

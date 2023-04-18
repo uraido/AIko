@@ -5,16 +5,16 @@ from random import randint
 from time import sleep
 
 # Set livestream ID here
-chat = pytchat.create(video_id="d_Koe8olEVE")
+chat = pytchat.create(video_id="Wu7o-4yaFSM")
 
 chat_list = []
 mic_list = []
 
 to_break = False
-is_saying = False
 
 chat_list_lock = Lock()
 mic_list_lock = Lock()
+is_saying_lock = Lock()
 
 def thread_update_chat_list():
     """
@@ -95,7 +95,6 @@ def thread_answer_chat():
     global chat_list
     global mic_list
     global to_break
-    global is_saying
 
     while not to_break:
 
@@ -110,22 +109,17 @@ def thread_answer_chat():
             mic_list_lock.release()
             continue
         mic_list_lock.release()
-        
-        if is_saying:
-            continue
-
-        is_saying = True
 
         chat_list_lock.acquire()
         prompt_index = randint(0, len(chat_list) - 1)
         prompt = chat_list.pop(prompt_index)
         chat_list_lock.release()
 
+        is_saying_lock.acquire()
         print(f'\nSelected CHAT prompt to answer:\n{prompt}\nRemoved it from queue.')
-
         say(prompt)
+        is_saying_lock.release()
 
-        is_saying = False
 
         # Time AIko will wait before reading any other chat messages, when reading from chat is possible.
         #sleep(randint(1, 90))
@@ -136,7 +130,6 @@ def thread_answer_mic():
     """
     global mic_list
     global to_break
-    global is_saying
 
     while not to_break:
 
@@ -145,22 +138,15 @@ def thread_answer_mic():
             mic_list_lock.release()
             continue
         mic_list_lock.release()
-        
-
-        if is_saying:
-            continue
-
-        is_saying = True
 
         mic_list_lock.acquire()
         prompt = mic_list.pop(0)
         mic_list_lock.release()
 
+        is_saying_lock.acquire()
         print(f'\nSelected MIC prompt to answer:\n{prompt}\nRemoved it from queue.')
-
         say(prompt)
-
-        is_saying = False
+        is_saying_lock.release()
 
 if __name__ == '__main__':
 

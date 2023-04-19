@@ -3,9 +3,10 @@ from AikoSpeechInterface import listen, say
 from threading import Thread, Lock
 from random import randint
 from time import sleep
+from pynput import keyboard
 
 # Set livestream ID here
-chat = pytchat.create(video_id="Wu7o-4yaFSM")
+chat = pytchat.create(video_id="sJnsVynmxuo")
 
 chat_list = []
 mic_list = []
@@ -15,6 +16,8 @@ to_break = False
 chat_list_lock = Lock()
 mic_list_lock = Lock()
 is_saying_lock = Lock()
+
+#--------------------------------------- THREADED FUNCTIONS -----------------------------------------------------
 
 def thread_update_chat_list():
     """
@@ -65,9 +68,10 @@ def thread_update_chat_list():
 
             print(f'Added chat message to chat_list:\n{last_message}')
 
-def thread_update_mic_list():
+
+def thread_update_mic_list(): # UNUSED! REPLACED BY PUSH TO TALK FUNCTION
     """
-    Adds microphone messages to a queue list.
+    Continuously listens for microphone messages and adds them to a list.
     """
 
     global mic_list
@@ -75,15 +79,15 @@ def thread_update_mic_list():
 
     while not to_break:
 
-        mic_input = listen('Listening...') #('Listening...', 'hey')
+        voice_message = listen('Listening...') #('Listening...', 'hey')
 
-        if mic_input != None:
+        if voice_message != None:
 
             mic_list_lock.acquire()
-            mic_list.append(mic_input)
+            mic_list.append(voice_message)
             mic_list_lock.release()
 
-            print(f'Added microphone message to mic_list:\n{mic_input}')
+            print(f'Added microphone message to mic_list:\n{voice_message}')
 
 def thread_answer_chat():
     """
@@ -148,10 +152,32 @@ def thread_answer_mic():
         say(prompt)
         is_saying_lock.release()
 
+# ---------------------------------- END OF THREADED FUNCTIONS --------------------------------------------
+
+def push_to_talk():
+    '''
+    Executes every time push to talk hotkey is pressed. Generates speech-to-text out of microphone input
+    and adds it to a list.
+    '''
+    global mic_list
+
+    voice_message = listen('Listening...')
+    print('DONE LISTENINGS')
+
+    if voice_message != None:
+
+        #mic_list_lock.acquire()
+        mic_list.append(voice_message)
+        #mic_list_lock.release()
+
+        print(f'Added microphone message to mic_list:\n{voice_message}')
+
 if __name__ == '__main__':
 
     Thread(target=thread_update_chat_list).start()
-    Thread(target=thread_update_mic_list).start()
-
+    #Thread(target=thread_update_mic_list).start() REPLACED BY PUSH_TO_TALK HOTKEY
     Thread(target=thread_answer_chat).start()
     Thread(target=thread_answer_mic).start()
+
+    with keyboard.GlobalHotKeys({'<alt>+<ctrl>+y': push_to_talk}) as h:
+        h.join()

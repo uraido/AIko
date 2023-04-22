@@ -12,6 +12,9 @@ def on_press(key):
     global key_pressed
     global hotkey
 
+    if not 'char' in dir(key):
+        return
+
     if key.char != hotkey:
         return
 
@@ -24,6 +27,9 @@ def on_release(key):
     global key_pressed
     global done_recording
     global hotkey
+
+    if not 'char' in dir(key):
+        return
 
     if key.char != hotkey:
         return

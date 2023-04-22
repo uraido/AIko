@@ -7,15 +7,21 @@ from time import sleep
 
 key_pressed = False
 done_recording = False
+to_break = False
 
 def on_press(key):
     global key_pressed
     global hotkey
+    global to_break
 
     if not 'char' in dir(key):
         return
 
-    if key.char != hotkey:
+    if key.char == 'z':
+        to_break = True
+        return
+
+    elif key.char != hotkey:
         return
 
     if not key_pressed:
@@ -53,7 +59,7 @@ stream = p.open(format=FORMAT,channels=CHANNELS,rate=RATE,input=True,frames_per_
 
 hotkey = 'p'
 
-while True:
+while not to_break:
 
     # collect keyboard events
 
@@ -67,8 +73,6 @@ while True:
     while key_pressed:
         data = stream.read(CHUNK)
         frames.append(data)
-
-    sleep(0.1)
 
     if done_recording:
 
@@ -94,4 +98,5 @@ while True:
         stream = p.open(format=FORMAT,channels=CHANNELS,rate=RATE,input=True,frames_per_buffer=CHUNK)
 
         done_recording = False
-        sleep(0.1)
+
+    sleep(0.1)

@@ -1,12 +1,12 @@
-import pytchat
-from AikoSpeechInterface import listen, say
-from threading import Thread, Lock
-from random import randint
-from time import sleep
-from pynput import keyboard
+import pytchat                                   # for reading youtube live chat
+from AikoSpeechInterface import listen, say      # custom tts and tts functions
+from threading import Thread, Lock               # for running concurrent loops
+from random import randint                       # for picking random comments
+from time import sleep                           # for waiting between reading comments
+from my_push_to_talk import start_push_to_talk   # push to talk
 
 # Set livestream ID here
-chat = pytchat.create(video_id="sJnsVynmxuo")
+chat = pytchat.create(video_id="IM11btB1OwY")
 
 chat_list = []
 mic_list = []
@@ -34,11 +34,9 @@ def thread_update_chat_list():
 
     while chat.is_alive():
 
-        # breaks this loop if the defined string is read from youtube chat and sets a variable to turn off the loops
-        # in the other threads.
+        # breaks the loop if external break condition is true
 
-        if 'code red' in last_message.lower():
-            to_break = True
+        if to_break:
             break
         
         # code below tries to keep chat_list's number of items under the defined chat_list_length_limit.
@@ -68,28 +66,35 @@ def thread_update_chat_list():
 
             print(f'Added chat message to chat_list:\n{last_message}')
 
+        # to keep CPU usage from maxing out
+        sleep(0.1)
 
-def thread_update_mic_list(): # UNUSED! REPLACED BY PUSH TO TALK FUNCTION
+def thread_push_to_talk():
     """
-    Continuously listens for microphone messages and adds them to a list.
+    Starts a push to talk instance and adds speech to text generated from recorded push to talk audio to a queue list.
     """
 
     global mic_list
     global to_break
 
     while not to_break:
+        stt = start_push_to_talk()
 
-        voice_message = listen('Listening...') #('Listening...', 'hey')
-
-        if voice_message != None:
+        if stt != '':
 
             mic_list_lock.acquire()
-            mic_list.append(voice_message)
+            mic_list.append(stt)
             mic_list_lock.release()
 
-            print(f'Added microphone message to mic_list:\n{voice_message}')
+            print(f'Added microphone message to mic_list:\n{stt}')
 
-def thread_answer_chat():
+        if 'code red' in stt.lower():
+            to_break = True
+
+        # to keep cpu usage from maxing out
+        sleep(0.1)
+
+def thread_answer_chat(): # UNUSED. REFER TO "PUSH TO TALK LOOP" IN MAIN INSTEAD.
     """
     Pops (removes) a random message from the chat queue list and then answers it, then sleeps for a random
     amount of time in seconds. If there are microphone messages on the mic queue, waits until all microphone
@@ -105,12 +110,20 @@ def thread_answer_chat():
         chat_list_lock.acquire()
         if chat_list == []:
             chat_list_lock.release()
+
+            # to keep CPU usage from maxing out
+            sleep(0.1)
+            
             continue
         chat_list_lock.release()
         
         mic_list_lock.acquire()
         if mic_list != []:
             mic_list_lock.release()
+
+            # to keep CPU usage from maxing out
+            sleep(0.1)
+            
             continue
         mic_list_lock.release()
 
@@ -127,6 +140,7 @@ def thread_answer_chat():
 
         # Time AIko will wait before reading any other chat messages, when reading from chat is possible.
         #sleep(randint(1, 90))
+        sleep(0.1)
 
 def thread_answer_mic():
     """
@@ -140,6 +154,10 @@ def thread_answer_mic():
         mic_list_lock.acquire()
         if mic_list == []:
             mic_list_lock.release()
+
+            # to keep CPU usage from maxing out
+            sleep(0.1)
+
             continue
         mic_list_lock.release()
 
@@ -152,32 +170,38 @@ def thread_answer_mic():
         say(prompt)
         is_saying_lock.release()
 
+        # to keep CPU usage from maxing out
+        sleep(0.1)
+
 # ---------------------------------- END OF THREADED FUNCTIONS --------------------------------------------
-
-def push_to_talk():
-    '''
-    Executes every time push to talk hotkey is pressed. Generates speech-to-text out of microphone input
-    and adds it to a list.
-    '''
-    global mic_list
-
-    voice_message = listen('Listening...')
-    print('DONE LISTENINGS')
-
-    if voice_message != None:
-
-        #mic_list_lock.acquire()
-        mic_list.append(voice_message)
-        #mic_list_lock.release()
-
-        print(f'Added microphone message to mic_list:\n{voice_message}')
 
 if __name__ == '__main__':
 
+    # starts threads
+
     Thread(target=thread_update_chat_list).start()
-    #Thread(target=thread_update_mic_list).start() REPLACED BY PUSH_TO_TALK HOTKEY
+
+    #Thread(target=thread_push_to_talk).start()
+
     Thread(target=thread_answer_chat).start()
+
     Thread(target=thread_answer_mic).start()
 
-    with keyboard.GlobalHotKeys({'<alt>+<ctrl>+y': push_to_talk}) as h:
-        h.join()
+    # push to talk loop
+
+    while not to_break:
+        stt = start_push_to_talk()
+
+        if stt != '':
+
+            mic_list_lock.acquire()
+            mic_list.append(stt)
+            mic_list_lock.release()
+
+            print(f'Added microphone message to mic_list:\n{stt}')
+
+        if 'code red' in stt.lower():
+            to_break = True
+
+        # to keep cpu usage from maxing out
+        sleep(0.1)

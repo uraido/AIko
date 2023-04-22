@@ -3,6 +3,8 @@ import wave
 from pynput import keyboard
 from time import sleep
 
+hotkey = 'p' # push to talk hotkey
+
 # bools to keep track of key presses and the recording
 
 key_pressed = False
@@ -45,58 +47,65 @@ def on_release(key):
         done_recording = True
         print('stopped recording')
 
-# sets and starts recording related variables
+def start_push_to_talk():
+    global key_pressed
+    global hotkey
+    global to_break
+    global done_recording
 
-CHUNK = 1024
-FORMAT = pyaudio.paInt16
-CHANNELS = 1
-RATE = 44100
-WAVE_OUTPUT_FILENAME = "push_to_talk.wav"
-frames = []
+    # sets and starts recording related variables
 
-p = pyaudio.PyAudio()
-stream = p.open(format=FORMAT,channels=CHANNELS,rate=RATE,input=True,frames_per_buffer=CHUNK)
+    CHUNK = 1024
+    FORMAT = pyaudio.paInt16
+    CHANNELS = 1
+    RATE = 44100
+    WAVE_OUTPUT_FILENAME = "push_to_talk.wav"
+    frames = []
 
-hotkey = 'p'
+    p = pyaudio.PyAudio()
+    stream = p.open(format=FORMAT,channels=CHANNELS,rate=RATE,input=True,frames_per_buffer=CHUNK)
 
-while not to_break:
+    while not to_break:
 
-    # collect keyboard events
+        # collect keyboard events
 
-    listener = keyboard.Listener(
-        on_press=on_press,
-        on_release=on_release)
-    listener.start()
+        listener = keyboard.Listener(
+            on_press=on_press,
+            on_release=on_release)
+        listener.start()
 
-    # saves audio frames while key is pressed
+        # saves audio frames while key is pressed
 
-    while key_pressed:
-        data = stream.read(CHUNK)
-        frames.append(data)
+        while key_pressed:
+            data = stream.read(CHUNK)
+            frames.append(data)
 
-    if done_recording:
+        if done_recording:
 
-        # ends audio stream
+            # ends audio stream
 
-        stream.stop_stream()
-        stream.close()
-        p.terminate()
+            stream.stop_stream()
+            stream.close()
+            p.terminate()
 
-        # saves recording into wav file
+            # saves recording into wav file
 
-        wf = wave.open('recording.wav', 'wb')
-        wf.setnchannels(CHANNELS)
-        wf.setsampwidth(p.get_sample_size(FORMAT))
-        wf.setframerate(RATE)
-        wf.writeframes(b''.join(frames))
-        wf.close()
+            wf = wave.open('recording.wav', 'wb')
+            wf.setnchannels(CHANNELS)
+            wf.setsampwidth(p.get_sample_size(FORMAT))
+            wf.setframerate(RATE)
+            wf.writeframes(b''.join(frames))
+            wf.close()
 
-        # resets relevant variables in case user wants to make a new recording
+            # resets relevant variables in case user wants to make a new recording
 
-        frames = []
-        p = pyaudio.PyAudio()
-        stream = p.open(format=FORMAT,channels=CHANNELS,rate=RATE,input=True,frames_per_buffer=CHUNK)
+            frames = []
+            p = pyaudio.PyAudio()
+            stream = p.open(format=FORMAT,channels=CHANNELS,rate=RATE,input=True,frames_per_buffer=CHUNK)
 
-        done_recording = False
+            done_recording = False
 
-    sleep(0.1)
+        sleep(0.1)
+
+if __name__ == '__main__':
+    start_push_to_talk()

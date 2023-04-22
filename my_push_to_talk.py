@@ -2,6 +2,7 @@ import pyaudio
 import wave
 from pynput import keyboard
 from time import sleep
+from AikoSpeechInterface import generate_stt_whisperAPI
 
 hotkey = 'p' # push to talk hotkey
 
@@ -9,18 +10,12 @@ hotkey = 'p' # push to talk hotkey
 
 key_pressed = False
 done_recording = False
-to_break = False
 
 def on_press(key):
     global key_pressed
     global hotkey
-    global to_break
 
     if not 'char' in dir(key):
-        return
-
-    if key.char == 'z':
-        to_break = True
         return
 
     elif key.char != hotkey:
@@ -50,22 +45,22 @@ def on_release(key):
 def start_push_to_talk():
     global key_pressed
     global hotkey
-    global to_break
     global done_recording
 
     # sets and starts recording related variables
 
-    CHUNK = 1024
+    CHUNK = 8192
     FORMAT = pyaudio.paInt16
-    CHANNELS = 1
+    CHANNELS = 2
     RATE = 44100
-    WAVE_OUTPUT_FILENAME = "push_to_talk.wav"
     frames = []
 
     p = pyaudio.PyAudio()
     stream = p.open(format=FORMAT,channels=CHANNELS,rate=RATE,input=True,frames_per_buffer=CHUNK)
 
-    while not to_break:
+    done_recording = False
+
+    while True:
 
         # collect keyboard events
 
@@ -97,15 +92,17 @@ def start_push_to_talk():
             wf.writeframes(b''.join(frames))
             wf.close()
 
-            # resets relevant variables in case user wants to make a new recording
+            # generates stt and returns it
+            stt_output = generate_stt_whisperAPI('recording.wav')
 
-            frames = []
-            p = pyaudio.PyAudio()
-            stream = p.open(format=FORMAT,channels=CHANNELS,rate=RATE,input=True,frames_per_buffer=CHUNK)
-
-            done_recording = False
+            return stt_output
 
         sleep(0.1)
 
 if __name__ == '__main__':
-    start_push_to_talk()
+    while True:
+        stt = start_push_to_talk()
+        print(stt)
+
+        if 'code red' in stt.lower():
+            break

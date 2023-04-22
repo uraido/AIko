@@ -1,6 +1,6 @@
 """
 AikoSpeechInterface.py (former TextToSpeech.py)
-Version 3.2
+Version 3.3
 
 Library of text to speech functions for Aiko.
 
@@ -13,19 +13,21 @@ pip install:
 - elevenlabslib
 - pydub
 - gtts
-- speech recognition
+- speechrecognition
 - pyaudio
+- openai
 
 Changelog:
-- Added optional "catchword" parameter to the listen() function.
+- Renamed generate_mp3 functions to generate_tts
+- Added whisperAPI speech to text option.
 """
 
 import gtts                     # text to mp3 file
 import os                       # to play audio file using mpg123
 from pydub import AudioSegment  # to increase text-to-speech audio pitch
 from elevenlabslib import *     # elevenlabs API python integration
-import speech_recognition as sr # speech-to-text
-
+import speech_recognition as sr # google speech-to-text
+import openai                   # whisperAPI speech to text
 
 # elevenlabs voicetype. this is a list because multiple voices can have the same name
 try:
@@ -34,6 +36,9 @@ try:
     voice = user.get_voices_by_name("asuka-langley-yuko-miyamura")[0]
 except:
     voice = ''
+
+# Set OpenAPI key here
+openai.api_key = open("key_openai.txt", "r").read().strip('\n')
 
 def modify_pitch(input_file, output_file, pitch_shift):
     """
@@ -59,7 +64,7 @@ def modify_pitch(input_file, output_file, pitch_shift):
     # Export the shifted audio
     shifted_song.export(output_file, format="mp3")
 
-def generate_mp3_gtts(text : str, to_pitch_shift = False, pitch_shift = 1.0, tld = 'us', lang = 'en', slow = False):
+def generate_tts_gtts(text : str, to_pitch_shift = False, pitch_shift = 1.0, tld = 'us', lang = 'en', slow = False):
     """Generates a text-to-speech mp3 file using google text to speech. Returns the name of the generated audio file.
     
     Parameters:
@@ -82,7 +87,7 @@ def generate_mp3_gtts(text : str, to_pitch_shift = False, pitch_shift = 1.0, tld
     else:
         return(audio_file)
 
-def generate_mp3_elevenlabs(text):
+def generate_tts_elevenlabs(text):
     """Generates a text-to-speech mp3 file using elevenlabs API. Returns the name of the generated audio file.
      """
 
@@ -101,13 +106,13 @@ def say(text: str, elevenlabs = False, lang = 'en', audiodevice = "2"):
 
     if elevenlabs and lang == 'en':
         try:
-            audio = generate_mp3_elevenlabs(text)
+            audio = generate_tts_elevenlabs(text)
         except Exception as e:
-            audio = generate_mp3_gtts(text, to_pitch_shift = True, pitch_shift = 2.0, tld = "co.uk")
+            audio = generate_tts_gtts(text, to_pitch_shift = True, pitch_shift = 2.0, tld = "co.uk")
     elif lang == 'en':
-        audio = generate_mp3_gtts(text, to_pitch_shift = True, pitch_shift = 2.0, tld = "co.uk")
+        audio = generate_tts_gtts(text, to_pitch_shift = True, pitch_shift = 2.0, tld = "co.uk")
     else:
-        audio = generate_mp3_gtts(text, to_pitch_shift = True, pitch_shift = 2.0, lang = lang)
+        audio = generate_tts_gtts(text, to_pitch_shift = True, pitch_shift = 2.0, lang = lang)
 
     os.system(f"mpg123 -q --audiodevice {audiodevice} {audio}")
     os.remove(audio)
@@ -148,11 +153,30 @@ def listen(prompt='', catchword=''):
 
     return text 
 
+def generate_stt_whisperAPI(filename : str):
+    audio_file = open(filename, "rb")
+    transcript = openai.Audio.transcribe(model = "whisper-1", file = audio_file, language="en", fp16=False, verbose=True, initial_prompt='code red')
+
+    return(transcript.text)
+
 if __name__ == "__main__":
-    userspeech = listen('Listening...', 'hey')
-    print(userspeech)
-    #say("Hello Rchart-Kun!", elevenlabs=True)
+
+    # for testing whisperAPI stt function
+
+    print(generate_stt_whisperAPI('recording.wav'))
+
+    # for testing google speech recognition
+
+    #userspeech = listen('Listening...', 'hey')
+    #print(userspeech)
+
+    # for testing audio devices
+
     #say("Hello Rchart-Kun! 1", audiodevice = 1)
     #say("Hello Rchart-Kun! 2", audiodevice = 2)
     #say("Hello Rchart-Kun! 3", audiodevice = 3)
     #say("Hello Rchart-Kun! 4", audiodevice = 4)
+
+    # for testing elevenlabs voice
+
+    #say("Hello Rchart-Kun!", elevenlabs=True)

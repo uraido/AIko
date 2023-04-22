@@ -6,7 +6,7 @@ from time import sleep                           # for waiting between reading c
 from my_push_to_talk import start_push_to_talk   # push to talk
 
 # Set livestream ID here
-chat = pytchat.create(video_id="IM11btB1OwY")
+chat = pytchat.create(video_id="AdDHQoFp6L4")
 
 chat_list = []
 mic_list = []
@@ -94,7 +94,7 @@ def thread_push_to_talk():
         # to keep cpu usage from maxing out
         sleep(0.1)
 
-def thread_answer_chat(): # UNUSED. REFER TO "PUSH TO TALK LOOP" IN MAIN INSTEAD.
+def thread_answer_chat():
     """
     Pops (removes) a random message from the chat queue list and then answers it, then sleeps for a random
     amount of time in seconds. If there are microphone messages on the mic queue, waits until all microphone
@@ -181,27 +181,8 @@ if __name__ == '__main__':
 
     Thread(target=thread_update_chat_list).start()
 
-    #Thread(target=thread_push_to_talk).start()
+    Thread(target=thread_push_to_talk).start()
 
     Thread(target=thread_answer_chat).start()
 
     Thread(target=thread_answer_mic).start()
-
-    # push to talk loop
-
-    while not to_break:
-        stt = start_push_to_talk()
-
-        if stt != '':
-
-            mic_list_lock.acquire()
-            mic_list.append(stt)
-            mic_list_lock.release()
-
-            print(f'Added microphone message to mic_list:\n{stt}')
-
-        if 'code red' in stt.lower():
-            to_break = True
-
-        # to keep cpu usage from maxing out
-        sleep(0.1)

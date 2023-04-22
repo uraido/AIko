@@ -4,7 +4,7 @@ from pynput import keyboard
 from time import sleep
 from AikoSpeechInterface import generate_stt_whisperAPI
 
-hotkey = '0' # push to talk hotkey
+hotkey = 'o' # push to talk hotkey. DON'T SET IT TO 'P' OR '0'.
 
 # bools to keep track of key presses and the recording
 

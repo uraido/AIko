@@ -31,8 +31,8 @@ def on_release(key):
     if not 'char' in dir(key):
         return
 
-    if key.char != hotkey:
-        return
+    #if key.char != hotkey:
+        #return
 
     if key_pressed:
         key_pressed = False

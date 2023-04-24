@@ -6,7 +6,7 @@ from random import randint                                  # for picking random
 from time import sleep                                      # for waiting between reading comments
 
 # Set livestream ID here
-chat = pytchat.create(video_id="HERE")
+chat = pytchat.create(video_id="u7vgLwc-ZjQ")
 
 to_break = False
 
@@ -101,6 +101,7 @@ def thread_talk():
 
         message_list_lock.acquire()
         # ------------ Mic --------------
+
         if len(messages.loc[messages['Source'] == 'Mic']['Source']) > 0:
             prompt = messages.loc[messages['Source'] == 'Mic']['Message'].values[0]           # Picks the first message from Mic
             messages = messages[messages['Message'] != prompt]                                # Deletes the message from the df
@@ -112,6 +113,14 @@ def thread_talk():
             continue
 
         # ----------- Chat --------------
+        # % chance that a chat comment will be read
+
+        chance = randint(1,100)
+        if chance > 1:
+            message_list_lock.release()
+            sleep(0.1)
+            continue
+
         prompt_index = randint(0, len(messages.loc[messages['Source'] == 'Chat']['Source']) - 1)  # Random to pick a message
         prompt = messages.loc[messages['Source'] == 'Chat']['Message'].values[prompt_index]       # Picks the first message from Chat
 

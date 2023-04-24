@@ -4998,3 +4998,8 @@ scripts/
 aiko_releases/
 aiko_experimental_builds/
 AikoYoutube.py
+__pycache__/
+code_demos_tests_examples/
+include/
+lib/
+discord_token.txt

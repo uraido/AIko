@@ -1,16 +1,12 @@
-import pytchat                                   # for reading youtube live chat
-import pandas as pd                              # data proccessing
-from AikoSpeechInterface import listen, say      # custom tts and tts functions
-from threading import Thread, Lock               # for running concurrent loops
-from random import randint                       # for picking random comments
-from time import sleep                           # for waiting between reading comments
-from my_push_to_talk import start_push_to_talk   # push to talk
+import pytchat                                              # for reading youtube live chat
+import pandas as pd                                         # data proccessing
+from AikoSpeechInterface import say, start_push_to_talk     # custom tts and tts functions
+from threading import Thread, Lock                          # for running concurrent loops
+from random import randint                                  # for picking random comments
+from time import sleep                                      # for waiting between reading comments
 
 # Set livestream ID here
-chat = pytchat.create(video_id="YmHvLcr1uDs")
-
-chat_list = []
-mic_list = []
+chat = pytchat.create(video_id="HERE")
 
 to_break = False
 
@@ -35,7 +31,6 @@ def thread_listen_mic():
 
             message_list_lock.acquire()
             messages.loc[len(messages.index)] = ['Mic', stt]                    # Add the new message to the list
-            #mic_list.append(stt)
             message_list_lock.release()
 
             print(f'Added microphone message to mic_list:\n{stt}')
@@ -58,7 +53,6 @@ def thread_read_chat():
     global to_break
     global chat
 
-    chat_list_length_limit = 10
     last_message = ''
 
     while chat.is_alive():
@@ -67,24 +61,8 @@ def thread_read_chat():
 
         if to_break:
             break
-        
-        # code below tries to keep chat_list's number of items under the defined chat_list_length_limit.
-        # the lock is necessary to prevent this function from removing items from the list while 
-        # thread_answer_chat() is controlling it, among other issues that can occur when multiple
-        # threads try to modify the same variable.
 
-        message_list_lock.acquire()
-        # if len(messages) > chat_list_length_limit:
-
-        #     exceeding_entries_count = len(messages) - chat_list_length_limit
-        #     print(f'chat_list exceeding limit by {exceeding_entries_count}:', chat_list)    
-        #     chat_list = chat_list[exceeding_entries_count : ]
-        #     print('corrected chat_list:', chat_list)
-
-        #     print(f'chat_list has surpassed the entry limit of {chat_list_length_limit}\nExceeding old entries have been removed.')
-        message_list_lock.release()
-
-        # executes for every message.
+        # executes for every message
 
         for c in chat.get().sync_items():
             last_message = c.message
@@ -112,7 +90,7 @@ def thread_talk():
     while not to_break:
 
         message_list_lock.acquire()
-        if len(messages) == 0:
+        if len(messages) < 1:
             message_list_lock.release()
 
             # to keep CPU usage from maxing out
@@ -122,11 +100,10 @@ def thread_talk():
         message_list_lock.release()
 
         message_list_lock.acquire()
-
         # ------------ Mic --------------
         if len(messages.loc[messages['Source'] == 'Mic']['Source']) > 0:
             prompt = messages.loc[messages['Source'] == 'Mic']['Message'].values[0]           # Picks the first message from Mic
-            messages = messages[messages['Message'] != prompt]                                 # Deletes the message from the df
+            messages = messages[messages['Message'] != prompt]                                # Deletes the message from the df
             say(prompt)
             print(f'\nSelected MIC prompt to answer:\n{prompt}\nRemoved it from queue.')
 
@@ -135,8 +112,9 @@ def thread_talk():
             continue
 
         # ----------- Chat --------------
-        prompt_index = randint(0, len(messages.loc[messages['Source'] == 'Chat']['Source']) - 1)                                         # Random to pick a message
-        prompt = messages.loc[messages['Source'] == 'Chat']['Message'].values[prompt_index]   # Picks the first message from Chat
+        prompt_index = randint(0, len(messages.loc[messages['Source'] == 'Chat']['Source']) - 1)  # Random to pick a message
+        prompt = messages.loc[messages['Source'] == 'Chat']['Message'].values[prompt_index]       # Picks the first message from Chat
+
         # hard shit, we have to delete all previous messages. For now, just gonna delete the current one
         messages = messages[messages['Message'] != prompt]
         say(prompt)
@@ -144,15 +122,6 @@ def thread_talk():
 
         message_list_lock.release()
         sleep(0.1)
-        
-    
-
-
-
-
-
-
-
 
 # ---------------------------------- END OF THREADED FUNCTIONS --------------------------------------------
 

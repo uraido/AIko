@@ -36,7 +36,7 @@ async def on_message(message):
             await listen_to_voice(voice, say)
 
 def say(text, voice):
-    tts = gTTS(text=text)
+    tts = gTTS(text=text, lang= 'pt-br')
     initial_file = 'speech.mp3'
     pitch_shifted_file = "mod_speech.mp3"
     tts.save(initial_file)
@@ -59,12 +59,12 @@ async def listen_to_voice(voice, say_func):
 
                 print('Listening...')
                 audio = r.listen(source, phrase_time_limit=5)
-                text = r.recognize_google(audio)
+                text = r.recognize_google(audio, language='pt-br')
                 print(f'User: {text}')
 
                 # generates GPT completion and updates context, if text starts with keyword "aiko".
 
-                if 'aiko' in text[:5].lower():
+                if 'oi' in text[:2].lower():
                     aikos_memory = update_context_string(inputs_list, outputs_list)
                     completion_request = generate_gpt_completion(
                         f'{personality} {context_start} {aikos_memory}', f"### User: {text} ### Aiko: "

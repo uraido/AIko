@@ -263,7 +263,7 @@ if __name__ == "__main__":
 
     # for testing whisperAPI stt function
 
-    print(generate_stt_whisperAPI('recording.wav'))
+    #print(generate_stt_whisperAPI('recording.wav'))
 
     # for testing google speech recognition
 
@@ -287,5 +287,5 @@ if __name__ == "__main__":
         stt = start_push_to_talk()
         print(stt)
 
-    if 'code red' in stt.lower():
-        break
+        if 'code red' in stt.lower():
+            break

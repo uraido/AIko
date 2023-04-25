@@ -1,18 +1,21 @@
-import pytchat                                              # for reading youtube live chat
-import pandas as pd                                         # data proccessing
+import pytchat                                              # for reading youtube live chat                                       # data proccessing
 from AikoSpeechInterface import say, start_push_to_talk     # custom tts and tts functions
 from threading import Thread, Lock                          # for running concurrent loops
 from random import randint                                  # for picking random comments
 from time import sleep                                      # for waiting between reading comments
 
 # Set livestream ID here
-chat = pytchat.create(video_id="u7vgLwc-ZjQ")
+chat = pytchat.create(video_id="HERE")
 
 to_break = False
 
-message_list_lock = Lock()
+message_lists_lock = Lock()
 
-messages = pd.DataFrame(columns = ['Source', 'Message'])
+messages = []
+
+# Everytime an item is added to the messages list, a bool should also be added to this list.
+# If the added message is a microphone message, the bool should be True, else, it should be False.
+message_priorities = [] 
 
 #--------------------------------------- THREADED FUNCTIONS -----------------------------------------------------
 
@@ -22,6 +25,7 @@ def thread_listen_mic():
     Starts a push to talk instance and adds speech to text generated from recorded push to talk audio to a queue list.
     """
     global messages
+    global message_priorities
     global to_break
 
     while not to_break:
@@ -29,9 +33,10 @@ def thread_listen_mic():
 
         if stt != '':
 
-            message_list_lock.acquire()
-            messages.loc[len(messages.index)] = ['Mic', stt]                    # Add the new message to the list
-            message_list_lock.release()
+            message_lists_lock.acquire()
+            messages.append(stt)
+            message_priorities.append(True)
+            message_lists_lock.release()
 
             print(f'Added microphone message to mic_list:\n{stt}')
 
@@ -67,9 +72,10 @@ def thread_read_chat():
         for c in chat.get().sync_items():
             last_message = c.message
 
-            message_list_lock.acquire()
-            messages.loc[len(messages.index)] = ['Chat', last_message]          # Add the new message to the list
-            message_list_lock.release()
+            message_lists_lock.acquire()
+            messages.append(last_message)          # Add the new message to the list
+            message_priorities.append(False)
+            message_lists_lock.release()
 
             print(f'Added chat message to chat_list:\n{last_message}')
 
@@ -79,57 +85,75 @@ def thread_read_chat():
 
 def thread_talk():
     """
-    Removes a random message from the chat queue list and then answers it, then sleeps for a random
-    amount of time in seconds. If there are microphone messages on the mic queue, waits until all microphone
-    messages have been cleared before going back to answering chat messages.
+    Answers messages from the queue list. Will answer any microphone messages first, in order. If no microphone messages
+    are present, answers randomly selected chat messages.
     """
 
     global messages
+    global message_priorities
     global to_break
+
+    message_limit = 10 # determined length limit of the list containing messages
 
     while not to_break:
 
-        message_list_lock.acquire()
+        message_lists_lock.acquire()
         if len(messages) < 1:
-            message_list_lock.release()
+            message_lists_lock.release()
 
             # to keep CPU usage from maxing out
             sleep(0.1)
             
             continue
-        message_list_lock.release()
+        message_lists_lock.release()
 
-        message_list_lock.acquire()
+        message_lists_lock.acquire()
         # ------------ Mic --------------
+        # will attempt to answer microphone messages
+        try:
+            mic_msg_index = message_priorities.index(True)
+            message_priorities.pop(mic_msg_index)
+            prompt = messages.pop(mic_msg_index)
 
-        if len(messages.loc[messages['Source'] == 'Mic']['Source']) > 0:
-            prompt = messages.loc[messages['Source'] == 'Mic']['Message'].values[0]           # Picks the first message from Mic
-            messages = messages[messages['Message'] != prompt]                                # Deletes the message from the df
+            print('Picked MIC message to answer and removed it from queue:')
+            print(prompt)
             say(prompt)
-            print(f'\nSelected MIC prompt to answer:\n{prompt}\nRemoved it from queue.')
 
-            message_list_lock.release()
+            message_lists_lock.release()
+
             sleep(0.1)
+            
             continue
-
+        except:
+            pass
         # ----------- Chat --------------
-        # % chance that a chat comment will be read
-
+        # % chance that any chat comments will be read
         chance = randint(1,100)
         if chance > 1:
-            message_list_lock.release()
+            message_lists_lock.release()
             sleep(0.1)
             continue
 
-        prompt_index = randint(0, len(messages.loc[messages['Source'] == 'Chat']['Source']) - 1)  # Random to pick a message
-        prompt = messages.loc[messages['Source'] == 'Chat']['Message'].values[prompt_index]       # Picks the first message from Chat
+        # deletes oldest message entries if the length limit is exceeded
+        if len(messages) > message_limit:
+            exceedency = len(messages) - message_limit
+            print(f'Message list limit exceeded by {exceedency}. Removing old entries.')
+            print(messages, '>>')
+            messages = messages[exceedency : ]
+            print(messages)
+            message_priorities = message_priorities[exceedency : ]
 
-        # hard shit, we have to delete all previous messages. For now, just gonna delete the current one
-        messages = messages[messages['Message'] != prompt]
+        # Randomly chooses a chat message
+        prompt_index = randint(0, len(messages) - 1)
+        # deletes chosen message from the lists and answers it 
+        message_priorities.pop(prompt_index)
+        prompt = messages.pop(prompt_index)
+
+        print(f'Picked CHAT message to answer and removed it from queue:')
+        print(prompt)
         say(prompt)
-        print(f'\nSelected CHAT prompt to answer:\n{prompt}\nRemoved it from queue.')
 
-        message_list_lock.release()
+        message_lists_lock.release()
         sleep(0.1)
 
 # ---------------------------------- END OF THREADED FUNCTIONS --------------------------------------------

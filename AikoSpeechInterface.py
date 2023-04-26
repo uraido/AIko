@@ -50,7 +50,8 @@ try:
     )
 
     # voice type
-    speech_config.speech_synthesis_voice_name ="en-US-NancyNeural"
+    #"en-US-SaraNeural" #"en-US-NancyNeural" #"en-US-MichelleNeural" #"en-US-AmberNeural" #'en-US-AnaNeural' #'en-AU-CarlyNeural' #"en-GB-MaisieNeural"
+    speech_config.speech_synthesis_voice_name = "en-US-SaraNeural"
 except Exception as e:
     print('Azure Speech voice failed to start.')
     print('Error:', e)
@@ -149,7 +150,7 @@ def say(text: str, elevenlabs = False, audiodevice = "2"):
     try:
         audio = generate_tts_azurespeech(text, True, 2.0)
         os.system(f"mpg123 -q --audiodevice {audiodevice} {audio}")
-        os.remove(audio)
+        #os.remove(audio)
         return
     except Exception as e:
         print('Failed to generate Azure tts.')
@@ -344,7 +345,7 @@ def start_push_to_talk():
 if __name__ == "__main__":
     
     # for testing azure tts
-    say('Hello, Rchart-kun!')
+    say('You are gay!')
 
     # for testing whisperAPI stt function
 

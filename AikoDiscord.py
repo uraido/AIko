@@ -12,6 +12,8 @@ discord_token = open("discord_token.txt", "r").read().strip('\n')
 
 # aiko functionality related variables
 
+username = txt_to_string('username.txt')
+
 inputs_list = create_context_list()
 outputs_list = create_context_list()
 personality = txt_to_string('AIko.txt')
@@ -49,6 +51,7 @@ async def listen_to_voice(voice, say_func):
     global personality
     global context_start
     global log
+    global username
 
     r = sr.Recognizer()
     with sr.Microphone() as source:
@@ -60,21 +63,25 @@ async def listen_to_voice(voice, say_func):
                 print('Listening...')
                 audio = r.listen(source, phrase_time_limit=5)
                 text = r.recognize_google(audio, language='pt-br')
-                print(f'User: {text}')
+                print(f'{username}: {text}')
 
                 # generates GPT completion and updates context, if text starts with keyword "aiko".
+                catchphrase = 'hey'
 
-                if 'oi' in text[:2].lower():
+                if catchphrase in text[:len(catchphrase)].lower():
                     aikos_memory = update_context_string(inputs_list, outputs_list)
-                    completion_request = generate_gpt_completion(
-                        f'{personality} {context_start} {aikos_memory}', f"### User: {text} ### Aiko: "
-                        )
+
+                    system_message = f'{personality} {context_start} {aikos_memory}'
+                    user_message = f"### {username}: {text} ### Aiko: "
+
+                    completion_request = generate_gpt_completion(system_message, user_message)
+
                     print(f'Aiko: {completion_request[0]}')
                     say_func(completion_request[0], voice)
                     update_log(log, text, completion_request)
 
-                    inputs_list = update_context_list(inputs_list, text)
-                    outputs_list = update_context_list(outputs_list, completion_request[0])
+                    inputs_list = update_context_list(inputs_list, text, username)
+                    outputs_list = update_context_list(outputs_list, completion_request[0], 'Aiko')
 
             except sr.UnknownValueError:
                 print('Google Speech Recognition could not understand audio')

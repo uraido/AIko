@@ -78,7 +78,7 @@ async def listen_to_voice(voice, say_func):
 
                     print(f'Aiko: {completion_request[0]}')
                     say_func(completion_request[0], voice)
-                    update_log(log, text, completion_request)
+                    update_log(log, text, completion_request, aikos_memory)
 
                     inputs_list = update_context_list(inputs_list, text, username)
                     outputs_list = update_context_list(outputs_list, completion_request[0], 'Aiko')

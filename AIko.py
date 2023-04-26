@@ -57,6 +57,11 @@ time, which is not the desired behavior.
 - Function update_context_string() no longer requires user parameter.
 - Function update_context_list() now takes an user parameter.
 
+066:
+- update_log() now prints the context string each time a completion is requested.
+- Fixed calling old 'user' parameter when calling update_context_string().
+- Removed leftover print(aikos_memory) statement from 065.
+
 ===============================================================================================================================
 """ 
 
@@ -77,7 +82,7 @@ import numpy as np
 
 # PLEASE set it if making a new build. for logging purposes
 
-build_version = ('Aiko065').upper()
+build_version = ('Aiko066').upper()
 
 
 
@@ -208,11 +213,12 @@ def create_log(is_summarizing : bool, summary_instruction : str):
 
   return log_filename
 
-def update_log(log_filepath : str, user_string : str, completion_data : tuple):
+def update_log(log_filepath : str, user_string : str, completion_data : tuple, context_string : str):
   time = datetime.now()
   hour = f'[{time.hour}:{time.minute}:{time.second}]'
 
   with open(log_filepath, 'a') as log:
+    log.write(f'{hour} Context string: {context_string}\n')
     log.write(f'{hour} Prompt: {user_string} --TOKENS USED: {completion_data[1][0]}\n')
     log.write(f'{hour} Output: {completion_data[0]} --TOKENS USED: {completion_data[1][1]}\n')
     log.write(f'{hour} Total tokens used: {completion_data[1][2]}\n')
@@ -389,9 +395,7 @@ if __name__ == "__main__":
     if context_summarization:
       aikos_memory = update_context_string_with_summaries(summary_list)
     else:
-      aikos_memory = update_context_string(inputList, outputList, username)
-
-    print(aikos_memory)
+      aikos_memory = update_context_string(inputList, outputList)
 
     # asks the user for input depending on the chosen input method
   
@@ -443,7 +447,7 @@ if __name__ == "__main__":
     if context_summarization:
       update_log_with_summarization_data(log, user_input, aiko_completion_request, summary_list, summary_completion_request)
     else:
-      update_log(log, user_input, aiko_completion_request)
+      update_log(log, user_input, aiko_completion_request, aikos_memory)
 
     # breaks the loop
 

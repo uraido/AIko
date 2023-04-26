@@ -52,6 +52,11 @@ time, which is not the desired behavior.
 - Restructured update_context_string() and update_context_string_with_summaries() for better readability.
 - Also added 'user' parameter to get_user_input(), so it nicely prints the username when asking for a prompt.
 
+065:
+- Fixed major 064 oversight where the named user would always be the latest user in the context string.
+- Function update_context_string() no longer requires user parameter.
+- Function update_context_list() now takes an user parameter.
+
 ===============================================================================================================================
 """ 
 
@@ -72,7 +77,7 @@ import numpy as np
 
 # PLEASE set it if making a new build. for logging purposes
 
-build_version = ('Aiko064').upper()
+build_version = ('Aiko065').upper()
 
 
 
@@ -231,14 +236,17 @@ def update_log_with_summarization_data(log_filepath : str, user_string : str, co
     log.write(f'{hour} Total tokens used (Prompt + Output + Summarization): {completion_data[1][2] + sum_completion_data[1][2]}\n')
     log.write('\n')
 
-def update_context_list(list_to_update : list, context : str):
+def update_context_list(list_to_update : list, context : str, user = ''):
   context_list = list_to_update.copy()
   context_list = context_list[1:]
-  context_list.append(context)
+  if user != '':
+    context_list.append(f'{user} said: {context}')
+  else:
+    context_list.append(context)
 
   return(context_list)
 
-def update_context_string(user_input_list : list, gpt_output_list, user : str):
+def update_context_string(user_input_list : list, gpt_output_list : list):
 
   # context string which will be used when requesting completions
 
@@ -263,10 +271,11 @@ def update_context_string(user_input_list : list, gpt_output_list, user : str):
     if stored_input == '':
       continue
     if written_index == 5:
-      context_string += f' {written_index} (latest) - {user} said: {stored_input} | Aiko said: {gpt_output_list[output_list_index]}'
+      #context_string += f' {written_index} (latest) - {user} said: {stored_input} | Aiko said: {gpt_output_list[output_list_index]}'
+      context_string += f' {written_index} (latest) - {stored_input} | {gpt_output_list[output_list_index]}'
       continue 
 
-    context_string += f' {written_index} - {user} said: {stored_input} | Aiko said: {gpt_output_list[output_list_index]}'
+    context_string += f' {written_index} - {stored_input} | {gpt_output_list[output_list_index]}'
 
   return(context_string)
   
@@ -423,11 +432,11 @@ if __name__ == "__main__":
       summary_completion_request = generate_gpt_completion(summarization_instruction, user_role_sum)
       summary_completion_text = summary_completion_request[0]
 
-      summary_list = update_context_list(summary_list, summary_completion_text)
+      summary_list = update_context_list(summary_list, summary_completion_text, '')
 
     else:
-      inputList = update_context_list(inputList, user_input)
-      outputList = update_context_list(outputList, aiko_completion_text)
+      inputList = update_context_list(inputList, user_input, username)
+      outputList = update_context_list(outputList, aiko_completion_text, 'Aiko')
 
     # updates log
 

@@ -3,9 +3,10 @@ from AikoSpeechInterface import say, start_push_to_talk     # custom tts and tts
 from threading import Thread, Lock                          # for running concurrent loops
 from random import randint                                  # for picking random comments
 from time import sleep                                      # for waiting between reading comments
+from AIko import *                                          # AIko
 
 # Set livestream ID here
-chat = pytchat.create(video_id="HERE")
+chat = pytchat.create(video_id="eTpNxb8y7_U")
 
 to_break = False
 
@@ -16,6 +17,17 @@ messages = []
 # Everytime an item is added to the messages list, a bool should also be added to this list.
 # If the added message is a microphone message, the bool should be True, else, it should be False.
 message_priorities = [] 
+
+# starts aiko functionality
+
+username = txt_to_string('username.txt')
+personality = txt_to_string('AIko.txt')
+context_start = f'For context, here are our last interactions:'
+
+inputs_list = create_context_list()
+outputs_list = create_context_list()
+
+log = create_log(is_summarizing = False, summary_instruction='')
 
 #--------------------------------------- THREADED FUNCTIONS -----------------------------------------------------
 
@@ -92,6 +104,11 @@ def thread_talk():
     global messages
     global message_priorities
     global to_break
+    global inputs_list
+    global outputs_list
+    global username
+    global personality
+    global context_start
 
     message_limit = 10 # determined length limit of the list containing messages
 
@@ -117,7 +134,22 @@ def thread_talk():
 
             print('Picked MIC message to answer and removed it from queue:')
             print(prompt)
-            say(prompt)
+
+            # generates aiko's answer and updates the context
+            context_string = update_context_string(inputs_list, outputs_list)
+
+            user_message = f"{username}: ### {prompt} ### Aiko: "
+            system_message = f'{personality} {context_start} ### {context_string} ###'
+
+            completion_request = generate_gpt_completion(system_message, user_message)
+            print(f'Aiko: {completion_request[0]}')
+
+            update_log(log, prompt, completion_request, context_string)
+
+            inputs_list = update_context_list(inputs_list, prompt, username)
+            outputs_list = update_context_list(outputs_list, completion_request[0], 'Aiko')
+
+            say(completion_request[0])
 
             message_lists_lock.release()
 
@@ -148,10 +180,24 @@ def thread_talk():
         # deletes chosen message from the lists and answers it 
         message_priorities.pop(prompt_index)
         prompt = messages.pop(prompt_index)
-
         print(f'Picked CHAT message to answer and removed it from queue:')
         print(prompt)
-        say(prompt)
+
+        # request aiko's answer and updates context
+        context_string = update_context_string(inputs_list, outputs_list)
+
+        user_message = f"Chat user: ### {prompt} ### Aiko: "
+        system_message = f'{personality} {context_start} ### {context_string} ###'
+
+        completion_request = generate_gpt_completion(system_message, user_message)
+        print(f'Aiko: {completion_request[0]}')
+
+        update_log(log, prompt, completion_request, context_string)
+
+        inputs_list = update_context_list(inputs_list, prompt, 'Chat user')
+        outputs_list = update_context_list(outputs_list, completion_request[0], 'Aiko')
+
+        say(completion_request[0])
 
         message_lists_lock.release()
         sleep(0.1)

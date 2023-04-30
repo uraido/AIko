@@ -40,8 +40,10 @@ try:
     user = ElevenLabsUser(open("key_elevenlabs.txt", "r").read().strip('\n'))
     voice = user.get_voices_by_name("asuka-langley-yuko-miyamura")[0]
 except Exception as e:
+    print('AikoSpeechInterface:')
     print('Elevenlabs voice failed to start.')
     print('Error:', e)
+    print()
 
 # sets some azure speech variables. optional
 try:
@@ -54,15 +56,19 @@ try:
     #"en-US-SaraNeural" #"en-US-NancyNeural" #"en-US-MichelleNeural" #"en-US-AmberNeural" #'en-US-AnaNeural' #'en-AU-CarlyNeural' #"en-GB-MaisieNeural"
     speech_config.speech_synthesis_voice_name = "en-US-SaraNeural"
 except Exception as e:
+    print('AikoSpeechInterface:')
     print('Azure Speech voice failed to start.')
     print('Error:', e)
+    print()
 
 # sets openAI API key. required for whisperAPI stt.
 try:
     openai.api_key = open("key_openai.txt", "r").read().strip('\n')
 except Exception as e:
+    print('AikoSpeechInterface:')
     print('OpenAI API key failed to be set.')
     print('Error:', e)
+    print()
 
 def modify_pitch(input_file, output_file, pitch_shift):
     """
@@ -247,6 +253,18 @@ def say(text: str, elevenlabs = False, audiodevice = "2"):
         print('Error:', e)
 
 def start_push_to_talk(hotkey : str = 'num 0'):
+    """
+    Records audio while a hotkey is pressed and transcribes the resulting
+    audio to text using the Whisper API. Returns the transcribed text, or
+    an empty string if transcription failed.
+
+    Args:
+        hotkey (str): The hotkey to use for recording audio (default: 'num 0').
+
+    Returns:
+        str: The transcribed text from the recorded audio, or an empty string
+             if transcription failed.
+    """
     CHUNK = 1024
     FORMAT = pyaudio.paInt16
     CHANNELS = 2
@@ -281,9 +299,11 @@ def start_push_to_talk(hotkey : str = 'num 0'):
 
     try:
         stt = generate_stt_whisperAPI(WAVE_OUTPUT_FILENAME)
+        os.remove(WAVE_OUTPUT_FILENAME)
         return stt
-    except:
-        return None
+    except Exception as e:
+        print(f'Could not transcribe push to talk: {e}')
+        return ''
 
 if __name__ == "__main__":
     
@@ -291,23 +311,19 @@ if __name__ == "__main__":
     hotkey = 'num 2'
     while True:
         if keyboard.is_pressed(hotkey):
-            print(start_push_to_talk(hotkey))
-            
+            stt = start_push_to_talk(hotkey)
+            print(stt)
+
+            if 'code red' in stt.lower():
+                break
+
         sleep(0.1)
-
-    
-    # for testing main tts function
-    say('You are gay!')
-
-    # for testing whisperAPI stt function
-
-    #print(generate_stt_whisperAPI('recording.wav'))
 
     # for testing google speech recognition
 
     #print(listen('Listening...', 'hey'))
 
-    # for testing audio devices
+    # for testing the say function
 
     #say("Hello Rchart-Kun! 1", audiodevice = 1)
     #say("Hello Rchart-Kun! 2", audiodevice = 2)
@@ -317,5 +333,3 @@ if __name__ == "__main__":
     # for testing elevenlabs voice
 
     #say("Hello Rchart-Kun!", elevenlabs=True)
-
-    # to test push to talk

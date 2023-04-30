@@ -4,13 +4,15 @@ from threading import Thread, Lock                          # for running concur
 from random import randint                                  # for picking random comments
 from time import sleep                                      # for waiting between reading comments
 from AIko import *                                          # AIko
+import keyboard
 
 # Set livestream ID here
-chat = pytchat.create(video_id="eTpNxb8y7_U")
+chat = pytchat.create(video_id="Oif1qmrKG_Y")
 
 to_break = False
 
 message_lists_lock = Lock()
+is_saying_lock = Lock()
 
 messages = []
 
@@ -34,16 +36,17 @@ log = create_log(is_summarizing = False, summary_instruction='')
 
 def thread_listen_mic():
     """
-    Starts a push to talk instance and adds speech to text generated from recorded push to talk audio to a queue list.
+    Starts a push to talk recording instance and adds speech to text transcribed from recording to a queue list.
     """
     global messages
     global message_priorities
     global to_break
 
-    while not to_break:
-        stt = start_push_to_talk()                                              # stt: Speech to Text
+    hotkey = 'num minus'
 
-        if stt != '':
+    while not to_break:
+        if keyboard.is_pressed(hotkey):
+            stt = start_push_to_talk(hotkey)
 
             message_lists_lock.acquire()
             messages.append(stt)
@@ -52,11 +55,9 @@ def thread_listen_mic():
 
             print(f'Added microphone message to mic_list:\n{stt}')
 
-        if 'code red' in stt.lower():
-            to_break = True
+            if 'code red' in stt.lower():
+                to_break = True
 
-        # to keep cpu usage from maxing out
-        sleep(0.1)
 
 
 
@@ -109,6 +110,8 @@ def thread_talk():
     global username
     global personality
     global context_start
+    if banana:
+        banana()
 
     message_limit = 10 # determined length limit of the list containing messages
 
@@ -128,6 +131,7 @@ def thread_talk():
         # ------------ Mic --------------
         # will attempt to answer microphone messages
         try:
+            # grabs the first microphone message in the queue
             mic_msg_index = message_priorities.index(True)
             message_priorities.pop(mic_msg_index)
             prompt = messages.pop(mic_msg_index)
@@ -149,9 +153,12 @@ def thread_talk():
             inputs_list = update_context_list(inputs_list, prompt, username)
             outputs_list = update_context_list(outputs_list, completion_request[0], 'Aiko')
 
-            say(completion_request[0])
-
             message_lists_lock.release()
+            
+            # voices aiko's answer
+            is_saying_lock.acquire()
+            say(completion_request[0])
+            is_saying_lock.release()
 
             sleep(0.1)
             
@@ -197,9 +204,13 @@ def thread_talk():
         inputs_list = update_context_list(inputs_list, prompt, 'Chat user')
         outputs_list = update_context_list(outputs_list, completion_request[0], 'Aiko')
 
-        say(completion_request[0])
-
         message_lists_lock.release()
+
+        # voices aiko's answer
+        is_saying_lock.acquire()
+        say(completion_request[0])
+        is_saying_lock.release()
+
         sleep(0.1)
 
 # ---------------------------------- END OF THREADED FUNCTIONS --------------------------------------------
@@ -207,11 +218,11 @@ def thread_talk():
 if __name__ == '__main__':
 
     # starts threads
-
-    Thread(target=thread_listen_mic).start()
-
-    Thread(target=thread_read_chat).start()
-
-    Thread(target=thread_talk).start()
-
-   #Thread(target=thread_answer_mic).start()
+        Thread(target=thread_listen_mic).start()
+        print('Thread #1 started')
+        Thread(target=thread_read_chat).start()
+        print('Thread #2 started')
+        Thread(target=thread_talk).start()
+        print('Thread #3 started')
+        print()
+        print('ALL THREADS STARTED')

@@ -1,6 +1,6 @@
 """
 AikoSpeechInterface.py (former TextToSpeech.py)
-Version 4.0
+Version 4.1
 
 Library of text to speech functions for Aiko.
 
@@ -20,6 +20,7 @@ pip install:
 
 Changelog:
 - Switched default text-to-speech method to Microsoft Azure Speech. Will default to GTTS if that fails.
+- Rewrote push_to_talk function. Should no longer cause thread spam.
 """
 
 import gtts                     # text to mp3 file
@@ -30,7 +31,7 @@ import speech_recognition as sr # google speech-to-text
 import openai                   # whisperAPI speech to text
 import wave                     # to write .wav files
 import pyaudio                  # to record audio
-from pynput import keyboard     # for push to talk hotkey
+import keyboard                 # for push to talk hotkey
 import azure.cognitiveservices.speech as speechsdk
 from time import sleep
 
@@ -245,104 +246,55 @@ def say(text: str, elevenlabs = False, audiodevice = "2"):
         print('Failed to gtts tts.')
         print('Error:', e)
 
-# ---------------------------------------- PUSH TO TALK SECTION --------------------------------------------------
-
-hotkey = 'o' # push to talk hotkey. DON'T SET IT TO 'P' OR '0'.
-
-# bools to keep track of key presses and the recording
-
-key_pressed = False
-done_recording = False
-
-def on_press(key):
-    global key_pressed
-    global hotkey
-
-    if not 'char' in dir(key):
-        return
-
-    elif key.char != hotkey:
-        return
-
-    if not key_pressed:
-    
-        key_pressed = True
-        print('start recording')
-
-def on_release(key):
-    global key_pressed
-    global done_recording
-    global hotkey
-
-    if not 'char' in dir(key):
-        return
-
-    #if key.char != hotkey:
-        #return
-
-    if key_pressed:
-        key_pressed = False
-        done_recording = True
-        print('stopped recording')
-
-def start_push_to_talk():
-    global key_pressed
-    global hotkey
-    global done_recording
-
-    # sets and starts recording related variables
-
-    CHUNK = 8192
+def start_push_to_talk(hotkey : str = 'num 0'):
+    CHUNK = 1024
     FORMAT = pyaudio.paInt16
     CHANNELS = 2
     RATE = 44100
-    frames = []
+    WAVE_OUTPUT_FILENAME = "output.wav"
 
     p = pyaudio.PyAudio()
-    stream = p.open(format=FORMAT,channels=CHANNELS,rate=RATE,input=True,frames_per_buffer=CHUNK)
+    frames = []
+    stream = p.open(format=FORMAT,
+                    channels=CHANNELS,
+                    rate=RATE,
+                    input=True,
+                    frames_per_buffer=CHUNK)
 
-    done_recording = False
+    print("Recording...")
 
-    while True:
+    while keyboard.is_pressed(hotkey):
+        data = stream.read(CHUNK)
+        frames.append(data)
 
-        # collect keyboard events
+    print("Done recording.")
 
-        listener = keyboard.Listener(
-            on_press=on_press,
-            on_release=on_release)
-        listener.start()
+    stream.stop_stream()
+    stream.close()
 
-        # saves audio frames while key is pressed
+    wf = wave.open(WAVE_OUTPUT_FILENAME, 'wb')
+    wf.setnchannels(CHANNELS)
+    wf.setsampwidth(p.get_sample_size(FORMAT))
+    wf.setframerate(RATE)
+    wf.writeframes(b''.join(frames))
+    wf.close()
 
-        while key_pressed:
-            data = stream.read(CHUNK)
-            frames.append(data)
-
-        if done_recording:
-
-            # ends audio stream
-
-            stream.stop_stream()
-            stream.close()
-            p.terminate()
-
-            # saves recording into wav file
-
-            wf = wave.open('recording.wav', 'wb')
-            wf.setnchannels(CHANNELS)
-            wf.setsampwidth(p.get_sample_size(FORMAT))
-            wf.setframerate(RATE)
-            wf.writeframes(b''.join(frames))
-            wf.close()
-
-            # generates stt and returns it
-            stt_output = generate_stt_whisperAPI('recording.wav')
-
-            return stt_output
-
-        sleep(0.1)
+    try:
+        stt = generate_stt_whisperAPI(WAVE_OUTPUT_FILENAME)
+        return stt
+    except:
+        return None
 
 if __name__ == "__main__":
+    
+    # for testing push to talk
+    hotkey = 'num 2'
+    while True:
+        if keyboard.is_pressed(hotkey):
+            print(start_push_to_talk(hotkey))
+            
+        sleep(0.1)
+
     
     # for testing main tts function
     say('You are gay!')
@@ -367,10 +319,3 @@ if __name__ == "__main__":
     #say("Hello Rchart-Kun!", elevenlabs=True)
 
     # to test push to talk
-
-    #while True:
-        #stt = start_push_to_talk()
-        #print(stt)
-
-        #if 'code red' in stt.lower():
-            #break

@@ -216,11 +216,11 @@ def thread_talk():
 if __name__ == '__main__':
 
     # starts threads
-        Thread(target=thread_listen_mic).start()
-        print('Thread #1 started')
-        Thread(target=thread_read_chat).start()
-        print('Thread #2 started')
-        Thread(target=thread_talk).start()
-        print('Thread #3 started')
-        print()
-        print('ALL THREADS STARTED')
+    Thread(target=thread_listen_mic).start()
+    print('Thread #1 started')
+    Thread(target=thread_read_chat).start()
+    print('Thread #2 started')
+    Thread(target=thread_talk).start()
+    print('Thread #3 started')
+    print()
+    print('ALL THREADS STARTED')

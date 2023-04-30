@@ -110,8 +110,6 @@ def thread_talk():
     global username
     global personality
     global context_start
-    if banana:
-        banana()
 
     message_limit = 10 # determined length limit of the list containing messages
 

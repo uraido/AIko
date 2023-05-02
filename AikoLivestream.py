@@ -1,13 +1,76 @@
+''' =====================================================================
+AikoLivestream.py (v0.7)
+
+Script for livestreaming with AIko in youtube.
+
+
+Requirements:
+- mpg123 installed and added to PATH var.
+- ffmpeg installed and added to PATH var.
+- AikoSpeechInterface.py (4.1 or greater)
+- AIko.py (0.6.3 or greater)
+
+
+pip install:
+- pytchat
+- keyboard
+
+for Aiko:
+    pip install:
+    - openai
+    - gtts
+    - pydub
+    - elevenlabslib      (if you want elevenlabs text to speech)
+    - speechrecognition  (only if you want to speak to her through your mic)
+    - pyaudio            (speech recognition function dependency)
+
+    pip3 install:
+    - pytimedinput 
+
+for Speech Interface:
+    pip install:
+    - azure-cognitiveservices-speech
+
+
+
+Changelog:
+
+0.7: 
+- Added versification and instalation requirements
+- Now the "breaker" is defined out of the functions, in "Set Variables"
+0.7.1:
+- In progress... (implementing silence breaker)
+    ===================================================================== '''
+
+
+# -------------------- Imports ---------------------
+
 import pytchat                                              # for reading youtube live chat                                       # data proccessing
 from AikoSpeechInterface import say, start_push_to_talk     # custom tts and tts functions
 from threading import Thread, Lock                          # for running concurrent loops
 from random import randint                                  # for picking random comments
 from time import sleep                                      # for waiting between reading comments
 from AIko import *                                          # AIko
+from random import randint
 import keyboard
+
+
+# --------------------------------------------------
+
 
 # Set livestream ID here
 chat = pytchat.create(video_id="Oif1qmrKG_Y")
+
+
+
+# ------------------ Set Variables -----------------
+
+breaker = 'code red'                                    # To end the program. Just work on Mic
+patience = randint(6, 24)                               # patience
+silence_breaker_time = randint(patience, 60)            # ints in which aiko is going to talk without user's input is seconds
+
+# --------------------------------------------------
+
 
 to_break = False
 
@@ -30,6 +93,8 @@ inputs_list = create_context_list()
 outputs_list = create_context_list()
 
 log = create_log(is_summarizing = False, summary_instruction='')
+
+
 
 #--------------------------------------- THREADED FUNCTIONS -----------------------------------------------------
 
@@ -55,7 +120,7 @@ def thread_listen_mic():
 
             print(f'Added microphone message to mic_list:\n{stt}')
 
-            if 'code red' in stt.lower():
+            if breaker in stt.lower():
                 to_break = True
 
 
@@ -212,6 +277,8 @@ def thread_talk():
         sleep(0.1)
 
 # ---------------------------------- END OF THREADED FUNCTIONS --------------------------------------------
+
+
 
 if __name__ == '__main__':
 

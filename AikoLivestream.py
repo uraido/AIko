@@ -8,7 +8,7 @@ Requirements:
 - mpg123 installed and added to PATH var.
 - ffmpeg installed and added to PATH var.
 - AikoSpeechInterface.py (4.1 or greater)
-- AIko.py (0.6.3 or greater)
+- AIko.py (0.6.6 or greater)
 
 
 pip install:
@@ -53,7 +53,7 @@ from time import sleep                                      # for waiting betwee
 from AIko import *                                          # AIko
 from random import randint
 import keyboard
-
+import time                                                 # Meassures time for silence breaker
 
 # --------------------------------------------------
 
@@ -68,10 +68,14 @@ chat = pytchat.create(video_id="Oif1qmrKG_Y")
 breaker = 'code red'                                    # To end the program. Just work on Mic
 patience = randint(6, 24)                               # patience
 silence_breaker_time = randint(patience, 60)            # ints in which aiko is going to talk without user's input is seconds
+message_limit = 10                                      # determined length limit of the list containing messages
+chance = 1                                              # 0 no messages will be read; 100 all messages will be read
 
 # --------------------------------------------------
 
 
+
+# ------------------ Variables ---------------------
 to_break = False
 
 message_lists_lock = Lock()
@@ -93,6 +97,9 @@ inputs_list = create_context_list()
 outputs_list = create_context_list()
 
 log = create_log(is_summarizing = False, summary_instruction='')
+
+time_out_prompts = txt_to_list('time_out_prompts.txt')
+# --------------------------------------------------
 
 
 
@@ -175,13 +182,56 @@ def thread_talk():
     global username
     global personality
     global context_start
+    global message_limit
+    global chance
 
-    message_limit = 10 # determined length limit of the list containing messages
+
+    # Time messurement starts
+    t_0 = time.time()
+    
 
     while not to_break:
 
         message_lists_lock.acquire()
+        t_now = time.time()         # Messures time since t0
+
+        # -------- Empty list ----------
+        # Managges when no messages are stored
         if len(messages) < 1:
+            dt = t_now - t_0            # Calculates time passed since last interaction (delta time)
+
+            if dt >= silence_breaker_time:
+                print('Silence breaker triggered!')
+                chosen_prompt = randint(0, len(time_out_prompts - 1))
+                prompt = time_out_prompts[chosen_prompt]
+                print(prompt)
+
+                # generates aiko's answer and updates the context
+                context_string = update_context_string(inputs_list, outputs_list)
+
+                user_message = f"users: ### {prompt} ### Aiko: "
+                system_message = f'{personality} {context_start} ### {context_string} ###'
+
+                completion_request = generate_gpt_completion(system_message, user_message)
+                print(f'Aiko: {completion_request[0]}')
+
+                update_log(log, prompt, completion_request, context_string)
+
+                inputs_list = update_context_list(inputs_list, prompt, username)
+                outputs_list = update_context_list(outputs_list, completion_request[0], 'Aiko')
+
+                message_lists_lock.release()
+                
+                # voices aiko's answer
+                is_saying_lock.acquire()
+                say(completion_request[0])
+                is_saying_lock.release()
+
+                sleep(0.1)
+
+                t_0 = time.time()       # Reestart the timer
+
+
             message_lists_lock.release()
 
             # to keep CPU usage from maxing out
@@ -191,6 +241,8 @@ def thread_talk():
         message_lists_lock.release()
 
         message_lists_lock.acquire()
+
+
         # ------------ Mic --------------
         # will attempt to answer microphone messages
         try:
@@ -225,16 +277,19 @@ def thread_talk():
 
             sleep(0.1)
             
+            t_0 = time.time()       # Reestart the timer
             continue
         except:
             pass
+
         # ----------- Chat --------------
         # % chance that any chat comments will be read
-        chance = randint(1,100)
-        if chance > 1:
+        roll = randint(1,100)
+        if roll > chance:
             message_lists_lock.release()
             sleep(0.1)
             continue
+
 
         # deletes oldest message entries if the length limit is exceeded
         if len(messages) > message_limit:
@@ -245,13 +300,16 @@ def thread_talk():
             print(messages)
             message_priorities = message_priorities[exceedency : ]
 
+
         # Randomly chooses a chat message
         prompt_index = randint(0, len(messages) - 1)
+
         # deletes chosen message from the lists and answers it 
         message_priorities.pop(prompt_index)
         prompt = messages.pop(prompt_index)
         print(f'Picked CHAT message to answer and removed it from queue:')
         print(prompt)
+
 
         # request aiko's answer and updates context
         context_string = update_context_string(inputs_list, outputs_list)
@@ -269,12 +327,16 @@ def thread_talk():
 
         message_lists_lock.release()
 
+
         # voices aiko's answer
         is_saying_lock.acquire()
         say(completion_request[0])
         is_saying_lock.release()
 
         sleep(0.1)
+
+        t_0 = time.time()       # Reestart the timer
+
 
 # ---------------------------------- END OF THREADED FUNCTIONS --------------------------------------------
 

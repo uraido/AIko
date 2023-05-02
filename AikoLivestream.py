@@ -59,7 +59,7 @@ import time                                                 # Meassures time for
 
 
 # Set livestream ID here
-chat = pytchat.create(video_id="Oif1qmrKG_Y")
+chat = pytchat.create(video_id="XDW9UGyq3NE")
 
 
 
@@ -98,7 +98,7 @@ outputs_list = create_context_list()
 
 log = create_log(is_summarizing = False, summary_instruction='')
 
-time_out_prompts = txt_to_list('time_out_prompts.txt')
+time_out_prompts = txt_to_list('silence_breaker_prompts.txt')
 # --------------------------------------------------
 
 
@@ -202,14 +202,14 @@ def thread_talk():
 
             if dt >= silence_breaker_time:
                 print('Silence breaker triggered!')
-                chosen_prompt = randint(0, len(time_out_prompts - 1))
+                chosen_prompt = randint(0, len(time_out_prompts)  - 1)
                 prompt = time_out_prompts[chosen_prompt]
                 print(prompt)
 
                 # generates aiko's answer and updates the context
                 context_string = update_context_string(inputs_list, outputs_list)
 
-                user_message = f"users: ### {prompt} ### Aiko: "
+                user_message = f"system: ### {prompt} ### Aiko: "
                 system_message = f'{personality} {context_start} ### {context_string} ###'
 
                 completion_request = generate_gpt_completion(system_message, user_message)
@@ -217,7 +217,7 @@ def thread_talk():
 
                 update_log(log, prompt, completion_request, context_string)
 
-                inputs_list = update_context_list(inputs_list, prompt, username)
+                inputs_list = update_context_list(inputs_list, prompt, 'system')
                 outputs_list = update_context_list(outputs_list, completion_request[0], 'Aiko')
 
                 message_lists_lock.release()
@@ -230,6 +230,7 @@ def thread_talk():
                 sleep(0.1)
 
                 t_0 = time.time()       # Reestart the timer
+                continue
 
 
             message_lists_lock.release()

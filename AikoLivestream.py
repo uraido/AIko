@@ -59,7 +59,7 @@ import time                                                 # Meassures time for
 
 
 # Set livestream ID here
-chat = pytchat.create(video_id="XDW9UGyq3NE")
+chat = pytchat.create(video_id="_UTjIeO-vAA")
 
 
 
@@ -121,8 +121,10 @@ def thread_listen_mic():
             stt = start_push_to_talk(hotkey)
 
             message_lists_lock.acquire()
+
             messages.append(stt)
             message_priorities.append(True)
+
             message_lists_lock.release()
 
             print(f'Added microphone message to mic_list:\n{stt}')
@@ -158,8 +160,10 @@ def thread_read_chat():
             last_message = c.message
 
             message_lists_lock.acquire()
+
             messages.append(last_message)          # Add the new message to the list
             message_priorities.append(False)
+
             message_lists_lock.release()
 
             print(f'Added chat message to chat_list:\n{last_message}')
@@ -174,6 +178,7 @@ def thread_talk():
     are present, answers randomly selected chat messages.
     """
 
+    # programming with threads be like
     global messages
     global message_priorities
     global to_break
@@ -192,13 +197,16 @@ def thread_talk():
 
     while not to_break:
 
-        message_lists_lock.acquire()
-        t_now = time.time()         # Messures time since t0
+        t_now = time.time()         # Measures time since t0
 
         # -------- Empty list ----------
-        # Managges when no messages are stored
+        # Manages when no messages are stored
+        message_lists_lock.acquire()
+
         if len(messages) < 1:
             dt = t_now - t_0            # Calculates time passed since last interaction (delta time)
+
+            message_lists_lock.release()
 
             if dt >= silence_breaker_time:
                 print('Silence breaker triggered!')
@@ -219,12 +227,12 @@ def thread_talk():
 
                 inputs_list = update_context_list(inputs_list, prompt, 'system')
                 outputs_list = update_context_list(outputs_list, completion_request[0], 'Aiko')
-
-                message_lists_lock.release()
                 
                 # voices aiko's answer
                 is_saying_lock.acquire()
+
                 say(completion_request[0])
+
                 is_saying_lock.release()
 
                 sleep(0.1)
@@ -232,25 +240,24 @@ def thread_talk():
                 t_0 = time.time()       # Reestart the timer
                 continue
 
-
-            message_lists_lock.release()
-
             # to keep CPU usage from maxing out
             sleep(0.1)
             
             continue
+        
         message_lists_lock.release()
-
-        message_lists_lock.acquire()
-
 
         # ------------ Mic --------------
         # will attempt to answer microphone messages
         try:
             # grabs the first microphone message in the queue
+            message_lists_lock.acquire()
+
             mic_msg_index = message_priorities.index(True)
             message_priorities.pop(mic_msg_index)
             prompt = messages.pop(mic_msg_index)
+
+            message_lists_lock.release()
 
             print('Picked MIC message to answer and removed it from queue:')
             print(prompt)
@@ -268,8 +275,6 @@ def thread_talk():
 
             inputs_list = update_context_list(inputs_list, prompt, username)
             outputs_list = update_context_list(outputs_list, completion_request[0], 'Aiko')
-
-            message_lists_lock.release()
             
             # voices aiko's answer
             is_saying_lock.acquire()
@@ -278,21 +283,23 @@ def thread_talk():
 
             sleep(0.1)
             
-            t_0 = time.time()       # Reestart the timer
+            t_0 = time.time()       # Restarts the timer
             continue
         except:
+            message_lists_lock.release()
             pass
 
         # ----------- Chat --------------
         # % chance that any chat comments will be read
         roll = randint(1,100)
         if roll > chance:
-            message_lists_lock.release()
             sleep(0.1)
             continue
 
 
         # deletes oldest message entries if the length limit is exceeded
+        message_lists_lock.acquire()
+
         if len(messages) > message_limit:
             exceedency = len(messages) - message_limit
             print(f'Message list limit exceeded by {exceedency}. Removing old entries.')
@@ -301,16 +308,28 @@ def thread_talk():
             print(messages)
             message_priorities = message_priorities[exceedency : ]
 
+            message_lists_lock.release()
+            
+            continue
+
+        message_lists_lock.release()
 
         # Randomly chooses a chat message
+        message_lists_lock.acquire()
+
         prompt_index = randint(0, len(messages) - 1)
 
+        message_lists_lock.release()
+
         # deletes chosen message from the lists and answers it 
+        message_lists_lock.acquire()
+
         message_priorities.pop(prompt_index)
         prompt = messages.pop(prompt_index)
         print(f'Picked CHAT message to answer and removed it from queue:')
         print(prompt)
 
+        message_lists_lock.release()
 
         # request aiko's answer and updates context
         context_string = update_context_string(inputs_list, outputs_list)
@@ -326,17 +345,16 @@ def thread_talk():
         inputs_list = update_context_list(inputs_list, prompt, 'Chat user')
         outputs_list = update_context_list(outputs_list, completion_request[0], 'Aiko')
 
-        message_lists_lock.release()
-
-
         # voices aiko's answer
         is_saying_lock.acquire()
+
         say(completion_request[0])
+
         is_saying_lock.release()
 
         sleep(0.1)
 
-        t_0 = time.time()       # Reestart the timer
+        t_0 = time.time()       # Restarts the timer
 
 
 # ---------------------------------- END OF THREADED FUNCTIONS --------------------------------------------

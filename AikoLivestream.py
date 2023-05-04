@@ -39,7 +39,9 @@ Changelog:
 - Added versification and instalation requirements
 - Now the "breaker" is defined out of the functions, in "Set Variables"
 0.7.1:
-- In progress... (implementing silence breaker)
+- Implemented Silence Breaker
+0.7.2:
+- Implemented Side Prompting
     ===================================================================== '''
 
 
@@ -59,7 +61,7 @@ import time                                                 # Meassures time for
 
 
 # Set livestream ID here
-chat = pytchat.create(video_id="_UTjIeO-vAA")
+chat = pytchat.create(video_id="EPrBv3TJ2qc")
 
 
 
@@ -91,10 +93,14 @@ message_priorities = []
 
 username = txt_to_string('username.txt')
 personality = txt_to_string('AIko.txt')
-context_start = f'For context, here are our last interactions:'
+context_start = 'For context, here are our last interactions:'
+sideprompt_start = 'And to keep you up to date, here are a few facts:'
 
 inputs_list = create_context_list()
 outputs_list = create_context_list()
+side_prompts_list = create_context_list()
+
+side_prompts_string = 'EMPTY'
 
 log = create_log(is_summarizing = False, summary_instruction='')
 
@@ -113,12 +119,15 @@ def thread_listen_mic():
     global messages
     global message_priorities
     global to_break
+    global side_prompts_list
+    global side_prompts_string
 
-    hotkey = 'num minus'
+    ptt_hotkey = 'num minus' # push to talk hotkey
+    sp_hotkey = 'num plus'   # side prompt hotkey
 
     while not to_break:
-        if keyboard.is_pressed(hotkey):
-            stt = start_push_to_talk(hotkey)
+        if keyboard.is_pressed(ptt_hotkey):
+            stt = start_push_to_talk(ptt_hotkey)
 
             message_lists_lock.acquire()
 
@@ -131,6 +140,16 @@ def thread_listen_mic():
 
             if breaker in stt.lower():
                 to_break = True
+
+        if keyboard.is_pressed(sp_hotkey):
+            print("Write a side prompt to be added to Aiko's memory:")
+            side_prompt = input()
+            side_prompts_list = update_context_list(side_prompts_list, side_prompt)
+            side_prompts_string = update_context_string_with_summaries(side_prompts_list)
+
+            print(side_prompts_string)
+
+        sleep(0.1)
 
 
 
@@ -189,6 +208,8 @@ def thread_talk():
     global context_start
     global message_limit
     global chance
+    global side_prompts_start
+    global side_prompts_string
 
 
     # Time messurement starts
@@ -217,8 +238,8 @@ def thread_talk():
                 # generates aiko's answer and updates the context
                 context_string = update_context_string(inputs_list, outputs_list)
 
-                user_message = f"system: ### {prompt} ### Aiko: "
-                system_message = f'{personality} {context_start} ### {context_string} ###'
+                user_message = f"System: ### {prompt} ### Aiko: "
+                system_message = f'{personality} {context_start} ### {context_string} ### {sideprompt_start} ### {side_prompts_string} ###'
 
                 completion_request = generate_gpt_completion(system_message, user_message)
                 print(f'Aiko: {completion_request[0]}')
@@ -266,7 +287,7 @@ def thread_talk():
             context_string = update_context_string(inputs_list, outputs_list)
 
             user_message = f"{username}: ### {prompt} ### Aiko: "
-            system_message = f'{personality} {context_start} ### {context_string} ###'
+            system_message = f'{personality} {context_start} ### {context_string} ### {sideprompt_start} ### {side_prompts_string} ###'
 
             completion_request = generate_gpt_completion(system_message, user_message)
             print(f'Aiko: {completion_request[0]}')
@@ -309,7 +330,7 @@ def thread_talk():
             message_priorities = message_priorities[exceedency : ]
 
             message_lists_lock.release()
-            
+
             continue
 
         message_lists_lock.release()
@@ -335,7 +356,7 @@ def thread_talk():
         context_string = update_context_string(inputs_list, outputs_list)
 
         user_message = f"Chat user: ### {prompt} ### Aiko: "
-        system_message = f'{personality} {context_start} ### {context_string} ###'
+        system_message = f'{personality} {context_start} ### {context_string} ### {sideprompt_start} ### {side_prompts_string} ###'
 
         completion_request = generate_gpt_completion(system_message, user_message)
         print(f'Aiko: {completion_request[0]}')

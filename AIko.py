@@ -62,6 +62,11 @@ time, which is not the desired behavior.
 - Fixed calling old 'user' parameter when calling update_context_string().
 - Removed leftover print(aikos_memory) statement from 065.
 
+067:
+- Fixed bug in update_context_string_with_summaries() function where only the last item in the list would be added to the
+string.
+- Fixed exception raised when a time out prompt was triggered.
+
 ===============================================================================================================================
 """ 
 
@@ -82,7 +87,7 @@ import numpy as np
 
 # PLEASE set it if making a new build. for logging purposes
 
-build_version = ('Aiko066').upper()
+build_version = ('Aiko067').upper()
 
 
 
@@ -305,7 +310,7 @@ def update_context_string_with_summaries(summaries_list : list):
       context_string += f' {index} (latest) - {summary}'
       continue
 
-      context_string += f' {index} - {summary}'
+    context_string += f' {index} - {summary}'
 
   return(context_string)
 

@@ -21,7 +21,11 @@ pip install:
 Changelog:
 - Switched default text-to-speech method to Microsoft Azure Speech. Will default to GTTS if that fails.
 - Rewrote push_to_talk function. Should no longer cause thread spam.
+- Added 'start statement' to be printed when the script starts.
 """
+
+print('AikoSpeechInterface.py: Starting...')
+print()
 
 import gtts                     # text to mp3 file
 import os                       # to play audio file using mpg123

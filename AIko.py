@@ -66,11 +66,15 @@ time, which is not the desired behavior.
 - Fixed bug in update_context_string_with_summaries() function where only the last item in the list would be added to the
 string.
 - Fixed exception raised when a time out prompt was triggered.
-
+- Added 'start statement' to be printed when the script starts.
 ===============================================================================================================================
 """ 
 
+# PLEASE set it if making a new build. for logging purposes
+build_version = ('Aiko067').upper()
 
+print(f'{build_version}: Starting...')
+print()
 
 # ----------------- Imports -----------------
 
@@ -85,11 +89,6 @@ import numpy as np
 # -------------------------------------------
 
 
-# PLEASE set it if making a new build. for logging purposes
-
-build_version = ('Aiko067').upper()
-
-
 
 # ------------- Set variables ---------------
 
@@ -98,7 +97,6 @@ breaker = "code red"                                              # breaker phra
 context_start = f'For context, here are our last interactions:'   # prepares aiko's context variables
 
 # -------------------------------------------
-
 
 
 

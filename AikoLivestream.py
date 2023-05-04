@@ -42,8 +42,14 @@ Changelog:
 - Implemented Silence Breaker
 0.7.2:
 - Implemented Side Prompting
+0.7.3:
+- Aiko will now know the username of the authors of chat comments she picks to read. Their names will also be saved in
+her temporary memory with the comments.
+- Added 'start statement' to be printed when the script starts.
     ===================================================================== '''
 
+print('AikoLivestream.py: Starting...')
+print()
 
 # -------------------- Imports ---------------------
 
@@ -61,7 +67,7 @@ import time                                                 # Meassures time for
 
 
 # Set livestream ID here
-chat = pytchat.create(video_id="EPrBv3TJ2qc")
+chat = pytchat.create(video_id="tN8iJOrC82M")
 
 
 
@@ -176,16 +182,15 @@ def thread_read_chat():
         # executes for every message
 
         for c in chat.get().sync_items():
-            last_message = c.message
 
             message_lists_lock.acquire()
 
-            messages.append(last_message)          # Add the new message to the list
+            messages.append((c.message, c.author.name))          # tuple containing message and the sender's username
             message_priorities.append(False)
 
             message_lists_lock.release()
 
-            print(f'Added chat message to chat_list:\n{last_message}')
+            print(f'Added chat message to chat_list:\n{c.message}')
 
         # to keep CPU usage from maxing out
         sleep(0.1)
@@ -342,11 +347,15 @@ def thread_talk():
 
         message_lists_lock.release()
 
-        # deletes chosen message from the lists and answers it 
+        # deletes chosen message from the lists and saves relevant info into variables
         message_lists_lock.acquire()
 
+        prompt = messages[prompt_index][0]
+        author = messages[prompt_index][1]
+
         message_priorities.pop(prompt_index)
-        prompt = messages.pop(prompt_index)
+        messages.pop(prompt_index)
+
         print(f'Picked CHAT message to answer and removed it from queue:')
         print(prompt)
 
@@ -355,7 +364,7 @@ def thread_talk():
         # request aiko's answer and updates context
         context_string = update_context_string(inputs_list, outputs_list)
 
-        user_message = f"Chat user: ### {prompt} ### Aiko: "
+        user_message = f"(Chat user) {author}: ### {prompt} ### Aiko: "
         system_message = f'{personality} {context_start} ### {context_string} ### {sideprompt_start} ### {side_prompts_string} ###'
 
         completion_request = generate_gpt_completion(system_message, user_message)
@@ -363,7 +372,7 @@ def thread_talk():
 
         update_log(log, prompt, completion_request, context_string)
 
-        inputs_list = update_context_list(inputs_list, prompt, 'Chat user')
+        inputs_list = update_context_list(inputs_list, prompt, f'(Chat user) {author}')
         outputs_list = update_context_list(outputs_list, completion_request[0], 'Aiko')
 
         # voices aiko's answer
@@ -383,6 +392,8 @@ def thread_talk():
 
 
 if __name__ == '__main__':
+    print('AikoLivestream.py: MAIN FUNCTION STARTED')
+    print()
 
     # starts threads
     Thread(target=thread_listen_mic).start()
@@ -393,3 +404,4 @@ if __name__ == '__main__':
     print('Thread #3 started')
     print()
     print('ALL THREADS STARTED')
+    print()

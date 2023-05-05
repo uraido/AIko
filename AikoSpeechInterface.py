@@ -1,6 +1,6 @@
 """
 AikoSpeechInterface.py (former TextToSpeech.py)
-Version 4.1
+Version 4.2
 
 Library of text to speech functions for Aiko.
 
@@ -18,9 +18,18 @@ pip install:
 - openai
 - azure-cognitiveservices-speech
 
+txt files:
+
+- key_azurespeech.txt
+- key_region_azurespeech.txt
+- key_elevenlabs.txt (optional)
+
 Changelog:
+041:
 - Switched default text-to-speech method to Microsoft Azure Speech. Will default to GTTS if that fails.
 - Rewrote push_to_talk function. Should no longer cause thread spam.
+042:
+- Temporalily disabled Azure TTS. Function seems broken and needs fixing.
 - Added 'start statement' to be printed when the script starts.
 """
 
@@ -39,7 +48,7 @@ import keyboard                 # for push to talk hotkey
 import azure.cognitiveservices.speech as speechsdk
 from time import sleep
 
-# sets some elevanlabs variables. optional
+# sets some elevenlabs variables. optional
 try:
     user = ElevenLabsUser(open("key_elevenlabs.txt", "r").read().strip('\n'))
     voice = user.get_voices_by_name("asuka-langley-yuko-miyamura")[0]

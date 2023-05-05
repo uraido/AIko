@@ -1,20 +1,13 @@
 ''' =====================================================================
-AikoLivestream.py (v0.7)
-
+AikoLivestream.py (v0.7.6)
 Script for livestreaming with AIko in youtube.
-
-
 Requirements:
 - AikoSpeechInterface.py (4.1 or greater) and its requirements
 - AIko.py (0.7.0 or greater) and its requirements
-
-
 pip install:
 - pytchat
 - keyboard
-
 Changelog:
-
 0.7: 
 - Added versification and instalation requirements
 - Now the "breaker" is defined out of the functions, in "Set Variables"
@@ -31,6 +24,8 @@ her temporary memory with the comments.
 0.7.5
 - Fixed side prompting getting interrupted when messages were printed to the console.
 - Implemented dynamic summarization through the evaluate_then_summarize function from AIko072 
+0.7.6
+- Implemented previous messages removal after Aiko picks a chat message
     ===================================================================== '''
 
 print('AikoLivestream.py: Starting...')
@@ -363,16 +358,17 @@ def thread_talk():
 
         message_lists_lock.release()
 
-        # deletes chosen message from the lists and saves relevant info into variables
+        # Picks the chosen message and his author. Then deletes it and the previous nor picked messages.
         message_lists_lock.acquire()
 
         prompt = messages[prompt_index][0]
         author = messages[prompt_index][1]
 
-        message_priorities.pop(prompt_index)
-        messages.pop(prompt_index)
+        messages = messages[prompt_index+1 : ]
+        message_priorities = message_priorities[promt_index+1 : ]
 
-        print(f'Picked CHAT message to answer and removed it from queue:')
+
+        print(f'Picked CHAT message to answer:')
         print(prompt)
 
         message_lists_lock.release()

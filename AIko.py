@@ -31,11 +31,13 @@ Changelog:
 
 070:
 - Moved all context functionality into the new general use update_context() function.
+071:
+- Implemented dynamic summarization in the interaction loop.
 ===============================================================================================================================
 """ 
 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko070').upper()
+build_version = ('Aiko071').upper()
 
 print(f'{build_version}: Starting...')
 print()
@@ -48,7 +50,6 @@ from AikoSpeechInterface import listen # speech to text function
 from datetime import datetime          # for logging
 from pytimedinput import timedInput    # input with timeout
 from random import randint             # random number generator
-import numpy as np
 
 # -------------------------------------------
 
@@ -179,13 +180,14 @@ def create_log():
 
   return log_filename
 
-def update_log(log_filepath : str, user_string : str, completion_data : tuple, context_string : str):
+def update_log(log_filepath : str, user_string : str, completion_data : tuple, include_context : bool = False, context_string : str = ''):
   time = datetime.now()
   hour = f'[{time.hour}:{time.minute}:{time.second}]'
 
   with open(log_filepath, 'a') as log:
-    log.write(f'{hour} Context string: {context_string}\n')
-    log.write('\n')
+    if include_context:
+      log.write(f'{hour} Context string: {context_string}\n')
+      log.write('\n')
     log.write(f'{hour} Prompt: {user_string} --TOKENS USED: {completion_data[1][0]}\n')
     log.write(f'{hour} Output: {completion_data[0]} --TOKENS USED: {completion_data[1][1]}\n')
     log.write(f'{hour} Total tokens used: {completion_data[1][2]}\n')
@@ -336,10 +338,20 @@ if __name__ == "__main__":
     say(text=aiko_completion_text, elevenlabs = False, audiodevice = "2")
 
     # updates log
-    update_log(log, user_input, aiko_completion_request, aikos_memory)
+    update_log(log, user_input, aiko_completion_request, True, aikos_memory)
+
+    # prepares latest interaction to be added to the context
+    context = f'{username} said: {user_input} | Aiko said: {aiko_completion_text}'
+
+    # summarizes latest interaction if it exceeds the length limit
+    if len(context) > 400:
+      summary_request = generate_gpt_completion(summarization_instruction, context)
+      update_log(log, f'{summarization_instruction} {context}', summary_request)
+
+      context = summary_request[0]
 
     # updates context
-    aikos_memory = update_context(f'{username} said: {user_input} | Aiko said: {aiko_completion_text}', context_list)
+    aikos_memory = update_context(context, context_list)
 
     # breaks the loop
 

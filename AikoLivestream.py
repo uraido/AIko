@@ -5,33 +5,13 @@ Script for livestreaming with AIko in youtube.
 
 
 Requirements:
-- mpg123 installed and added to PATH var.
-- ffmpeg installed and added to PATH var.
-- AikoSpeechInterface.py (4.1 or greater)
-- AIko.py (0.6.6 or greater)
+- AikoSpeechInterface.py (4.1 or greater) and its requirements
+- AIko.py (0.7.0 or greater) and its requirements
 
 
 pip install:
 - pytchat
 - keyboard
-
-for Aiko:
-    pip install:
-    - openai
-    - gtts
-    - pydub
-    - elevenlabslib      (if you want elevenlabs text to speech)
-    - speechrecognition  (only if you want to speak to her through your mic)
-    - pyaudio            (speech recognition function dependency)
-
-    pip3 install:
-    - pytimedinput 
-
-for Speech Interface:
-    pip install:
-    - azure-cognitiveservices-speech
-
-
 
 Changelog:
 
@@ -46,6 +26,8 @@ Changelog:
 - Aiko will now know the username of the authors of chat comments she picks to read. Their names will also be saved in
 her temporary memory with the comments.
 - Added 'start statement' to be printed when the script starts.
+0.7.4
+- Updated to work with AIko070
     ===================================================================== '''
 
 print('AikoLivestream.py: Starting...')
@@ -66,15 +48,16 @@ import time                                                 # Meassures time for
 # --------------------------------------------------
 
 
+
 # Set livestream ID here
-chat = pytchat.create(video_id="tN8iJOrC82M")
+chat = pytchat.create(video_id="sLjmjA4l0A8")
 
 
 
 # ------------------ Set Variables -----------------
 
-breaker = 'code red'                                    # To end the program. Just work on Mic
-patience = randint(6, 24)                               # patience
+breaker = 'code red'                                    # To end the program. Activated through microphone.
+patience = randint(6, 24)                               # Patience for silence breaker
 silence_breaker_time = randint(patience, 60)            # ints in which aiko is going to talk without user's input is seconds
 message_limit = 10                                      # determined length limit of the list containing messages
 chance = 1                                              # 0 no messages will be read; 100 all messages will be read
@@ -95,20 +78,20 @@ messages = []
 # If the added message is a microphone message, the bool should be True, else, it should be False.
 message_priorities = [] 
 
-# starts aiko functionality
+# starts aiko functionality variables
 
 username = txt_to_string('username.txt')
 personality = txt_to_string('AIko.txt')
 context_start = 'For context, here are our last interactions:'
 sideprompt_start = 'And to keep you up to date, here are a few facts:'
 
-inputs_list = create_context_list()
-outputs_list = create_context_list()
+context_list = create_context_list()
 side_prompts_list = create_context_list()
 
 side_prompts_string = 'EMPTY'
+context_string = 'EMPTY'
 
-log = create_log(is_summarizing = False, summary_instruction='')
+log = create_log()
 
 time_out_prompts = txt_to_list('silence_breaker_prompts.txt')
 # --------------------------------------------------
@@ -150,9 +133,8 @@ def thread_listen_mic():
         if keyboard.is_pressed(sp_hotkey):
             print("Write a side prompt to be added to Aiko's memory:")
             side_prompt = input()
-            side_prompts_list = update_context_list(side_prompts_list, side_prompt)
-            side_prompts_string = update_context_string_with_summaries(side_prompts_list)
-
+            side_prompts_string = update_context(side_prompt, side_prompts_list)
+            print('Side prompts currently in memory:')
             print(side_prompts_string)
 
         sleep(0.1)
@@ -202,28 +184,39 @@ def thread_talk():
     are present, answers randomly selected chat messages.
     """
 
-    # programming with threads be like
+    # programming with threads be like:
+
+    # message lists related variables
     global messages
     global message_priorities
+    global message_limit
+
     global to_break
-    global inputs_list
-    global outputs_list
+
+    # variables generated from user customized txt files, used for customizing prompts
     global username
     global personality
+
+    # context related variables
+    global context_list
     global context_start
-    global message_limit
+    global context_string
+
+    #chance that aiko will read a message
     global chance
+
+    # side prompting related variables
     global side_prompts_start
     global side_prompts_string
 
 
-    # Time messurement starts
+    # time measurement starts
     t_0 = time.time()
     
 
     while not to_break:
 
-        t_now = time.time()         # Measures time since t0
+        t_now = time.time()         # measures time since t0
 
         # -------- Empty list ----------
         # Manages when no messages are stored
@@ -240,19 +233,15 @@ def thread_talk():
                 prompt = time_out_prompts[chosen_prompt]
                 print(prompt)
 
-                # generates aiko's answer and updates the context
-                context_string = update_context_string(inputs_list, outputs_list)
+                # generates aiko's answer
+
+                system_message = \
+                f'{personality} {context_start} ### {context_string} ### {sideprompt_start} ### {side_prompts_string} ###'
 
                 user_message = f"System: ### {prompt} ### Aiko: "
-                system_message = f'{personality} {context_start} ### {context_string} ### {sideprompt_start} ### {side_prompts_string} ###'
 
                 completion_request = generate_gpt_completion(system_message, user_message)
                 print(f'Aiko: {completion_request[0]}')
-
-                update_log(log, prompt, completion_request, context_string)
-
-                inputs_list = update_context_list(inputs_list, prompt, 'system')
-                outputs_list = update_context_list(outputs_list, completion_request[0], 'Aiko')
                 
                 # voices aiko's answer
                 is_saying_lock.acquire()
@@ -260,6 +249,15 @@ def thread_talk():
                 say(completion_request[0])
 
                 is_saying_lock.release()
+
+                update_log(log, prompt, completion_request, True, context_string)
+
+                # updates the context (only with Aiko's answer in this case, since saving the time out prompt into
+                # her memory is probably a waste of tokens)
+
+                context = f'Aiko: {completion_request[0]}'
+
+                context_string = update_context(context, context_list)
 
                 sleep(0.1)
 
@@ -288,28 +286,34 @@ def thread_talk():
             print('Picked MIC message to answer and removed it from queue:')
             print(prompt)
 
-            # generates aiko's answer and updates the context
-            context_string = update_context_string(inputs_list, outputs_list)
+            # generates aiko's answer
+
+            system_message = \
+            f'{personality} {context_start} ### {context_string} ### {sideprompt_start} ### {side_prompts_string} ###'
 
             user_message = f"{username}: ### {prompt} ### Aiko: "
-            system_message = f'{personality} {context_start} ### {context_string} ### {sideprompt_start} ### {side_prompts_string} ###'
 
             completion_request = generate_gpt_completion(system_message, user_message)
             print(f'Aiko: {completion_request[0]}')
-
-            update_log(log, prompt, completion_request, context_string)
-
-            inputs_list = update_context_list(inputs_list, prompt, username)
-            outputs_list = update_context_list(outputs_list, completion_request[0], 'Aiko')
             
             # voices aiko's answer
             is_saying_lock.acquire()
+
             say(completion_request[0])
+
             is_saying_lock.release()
+
+            update_log(log, prompt, completion_request, True, context_string)
+
+            # updates the context 
+
+            context = f'{username}: {prompt} | Aiko: {completion_request[0]}'
+
+            context_string = update_context(context, context_list)
 
             sleep(0.1)
             
-            t_0 = time.time()       # Restarts the timer
+            t_0 = time.time()       # restarts the timer
             continue
         except:
             message_lists_lock.release()
@@ -361,20 +365,16 @@ def thread_talk():
 
         message_lists_lock.release()
 
-        # request aiko's answer and updates context
-        context_string = update_context_string(inputs_list, outputs_list)
+        # generates aiko's answer
 
-        user_message = f"(Chat user) {author}: ### {prompt} ### Aiko: "
-        system_message = f'{personality} {context_start} ### {context_string} ### {sideprompt_start} ### {side_prompts_string} ###'
+        system_message = \
+        f'{personality} {context_start} ### {context_string} ### {sideprompt_start} ### {side_prompts_string} ###'
+
+        user_message = f"(Live Viewer) {author}: ### {prompt} ### Aiko: "
 
         completion_request = generate_gpt_completion(system_message, user_message)
         print(f'Aiko: {completion_request[0]}')
-
-        update_log(log, prompt, completion_request, context_string)
-
-        inputs_list = update_context_list(inputs_list, prompt, f'(Chat user) {author}')
-        outputs_list = update_context_list(outputs_list, completion_request[0], 'Aiko')
-
+        
         # voices aiko's answer
         is_saying_lock.acquire()
 
@@ -382,9 +382,17 @@ def thread_talk():
 
         is_saying_lock.release()
 
+        update_log(log, prompt, completion_request, True, context_string)
+
+        # updates the context 
+
+        context = f'(Live Viewer) {author}: {prompt} | Aiko: {completion_request[0]}'
+
+        context_string = update_context(context, context_list)
+
         sleep(0.1)
 
-        t_0 = time.time()       # Restarts the timer
+        t_0 = time.time()       # restarts the timer
 
 
 # ---------------------------------- END OF THREADED FUNCTIONS --------------------------------------------

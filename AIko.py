@@ -2,20 +2,10 @@
 AIko.py
 
 Requirements:
-- mpg123 installed and added to PATH var.
-- ffmpeg installed and added to PATH var.
-- AikoSpeechInterface.py (3.1 or greater)
+- AikoSpeechInterface.py (3.1 or greater) and its requirements
 
 pip install:
 - openai
-- gtts
-- pydub
-- elevenlabslib      (if you want elevenlabs text to speech)
-- speechrecognition  (only if you want to speak to her through your mic)
-- pyaudio            (speech recognition function dependency)
-
-For libraries you won't use, remember to remove the line which imports them (IE, import pyaudio). If the line does not
-exist in this file, you need to remove it from AikoSpeechInterface.py
 
 pip3 install:
 - pytimedinput   
@@ -25,7 +15,6 @@ txt files:
 - time_out_prompts.txt
 - key_openai.txt
 - username.txt
-- key_elevenlabs.txt (optional)
 
 Changelog:
 
@@ -33,11 +22,15 @@ Changelog:
 - Moved all context functionality into the new general use update_context() function.
 071:
 - Implemented dynamic summarization in the interaction loop.
+- Removed context summarization in favor of context summarization
+072:
+- Removed leftover context summarization functions.
+- Added evaluate_then_summarize() function as a general use dynamic summarization function.
 ===============================================================================================================================
 """ 
 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko071').upper()
+build_version = ('Aiko072').upper()
 
 print(f'{build_version}: Starting...')
 print()
@@ -60,6 +53,8 @@ from random import randint             # random number generator
 patience = randint(6, 24)                                         # patience
 breaker = "code red"                                              # breaker phrase for aiko's interaction loop
 context_start = f'For context, here are our last interactions:'   # prepares aiko's context variables
+# dynamic summarization instruction
+summarization_instruction = "Summarize this shortly without removing core info:"
 
 # -------------------------------------------
 
@@ -193,24 +188,6 @@ def update_log(log_filepath : str, user_string : str, completion_data : tuple, i
     log.write(f'{hour} Total tokens used: {completion_data[1][2]}\n')
     log.write('\n')
 
-def update_log_with_summarization_data(log_filepath : str, user_string : str, completion_data : tuple, summaries_list : list, sum_completion_data : tuple):
-  time = datetime.now()
-  hour = f'[{time.hour}:{time.minute}:{time.second}]'
-
-  with open(log_filepath, 'a') as log:
-    log.write(f'{hour} SUMMARY HISTORY:\n')
-    for summary in summaries_list:
-      if summary != '':
-        log.write(f'{hour} Summary: {summary} \n')
-    log.write(f'{hour} INTERACTION:\n')
-    log.write(f'{hour} Prompt: {user_string} --TOKENS USED: {completion_data[1][0]}\n')
-    log.write(f'{hour} Output: {completion_data[0]} --TOKENS USED: {completion_data[1][1]}\n')
-    log.write(f'{hour} Total tokens used: {completion_data[1][2]}\n')
-    log.write(f'{hour} FINAL USAGE DATA:\n')
-    log.write(f'{hour} --TOKENS USED TO SUMMARIZE: {sum_completion_data[1][2]}\n')
-    log.write(f'{hour} Total tokens used (Prompt + Output + Summarization): {completion_data[1][2] + sum_completion_data[1][2]}\n')
-    log.write('\n')
-
 def txt_to_list(txt_filename : str):
   """
     Reads a text file with the specified filename and returns a list of its lines.
@@ -252,6 +229,25 @@ def update_context(latest_context : str, contexts_list : list):
 
   return context_string
 
+def evaluate_then_summarize(
+  context : str,
+  max_length : int = 400,
+  instruction : str = 'Summarize this shortly without removing core info:'
+  ):
+
+  '''
+  Summarizes the given string if it is longer than the specified max length.
+  Returns the summary as a string OR
+  the given string with no changes if the length limit isn't exceeded.
+  '''
+
+  if len(context) > max_length:
+    summary_request = generate_gpt_completion(instruction, context)
+    update_log(log, f'{instruction} {context}', summary_request)
+
+    context = summary_request[0]
+
+  return context
 # ----------------------------------- end of functions ------------------------------------------------
 
 
@@ -265,10 +261,6 @@ if __name__ == "__main__":
   # saves the time out prompts into a list
 
   time_out_prompts = txt_to_list('time_out_prompts.txt')
-
-  # ...
-
-  summarization_instruction = 'Summarize this shortly without removing core info:'
     
   # gets aiko.txt and saves it into a string for prompting gpt3
 
@@ -343,17 +335,12 @@ if __name__ == "__main__":
     # prepares latest interaction to be added to the context
     context = f'{username}: {user_input} | Aiko: {aiko_completion_text}'
 
-    # summarizes latest interaction if it exceeds the length limit
-    if len(context) > 400:
-      summary_request = generate_gpt_completion(summarization_instruction, context)
-      update_log(log, f'{summarization_instruction} {context}', summary_request)
-
-      context = summary_request[0]
+    # summarizes context if it exceeds the length limit
+    context = evaluate_then_summarize(context, instruction = summarization_instruction)
 
     # updates context
     aikos_memory = update_context(context, context_list)
 
-    # breaks the loop
-
+    # breaks the loop if the user types the breaker message
     if breaker in user_input.lower():
       break

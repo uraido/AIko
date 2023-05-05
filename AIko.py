@@ -24,32 +24,21 @@ txt files:
 - AIko.txt
 - time_out_prompts.txt
 - key_openai.txt
+- username.txt
 - key_elevenlabs.txt (optional)
 
 Changelog:
 
-060:
-- Moved log functionality into create_log(), update_log() and update_log_with_summarization_data() functions
-- Renamed create_limited_list() to create_context_list()
-- Moved context functionality into update_context_list(), update_context_string() update_context_string_with_summaries() functions
-061:
-- Add "silence breaker" into the loop, which makes AIko talks when time has passed without interact with her
-062:
-- Added randomized time out prompts.
-- Added variable patience.
-- Fixed a bug where the log would not report time out prompts.
-063:
-- The random timer variable will now reset every time the interaction loop restarts.
-- create_context_list() list length is now hardcoded to 5.
-- Added txt_to_list() function and updated the time out feature to use it instead of numpy.
-- If the user says 'code red', the phrase '(Code red means goodbye) will be added to the prompt to make things clear
-for AIko. This is neccessary because if the explanation is included in AIko.txt, AIko keeps mentioning code red all the
-time, which is not the desired behavior.
-
+070:
+- Moved all context functionality into the new general use update_context() function.
 ===============================================================================================================================
 """ 
 
+# PLEASE set it if making a new build. for logging purposes
+build_version = ('Aiko070').upper()
 
+print(f'{build_version}: Starting...')
+print()
 
 # ----------------- Imports -----------------
 
@@ -64,22 +53,14 @@ import numpy as np
 # -------------------------------------------
 
 
-# PLEASE set it if making a new build. for logging purposes
-
-build_version = ('Aiko063').upper()
-
-
 
 # ------------- Set variables ---------------
 
 patience = randint(6, 24)                                         # patience
 breaker = "code red"                                              # breaker phrase for aiko's interaction loop
 context_start = f'For context, here are our last interactions:'   # prepares aiko's context variables
-time_out_input = 'User: ### *remains silent* ### Aiko: '
-# f'User: ### *left you waiting* (you have to swear on they or say something funny to break the silence) ### Aiko: '
 
 # -------------------------------------------
-
 
 
 
@@ -90,9 +71,12 @@ openai.api_key = open("key_openai.txt", "r").read().strip('\n')
 
 # ------------------------------------------- functions -----------------------------------------------
 
-def create_context_list():
+def create_context_list(length : int = 5):
+  '''
+  Returns a limited list of empty strings.
+  '''
   new_list = []
-  for i in range(5):
+  for i in range(length):
     new_list.append('')
   return new_list
 
@@ -151,14 +135,13 @@ def generate_gpt_completion(system_message, user_message):
 
     return (completion_text, completion_token_usage_data)
 
-def get_user_input(timer : int):
+def get_user_input(timer : int, user : str):
   """
   Prompts user for input depending on the input method chosen (Text or Microphone)
   and returns the as a string.
   """
   if user_input_method == '1':
-    #user_input = input('User: ')
-    user_input, timed_out = timedInput('User: ', timeout=timer)
+    user_input, timed_out = timedInput(f'{user}: ', timeout=timer)
 
   elif user_input_method == '2':
     user_input = listen('Listening for mic input...')
@@ -166,12 +149,11 @@ def get_user_input(timer : int):
     print(f'User: {user_input}')
     if user_input == None:
       print('No speech detected. Resorting to text...')
-      #user_input = input('User: ')
-      user_input, timed_out = timedInput('User: ', timeout=timer)
+      user_input, timed_out = timedInput(f'{user}: ', timeout=timer)
   
   return user_input, timed_out
 
-def create_log(is_summarizing : bool, summary_instruction : str):
+def create_log():
   global build_version
 
   time = datetime.now()
@@ -194,18 +176,16 @@ def create_log(is_summarizing : bool, summary_instruction : str):
     log.write('\n')
     log.write('---------------END OF "AIko.txt"---------------\n')
     log.write('\n')
-    log.write(f'CONTEXT SUMMARIZATION: {is_summarizing}\n')
-    if is_summarizing:
-      log.write(f"Summarization Prompt: '{summary_instruction}'\n")
-    log.write('\n')
 
   return log_filename
 
-def update_log(log_filepath : str, user_string : str, completion_data : tuple):
+def update_log(log_filepath : str, user_string : str, completion_data : tuple, context_string : str):
   time = datetime.now()
   hour = f'[{time.hour}:{time.minute}:{time.second}]'
 
   with open(log_filepath, 'a') as log:
+    log.write(f'{hour} Context string: {context_string}\n')
+    log.write('\n')
     log.write(f'{hour} Prompt: {user_string} --TOKENS USED: {completion_data[1][0]}\n')
     log.write(f'{hour} Output: {completion_data[0]} --TOKENS USED: {completion_data[1][1]}\n')
     log.write(f'{hour} Total tokens used: {completion_data[1][2]}\n')
@@ -229,51 +209,6 @@ def update_log_with_summarization_data(log_filepath : str, user_string : str, co
     log.write(f'{hour} Total tokens used (Prompt + Output + Summarization): {completion_data[1][2] + sum_completion_data[1][2]}\n')
     log.write('\n')
 
-def update_context_list(list_to_update : list, context : str):
-  context_list = list_to_update.copy()
-  context_list = context_list[1:]
-  context_list.append(context)
-
-  return(context_list)
-
-def update_context_string(user_input_list : list, gpt_output_list):
-  # context string which will be used when requesting completions
-
-  context_string = ''
-
-  # checks whether aikos context lists are empty. if they are, memory update loops wont be run, for better performance.
-  # also makes sure the context string keeps the EMPTY keyword when empty
-
-  if gpt_output_list[4] != '':
-    for written_index, stored_input in enumerate(user_input_list, start = 1):
-        output_list_index = written_index - 1
-        if stored_input != '':
-          if written_index == 5:
-            context_string += f' {written_index} (latest) - User said: {stored_input} | Aiko said: {gpt_output_list[output_list_index]}'
-            continue 
-
-          context_string += f' {written_index} - User said: {stored_input} | Aiko said: {gpt_output_list[output_list_index]}'
-  else:
-    context_string = 'EMPTY'
-
-  return(context_string)
-  
-def update_context_string_with_summaries(summaries_list : list):
-  context_string = ''
-
-  if summaries_list[4] != '':
-    for index, summary in enumerate(summaries_list, start = 1):
-      if summary != '':
-        if index == 5:
-          context_string += f' {index} (latest) - {summary}'
-          continue
-
-        context_string += f' {index} - {summary}'
-  else:
-    context_string = 'EMPTY'
-
-  return(context_string)
-
 def txt_to_list(txt_filename : str):
   """
     Reads a text file with the specified filename and returns a list of its lines.
@@ -293,28 +228,45 @@ def txt_to_list(txt_filename : str):
   
   return lines_list
 
+def update_context(latest_context : str, contexts_list : list):
+  '''
+  Appends the given context to the given context list and removes the oldest item in the list (index 0).
+  Returns a string composed of every item in the context list.
+  '''
+
+  contexts_list.pop(0)
+  contexts_list.append(latest_context)
+
+  context_string = ''
+
+  for index, context in enumerate(contexts_list, start = 1):
+    if context == '':
+      continue
+    if index == 5:
+      context_string += f' {index} (latest) - {context}'
+      continue
+
+    context_string += f' {index} - {context}'
+
+  return context_string
+
 # ----------------------------------- end of functions ------------------------------------------------
 
 
 
 if __name__ == "__main__":
 
+  # saves the user's name into a string
+
+  username = txt_to_string('username.txt')
+
+  # saves the time out prompts into a list
+
   time_out_prompts = txt_to_list('time_out_prompts.txt')
 
-  # if set to true (script will ask user when executed) tries to summarize the latest interactions with gpt3 before saving
-  # them into her "memory". experimental feature
+  # ...
 
-  context_summarization = False
   summarization_instruction = 'Summarize this shortly without removing core info:'
-
-  set_context_summarization = input("Toggle context summarization? Y/N: ")
-  if set_context_summarization.lower() == 'y':
-    context_summarization = True
-    print('ENABLED CONTEXT SUMMARIZATION.')
-    print()
-  else:
-    print('CONTEXT SUMMARIZATION NOT ENABLED.')
-    print()
     
   # gets aiko.txt and saves it into a string for prompting gpt3
 
@@ -322,15 +274,15 @@ if __name__ == "__main__":
 
   # creates the log with initial info and saves the logs filename into a variable
 
-  log = create_log(context_summarization, summarization_instruction)
+  log = create_log()
 
-  # lists to save both user inputs and aiko's outputs for context
+  # list to save context strings
 
-  inputList, outputList = create_context_list(), create_context_list()
+  context_list = create_context_list()
 
-  # if context_summarization is true, then this list will be used instead to save gpt generated summaries
+  # memory string used to hold context strings
 
-  summary_list = create_context_list()
+  aikos_memory = 'EMPTY'
 
   # prompts the user to choose a prompting method. defaults to text if input is invalid.
 
@@ -349,32 +301,29 @@ if __name__ == "__main__":
 
     silence_breaker_time = randint(patience, 60)
 
-
-    # updates aikos context string
-
-    if context_summarization:
-      aikos_memory = update_context_string_with_summaries(summary_list)
-    else:
-      aikos_memory = update_context_string(inputList, outputList)
-
-
-
     # asks the user for input depending on the chosen input method
   
-    user_input, timed_out = get_user_input(silence_breaker_time)
+    user_input, timed_out = get_user_input(silence_breaker_time, username)
 
-    # requests aiko's completion to gpt and prints it
+    # prepares system message to generate the completion
 
     system_role_aiko = f'{personality} {context_start} ### {aikos_memory} ###'
 
 
     if timed_out:
-      chosen_prompt = randint(0, len(time_out_prompts - 1))
+      chosen_prompt = randint(0, len(time_out_prompts) - 1)
       user_input = time_out_prompts[chosen_prompt]
-    if breaker in user_input.lower():
-      user_input += ' (Code red means goodbye)'
 
-    user_role_aiko = f'User: ### {user_input} ### Aiko: '
+    # to give aiko a chance to say her goodbye
+
+    if breaker in user_input.lower():
+      user_input += f' ({breaker} means goodbye)'
+
+    # prepares user message to generate the completion
+
+    user_role_aiko = f'{username}: ### {user_input} ### Aiko: '
+
+    # requests the completion and saves it into a string
 
     aiko_completion_request = generate_gpt_completion(system_role_aiko, user_role_aiko)
 
@@ -386,26 +335,11 @@ if __name__ == "__main__":
     # voices aiko. set elevenlabs = True if you want to use elevenlabs TTS (needs elevenlabs API key set in key_elevenlabs.txt)
     say(text=aiko_completion_text, elevenlabs = False, audiodevice = "2")
 
-    # updates aiko's context lists based on the latest interaction
-
-    if context_summarization:
-      user_role_sum = f'### User says: {user_input} Aiko says: {aiko_completion_text} ###'
-
-      summary_completion_request = generate_gpt_completion(summarization_instruction, user_role_sum)
-      summary_completion_text = summary_completion_request[0]
-
-      summary_list = update_context_list(summary_list, summary_completion_text)
-
-    else:
-      inputList = update_context_list(inputList, user_input)
-      outputList = update_context_list(outputList, aiko_completion_text)
-
     # updates log
+    update_log(log, user_input, aiko_completion_request, aikos_memory)
 
-    if context_summarization:
-      update_log_with_summarization_data(log, user_input, aiko_completion_request, summary_list, summary_completion_request)
-    else:
-      update_log(log, user_input, aiko_completion_request)
+    # updates context
+    aikos_memory = update_context(f'{username} said: {user_input} | Aiko said: {aiko_completion_text}', context_list)
 
     # breaks the loop
 

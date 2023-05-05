@@ -5003,3 +5003,6 @@ code_demos_tests_examples/
 include/
 lib/
 discord_token.txt
+key_azurespeech.txt
+key_region_azurespeech.txt
+.gitignore

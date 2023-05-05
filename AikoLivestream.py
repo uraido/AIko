@@ -28,6 +28,9 @@ her temporary memory with the comments.
 - Added 'start statement' to be printed when the script starts.
 0.7.4
 - Updated to work with AIko070
+0.7.5
+- Fixed side prompting getting interrupted when messages were printed to the console.
+- Implemented dynamic summarization through the evaluate_then_summarize function from AIko072 
     ===================================================================== '''
 
 print('AikoLivestream.py: Starting...')
@@ -41,9 +44,10 @@ from threading import Thread, Lock                          # for running concur
 from random import randint                                  # for picking random comments
 from time import sleep                                      # for waiting between reading comments
 from AIko import *                                          # AIko
-from random import randint
-import keyboard
-import time                                                 # Meassures time for silence breaker
+from random import randint                                  # for randomly choosing comments
+import keyboard                                             # for hotkeys
+import time                                                 # measures time for silence breaker
+from pytimedinput import timedInput                         # for side prompting without interruptions
 
 # --------------------------------------------------
 
@@ -132,7 +136,7 @@ def thread_listen_mic():
 
         if keyboard.is_pressed(sp_hotkey):
             print("Write a side prompt to be added to Aiko's memory:")
-            side_prompt = input()
+            side_prompt, unused = timedInput(timeout = 99999)
             side_prompts_string = update_context(side_prompt, side_prompts_list)
             print('Side prompts currently in memory:')
             print(side_prompts_string)
@@ -252,11 +256,16 @@ def thread_talk():
 
                 update_log(log, prompt, completion_request, True, context_string)
 
-                # updates the context (only with Aiko's answer in this case, since saving the time out prompt into
+                # prepares the latest interaction to be added to the context
+                # (only with Aiko's answer in this case, since saving the time out prompt into 
                 # her memory is probably a waste of tokens)
 
                 context = f'Aiko: {completion_request[0]}'
 
+                # summarizes the latest interaction, if necessary
+                context = evaluate_then_summarize(context)
+
+                # updates the context with the latest interaction
                 context_string = update_context(context, context_list)
 
                 sleep(0.1)
@@ -305,10 +314,13 @@ def thread_talk():
 
             update_log(log, prompt, completion_request, True, context_string)
 
-            # updates the context 
-
+            # prepares the latest interaction to be added to the context
             context = f'{username}: {prompt} | Aiko: {completion_request[0]}'
 
+            # summarizes the latest interaction, if necessary
+            context = evaluate_then_summarize(context)
+
+            # updates the context with the latest interaction
             context_string = update_context(context, context_list)
 
             sleep(0.1)
@@ -384,10 +396,13 @@ def thread_talk():
 
         update_log(log, prompt, completion_request, True, context_string)
 
-        # updates the context 
-
+        # prepares the latest interaction to be added to the context
         context = f'(Live Viewer) {author}: {prompt} | Aiko: {completion_request[0]}'
 
+        # summarizes the latest interaction, if necessary
+        context = evaluate_then_summarize(context)
+
+        # updates the context with the latest interaction
         context_string = update_context(context, context_list)
 
         sleep(0.1)

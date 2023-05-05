@@ -14,11 +14,11 @@ discord_token = open("discord_token.txt", "r").read().strip('\n')
 
 username = txt_to_string('username.txt')
 
-inputs_list = create_context_list()
-outputs_list = create_context_list()
+context_list = create_context_list()
 personality = txt_to_string('AIko.txt')
 context_start = f'For context, here are our last interactions:'
-log = create_log(is_summarizing = False, summary_instruction='')
+log = create_log()
+aikos_memory = 'EMPTY'
 
 # discord events
 
@@ -38,7 +38,7 @@ async def on_message(message):
             await listen_to_voice(voice, say)
 
 def say(text, voice):
-    tts = gTTS(text=text, lang= 'pt-br')
+    tts = gTTS(text)
     initial_file = 'speech.mp3'
     pitch_shifted_file = "mod_speech.mp3"
     tts.save(initial_file)
@@ -46,12 +46,12 @@ def say(text, voice):
     voice.play(discord.FFmpegPCMAudio(pitch_shifted_file))
 
 async def listen_to_voice(voice, say_func):
-    global inputs_list
-    global outputs_list
+    global context_list
     global personality
     global context_start
     global log
     global username
+    global aikos_memory
 
     r = sr.Recognizer()
     with sr.Microphone() as source:
@@ -62,14 +62,13 @@ async def listen_to_voice(voice, say_func):
 
                 print('Listening...')
                 audio = r.listen(source, phrase_time_limit=5)
-                text = r.recognize_google(audio, language='pt-br')
+                text = r.recognize_google(audio)
                 print(f'{username}: {text}')
 
                 # generates GPT completion and updates context, if text starts with keyword "aiko".
                 catchphrase = 'hey'
 
                 if catchphrase in text[:len(catchphrase)].lower():
-                    aikos_memory = update_context_string(inputs_list, outputs_list)
 
                     system_message = f'{personality} {context_start} {aikos_memory}'
                     user_message = f"### {username}: {text} ### Aiko: "
@@ -78,10 +77,11 @@ async def listen_to_voice(voice, say_func):
 
                     print(f'Aiko: {completion_request[0]}')
                     say_func(completion_request[0], voice)
-                    update_log(log, text, completion_request, aikos_memory)
+                    update_log(log, text, completion_request, True, aikos_memory)
 
-                    inputs_list = update_context_list(inputs_list, text, username)
-                    outputs_list = update_context_list(outputs_list, completion_request[0], 'Aiko')
+                    context = f'{username}: {text} | Aiko: {completion_request[0]}'
+
+                    aikos_memory = update_context(context, context_list)
 
             except sr.UnknownValueError:
                 print('Google Speech Recognition could not understand audio')

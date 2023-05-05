@@ -24,6 +24,7 @@ httpcore==0.17.0
 httpx==0.24.0
 hyperframe==6.0.1
 idna==3.4
+keyboard==0.13.5
 multidict==6.0.4
 numpy==1.24.2
 openai==0.27.4

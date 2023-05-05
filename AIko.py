@@ -341,7 +341,7 @@ if __name__ == "__main__":
     update_log(log, user_input, aiko_completion_request, True, aikos_memory)
 
     # prepares latest interaction to be added to the context
-    context = f'{username} said: {user_input} | Aiko said: {aiko_completion_text}'
+    context = f'{username}: {user_input} | Aiko: {aiko_completion_text}'
 
     # summarizes latest interaction if it exceeds the length limit
     if len(context) > 400:

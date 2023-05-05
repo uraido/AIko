@@ -30,7 +30,7 @@ txt files:
 Changelog:
 
 070:
-- Moved all context functionality into the new update_context() function.
+- Moved all context functionality into the new general use update_context() function.
 ===============================================================================================================================
 """ 
 

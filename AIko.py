@@ -26,11 +26,13 @@ Changelog:
 072:
 - Removed leftover context summarization functions.
 - Added evaluate_then_summarize() function as a general use dynamic summarization function.
+0721:
+- Added log (log filename) parameter to evaluate_then_summarize() function.
 ===============================================================================================================================
 """ 
 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko072').upper()
+build_version = ('Aiko0721').upper()
 
 print(f'{build_version}: Starting...')
 print()
@@ -231,8 +233,9 @@ def update_context(latest_context : str, contexts_list : list):
 
 def evaluate_then_summarize(
   context : str,
+  log : str,
   max_length : int = 400,
-  instruction : str = 'Summarize this shortly without removing core info:'
+  instruction : str = 'Summarize this shortly without removing core info:',
   ):
 
   '''

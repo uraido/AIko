@@ -26,6 +26,8 @@ her temporary memory with the comments.
 - Implemented dynamic summarization through the evaluate_then_summarize function from AIko072 
 0.7.6
 - Implemented previous messages removal after Aiko picks a chat message
+0.7.7
+- User can now choose to immediately generate a completion when side prompting
     ===================================================================== '''
 
 print('AikoLivestream.py: Starting...')
@@ -49,7 +51,7 @@ from pytimedinput import timedInput                         # for side prompting
 
 
 # Set livestream ID here
-chat = pytchat.create(video_id="sLjmjA4l0A8")
+chat = pytchat.create(video_id="hkEhRB16Fu0")
 
 
 
@@ -69,6 +71,7 @@ chance = 1                                              # 0 no messages will be 
 to_break = False
 
 message_lists_lock = Lock()
+side_prompt_queue_lock = Lock()
 is_saying_lock = Lock()
 
 messages = []
@@ -93,6 +96,10 @@ context_string = 'EMPTY'
 log = create_log()
 
 time_out_prompts = txt_to_list('silence_breaker_prompts.txt')
+
+is_side_prompt_queued = False
+queued_side_prompt = ''
+
 # --------------------------------------------------
 
 
@@ -100,20 +107,32 @@ time_out_prompts = txt_to_list('silence_breaker_prompts.txt')
 #--------------------------------------- THREADED FUNCTIONS -----------------------------------------------------
 
 
-def thread_listen_mic():
+def thread_hotkeys():
     """
-    Starts a push to talk recording instance and adds speech to text transcribed from recording to a queue list.
+    Listens for push to talk key presses and side prompting key presses.
+
+    Push to talk:
+    If push to talk key is pressed, it records audio from the user's microphone and transcribes it to a string
+    using whisper STT. The transcription is saved into a queue list of messages that will be fed to AIko.
+
+    Side prompts:
+    If the side prompt key is pressed, it asks for the user to write a message to be written into AIko's memory.
+    The user can chose to immediately generate a completion for the written message, or to simply add it to her
+    memory so that it will be added to the prompt whenever a completion is requested.
     """
     global messages
     global message_priorities
     global to_break
     global side_prompts_list
     global side_prompts_string
+    global is_side_prompt_queued
+    global queued_side_prompt
 
     ptt_hotkey = 'num minus' # push to talk hotkey
     sp_hotkey = 'num plus'   # side prompt hotkey
 
     while not to_break:
+        # push to talk
         if keyboard.is_pressed(ptt_hotkey):
             stt = start_push_to_talk(ptt_hotkey)
 
@@ -129,13 +148,27 @@ def thread_listen_mic():
             if breaker in stt.lower():
                 to_break = True
 
+        # side prompt
         if keyboard.is_pressed(sp_hotkey):
             print("Write a side prompt to be added to Aiko's memory:")
             side_prompt, unused = timedInput(timeout = 99999)
             side_prompts_string = update_context(side_prompt, side_prompts_list)
             print('Side prompts currently in memory:')
             print(side_prompts_string)
+            print('Generate completion? Y/N')
+            generate_completion, unused = timedInput(timeout = 99999)
 
+            if generate_completion.lower() == 'y':
+                side_prompt_queue_lock.acquire()
+
+                is_side_prompt_queued = True
+                queued_side_prompt = side_prompt
+                print('Queued side prompt for completion.')
+                
+                side_prompt_queue_lock.release()
+                
+
+        # to save on cpu usage
         sleep(0.1)
 
 
@@ -207,7 +240,10 @@ def thread_talk():
     # side prompting related variables
     global side_prompts_start
     global side_prompts_string
+    global is_side_prompt_queued
+    global queued_side_prompt
 
+    global log
 
     # time measurement starts
     t_0 = time.time()
@@ -216,6 +252,60 @@ def thread_talk():
     while not to_break:
 
         t_now = time.time()         # measures time since t0
+
+        #---------- Side Prompt ---------
+        # answers side prompt if the user choses to
+
+        side_prompt_queue_lock.acquire()
+
+        if is_side_prompt_queued:
+
+            prompt = queued_side_prompt
+
+            print('Side prompt completion requested:')
+            print(prompt)
+
+            # generates aiko's answer
+
+            system_message = \
+            f'{personality} {context_start} ### {context_string} ### {sideprompt_start} ### {side_prompts_string} ###'
+
+            user_message = f"System: ### {prompt} ### Aiko: "
+
+            completion_request = generate_gpt_completion(system_message, user_message)
+            print(f'Aiko: {completion_request[0]}')
+            
+            # voices aiko's answer
+            is_saying_lock.acquire()
+
+            say(completion_request[0])
+
+            is_saying_lock.release()
+
+            update_log(log, prompt, completion_request, True, context_string)
+
+            # prepares the latest interaction to be added to the context
+            # (just Aiko's answer in this case, since saving the side prompt here
+            # would be redundant)
+            context = f'Aiko: {completion_request[0]}'
+
+            # summarizes the latest interaction, if necessary
+            context = evaluate_then_summarize(context, log)
+
+            # updates the context with the latest interaction
+            context_string = update_context(context, context_list)
+
+            sleep(0.1)
+            
+            t_0 = time.time()       # restarts the timer
+
+            is_side_prompt_queued = False
+
+            side_prompt_queue_lock.release()
+
+            continue
+
+        side_prompt_queue_lock.release()
 
         # -------- Empty list ----------
         # Manages when no messages are stored
@@ -258,7 +348,7 @@ def thread_talk():
                 context = f'Aiko: {completion_request[0]}'
 
                 # summarizes the latest interaction, if necessary
-                context = evaluate_then_summarize(context)
+                context = evaluate_then_summarize(context, log)
 
                 # updates the context with the latest interaction
                 context_string = update_context(context, context_list)
@@ -313,7 +403,7 @@ def thread_talk():
             context = f'{username}: {prompt} | Aiko: {completion_request[0]}'
 
             # summarizes the latest interaction, if necessary
-            context = evaluate_then_summarize(context)
+            context = evaluate_then_summarize(context, log)
 
             # updates the context with the latest interaction
             context_string = update_context(context, context_list)
@@ -396,7 +486,7 @@ def thread_talk():
         context = f'(Live Viewer) {author}: {prompt} | Aiko: {completion_request[0]}'
 
         # summarizes the latest interaction, if necessary
-        context = evaluate_then_summarize(context)
+        context = evaluate_then_summarize(context, log)
 
         # updates the context with the latest interaction
         context_string = update_context(context, context_list)
@@ -415,7 +505,7 @@ if __name__ == '__main__':
     print()
 
     # starts threads
-    Thread(target=thread_listen_mic).start()
+    Thread(target=thread_hotkeys).start()
     print('Thread #1 started')
     Thread(target=thread_read_chat).start()
     print('Thread #2 started')

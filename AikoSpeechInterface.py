@@ -48,31 +48,36 @@ import keyboard                 # for push to talk hotkey
 import azure.cognitiveservices.speech as speechsdk
 from time import sleep
 
+start_azure = False
+start_elevenlabs = False
+
 # sets some elevenlabs variables. optional
-try:
-    user = ElevenLabsUser(open("key_elevenlabs.txt", "r").read().strip('\n'))
-    voice = user.get_voices_by_name("asuka-langley-yuko-miyamura")[0]
-except Exception as e:
-    print('AikoSpeechInterface:')
-    print('Elevenlabs voice failed to start.')
-    print('Error:', e)
-    print()
+if start_elevenlabs:
+    try:
+        user = ElevenLabsUser(open("key_elevenlabs.txt", "r").read().strip('\n'))
+        voice = user.get_voices_by_name("asuka-langley-yuko-miyamura")[0]
+    except Exception as e:
+        print('AikoSpeechInterface:')
+        print('Elevenlabs voice failed to start.')
+        print('Error:', e)
+        print()
 
 # sets some azure speech variables. optional
-try:
-    speech_config = speechsdk.SpeechConfig(
-    subscription=open("key_azurespeech.txt", "r").read().strip('\n'),
-    region=open("key_region_azurespeech.txt", "r").read().strip('\n')
-    )
+if start_azure:
+    try:
+        speech_config = speechsdk.SpeechConfig(
+        subscription=open("key_azurespeech.txt", "r").read().strip('\n'),
+        region=open("key_region_azurespeech.txt", "r").read().strip('\n')
+        )
 
-    # voice type
-    #"en-US-SaraNeural" #"en-US-NancyNeural" #"en-US-MichelleNeural" #"en-US-AmberNeural" #'en-US-AnaNeural' #'en-AU-CarlyNeural' #"en-GB-MaisieNeural"
-    speech_config.speech_synthesis_voice_name = "en-US-SaraNeural"
-except Exception as e:
-    print('AikoSpeechInterface:')
-    print('Azure Speech voice failed to start.')
-    print('Error:', e)
-    print()
+        # voice type
+        #"en-US-SaraNeural" #"en-US-NancyNeural" #"en-US-MichelleNeural" #"en-US-AmberNeural" #'en-US-AnaNeural' #'en-AU-CarlyNeural' #"en-GB-MaisieNeural"
+        speech_config.speech_synthesis_voice_name = "en-US-SaraNeural"
+    except Exception as e:
+        print('AikoSpeechInterface:')
+        print('Azure Speech voice failed to start.')
+        print('Error:', e)
+        print()
 
 # sets openAI API key. required for whisperAPI stt.
 try:

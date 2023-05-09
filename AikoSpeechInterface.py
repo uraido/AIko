@@ -48,7 +48,8 @@ import keyboard                 # for push to talk hotkey
 import azure.cognitiveservices.speech as speechsdk
 from time import sleep
 
-start_azure = False
+# costs money
+start_azure = True
 start_elevenlabs = False
 
 # sets some elevenlabs variables. optional
@@ -251,15 +252,15 @@ def say(text: str, elevenlabs = False, audiodevice = "2"):
         except Exception as e:
             print('Failed to generate elevenlabs tts.')
             print('Error:', e)
-    # azure tts (currently broken)
-    '''try:
-        audio = generate_tts_azurespeech(text, True, 2.0)
+    # azure tts (costs money)
+    try:
+        audio = generate_tts_azurespeech(text, True, 2.5)
         os.system(f"mpg123 -q --audiodevice {audiodevice} {audio}")
         os.remove(audio)
         return
     except Exception as e:
         print('Failed to generate Azure tts.')
-        print('Error:', e)'''
+        print('Error:', e)
     # google gtts
     try:
         audio = generate_tts_gtts(text, to_pitch_shift = True, pitch_shift = 2.0)
@@ -326,7 +327,7 @@ def start_push_to_talk(hotkey : str = 'num 0'):
 if __name__ == "__main__":
     
     # for testing push to talk
-    hotkey = 'num 2'
+    '''hotkey = 'num 2'
     while True:
         if keyboard.is_pressed(hotkey):
             stt = start_push_to_talk(hotkey)
@@ -335,7 +336,7 @@ if __name__ == "__main__":
             if 'code red' in stt.lower():
                 break
 
-        sleep(0.1)
+        sleep(0.1)'''
 
     # for testing google speech recognition
 
@@ -344,7 +345,7 @@ if __name__ == "__main__":
     # for testing the say function
 
     #say("Hello Rchart-Kun! 1", audiodevice = 1)
-    #say("Hello Rchart-Kun! 2", audiodevice = 2)
+    say("Hello Rchart-Kun! 2", audiodevice = 2)
     #say("Hello Rchart-Kun! 3", audiodevice = 3)
     #say("Hello Rchart-Kun! 4", audiodevice = 4)
 

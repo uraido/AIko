@@ -28,11 +28,13 @@ Changelog:
 - Added evaluate_then_summarize() function as a general use dynamic summarization function.
 0721:
 - Added log (log filename) parameter to evaluate_then_summarize() function.
+0722:
+- Fixed missing parameter exception when trying to call evaluate function from the interaction loop.
 ===============================================================================================================================
 """ 
 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko0721').upper()
+build_version = ('Aiko0722').upper()
 
 print(f'{build_version}: Starting...')
 print()
@@ -339,7 +341,7 @@ if __name__ == "__main__":
     context = f'{username}: {user_input} | Aiko: {aiko_completion_text}'
 
     # summarizes context if it exceeds the length limit
-    context = evaluate_then_summarize(context, instruction = summarization_instruction)
+    context = evaluate_then_summarize(context, log = log, instruction = summarization_instruction)
 
     # updates context
     aikos_memory = update_context(context, context_list)

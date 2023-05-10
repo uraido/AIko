@@ -62,7 +62,6 @@ config.read('AikoPrefs.ini')
 # sets variables according to config
 breaker = config.get('GENERAL', 'breaker_phrase')            # to end the program. activated through microphone.
 username = config.get('GENERAL', 'username')                 # the name AIko will know the microphone user as
-message_limit = config.getint('LIVESTREAM', 'message_limit') # determined length limit of the list containing messages
 chance = config.getint('LIVESTREAM', 'talking_chance')       # 0 no messages will be read; 100 all messages will be read
 ptt_hotkey = config.get('LIVESTREAM', 'ptt_hotkey')          # push to talk hotkey
 sp_hotkey = config.get('LIVESTREAM', 'sp_hotkey')            # side prompt hotkey

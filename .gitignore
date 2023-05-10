@@ -1,3 +1,5 @@
+.gitignore
+share/
 banana.py
 key_elevenlabs.txt
 key_openai.txt

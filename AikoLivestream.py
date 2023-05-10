@@ -1,12 +1,16 @@
 ''' =====================================================================
-AikoLivestream.py (v0.7.6)
+AikoLivestream.py (v0.7.8)
 Script for livestreaming with AIko in youtube.
+
 Requirements:
-- AikoSpeechInterface.py (4.1 or greater) and its requirements
-- AIko.py (0.7.0 or greater) and its requirements
+- AikoSpeechInterface.py (5.0 or greater) and its requirements
+- AIko.py (0.8.0 or greater) and its requirements
+- AikoPrefs.ini
+
 pip install:
 - pytchat
 - keyboard
+
 Changelog:
 0.7: 
 - Added versification and instalation requirements
@@ -30,6 +34,8 @@ her temporary memory with the comments.
 - User can now choose to immediately generate a completion when side prompting
 0.7.8
 - Implemented .ini configuration file
+0.7.9
+- Removed 'exceedancy' message list limit control in favor of the 'removing previous messages' way to do it.
     ===================================================================== '''
 
 print('AikoLivestream.py: Starting...')
@@ -423,32 +429,14 @@ def thread_talk():
             sleep(0.1)
             continue
 
-
-        # deletes oldest message entries if the length limit is exceeded
-        message_lists_lock.acquire()
-
-        if len(messages) > message_limit:
-            exceedency = len(messages) - message_limit
-            print(f'Message list limit exceeded by {exceedency}. Removing old entries.')
-            print(messages, '>>')
-            messages = messages[exceedency : ]
-            print(messages)
-            message_priorities = message_priorities[exceedency : ]
-
-            message_lists_lock.release()
-
-            continue
-
-        message_lists_lock.release()
-
-        # Randomly chooses a chat message
+        # randomly chooses a chat message
         message_lists_lock.acquire()
 
         prompt_index = randint(0, len(messages) - 1)
 
         message_lists_lock.release()
 
-        # Picks the chosen message and his author. Then deletes it and the previous nor picked messages.
+        # saves chosen message and author into variables for prompting and removes previous unread messages in the list
         message_lists_lock.acquire()
 
         prompt = messages[prompt_index][0]

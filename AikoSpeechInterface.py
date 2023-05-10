@@ -1,6 +1,6 @@
 """
 AikoSpeechInterface.py (former TextToSpeech.py)
-Version 4.2
+Version 5.0
 
 Library of text to speech functions for Aiko.
 
@@ -25,62 +25,88 @@ txt files:
 - key_elevenlabs.txt (optional)
 
 Changelog:
-041:
-- Switched default text-to-speech method to Microsoft Azure Speech. Will default to GTTS if that fails.
-- Rewrote push_to_talk function. Should no longer cause thread spam.
-042:
-- Temporalily disabled Azure TTS. Function seems broken and needs fixing.
-- Added 'start statement' to be printed when the script starts.
+050:
+- Implemented .ini configuration file.
+- Text to speech synthesizing functions no longer have a pitch shift parameter. Pitch shift is now controlled by the
+say() function.
+- If azure or elevenlabs text to speech fail to start, the speech method is set to GTTS to avoid error message spam
+when calling the say() function.
+- Rewrote say() function for better exception handling.
 """
 
 print('AikoSpeechInterface.py: Starting...')
 print()
 
-import gtts                     # text to mp3 file
-import os                       # to play audio file using mpg123
-from pydub import AudioSegment  # to increase text-to-speech audio pitch
-from elevenlabslib import *     # elevenlabs API python integration
-import speech_recognition as sr # google speech-to-text
-import openai                   # whisperAPI speech to text
-import wave                     # to write .wav files
-import pyaudio                  # to record audio
-import keyboard                 # for push to talk hotkey
-import azure.cognitiveservices.speech as speechsdk
-from time import sleep
+import gtts                                         # text to mp3 file
+import os                                           # to play audio file using mpg123
+from pydub import AudioSegment                      # to increase text-to-speech audio pitch
+from elevenlabslib import *                         # elevenlabs tts API python integration
+import speech_recognition as sr                     # google speech-to-text
+import openai                                       # whisperAPI speech to text
+import wave                                         # to write .wav files
+import pyaudio                                      # to record audio
+import keyboard                                     # for push to talk hotkey
+import azure.cognitiveservices.speech as speechsdk  # azure API text to speech
+from configparser import ConfigParser               # configuration file
+from time import sleep                              # ???
 
-# costs money
-start_azure = True
-start_elevenlabs = False
+# reads config file
+config = ConfigParser()
+config.read('AikoPrefs.ini')
 
-# sets some elevenlabs variables. optional
-if start_elevenlabs:
+# sets variables according to config
+audio_device = config.getint('SPEECH_INTERFACE', 'audio_device')
+tts_method = config.get('SPEECH_INTERFACE', 'tts_method')
+elevenlabs_voice = config.get('SPEECH_INTERFACE', 'elevenlabs_voice')
+azure_voice = config.get('SPEECH_INTERFACE', 'azure_voice')
+azure_region = config.get('SPEECH_INTERFACE', 'azure_region')
+pitch_shift = config.getfloat('SPEECH_INTERFACE', 'pitch_shift')
+
+# attempts to starts elevenlabs tts, if set in the config
+if tts_method == 'elevenlabs':
     try:
         user = ElevenLabsUser(open("key_elevenlabs.txt", "r").read().strip('\n'))
-        voice = user.get_voices_by_name("asuka-langley-yuko-miyamura")[0]
+        voice = user.get_voices_by_name(elevenlabs_voice)[0]
     except Exception as e:
+        tts_method = 'gtts'
+
         print('AikoSpeechInterface:')
         print('Elevenlabs voice failed to start.')
         print('Error:', e)
+        print('Defaulted TTS method to GTTS.')
         print()
 
-# sets some azure speech variables. optional
-if start_azure:
+# attempts to starts azure tts, if set in the config
+elif tts_method == 'azure':
     try:
         speech_config = speechsdk.SpeechConfig(
         subscription=open("key_azurespeech.txt", "r").read().strip('\n'),
-        region=open("key_region_azurespeech.txt", "r").read().strip('\n')
+        region=azure_region
         )
 
         # voice type
-        #"en-US-SaraNeural" #"en-US-NancyNeural" #"en-US-MichelleNeural" #"en-US-AmberNeural" #'en-US-AnaNeural' #'en-AU-CarlyNeural' #"en-GB-MaisieNeural"
-        speech_config.speech_synthesis_voice_name = "en-US-SaraNeural"
+        speech_config.speech_synthesis_voice_name = azure_voice
     except Exception as e:
+        tts_method = 'gtts'
+
         print('AikoSpeechInterface:')
         print('Azure Speech voice failed to start.')
         print('Error:', e)
+        print('Defaulted TTS method to GTTS.')
         print()
 
-# sets openAI API key. required for whisperAPI stt.
+# acknowledges GTTS
+elif tts_method == 'gtts':
+    pass
+
+# defaults to GTTS if invalid method is selected
+else:
+    print('AikoSpeechInterface:')
+    print(f'Invalid speech method selected: {tts_method}')
+    print('Defaulting to GTTS.')
+    print()
+
+# attempts to set openAI API key. required for whisperAPI TTS
 try:
     openai.api_key = open("key_openai.txt", "r").read().strip('\n')
 except Exception as e:
@@ -113,28 +139,23 @@ def modify_pitch(input_file, output_file, pitch_shift):
     # Export the shifted audio
     shifted_song.export(output_file, format="mp3")
 
-def generate_tts_gtts(text : str, to_pitch_shift = False, pitch_shift = 1.0, tld = 'us', lang = 'en', slow = False):
+    # Removes original file
+    os.remove(input_file)
+
+def generate_tts_gtts(text : str, tld = 'us', lang = 'en', slow = False):
     """Generates a text-to-speech mp3 file using google text to speech. Returns the name of the generated audio file.
     
     Parameters:
     text (str): The text to be synthesized.
     to_pitch_shift (bool): Whether to pitch shift or not. Defaults to False
-    pitch_shift (float): The amount of semitones to raise/lower from the original voice tone. Defaults to 1.0
-    tld (str): Accent for the chosen language. English ones are us, com.au, co.uk and co.in. Defaults to "us".
-    lang (str): Language. 'en', 'pt', 'pt-br', etc. Defaults to "en".
-    audiodevice (str): Which audio device to play the sound on. You'll want to set this to the number corresponding to your virtual cable device. Defaults to 1.
+    tld (str): Accent for the chosen language. English ones are "us", "com.au", "co.uk" and "co.in". Defaults to "us".
+    lang (str): Language. 'en', 'es', 'pt-br', etc. Defaults to "en".
     slow (bool): Whether to speak slowly or not.
         """
     audio_file = "audio.mp3"
     gtts.gTTS(text, tld= tld, lang = lang, slow = slow).save(audio_file)
 
-    if to_pitch_shift:
-        modified_file = "mod_audio.mp3"
-        modify_pitch(audio_file, modified_file, pitch_shift)
-        os.remove(audio_file)
-        return(modified_file)
-    else:
-        return(audio_file)
+    return(audio_file)
 
 def generate_tts_elevenlabs(text):
     """Generates a text-to-speech mp3 file using elevenlabs API. Returns the name of the generated audio file.
@@ -148,17 +169,15 @@ def generate_tts_elevenlabs(text):
 
     return(audio_file)
 
-def generate_tts_azurespeech(text : str, to_pitch_shift = False, pitch_shift = 1.0):
+def generate_tts_azurespeech(text : str):
     """
     Generates a speech audio file using Azure's text-to-speech service.
 
     Args:
     text (str): The text to be converted into speech.
-    to_pitch_shift (bool): Whether or not to apply pitch shifting to the generated audio file.
-    pitch_shift (float): The pitch shift factor to be applied to the audio file. Only applicable if to_pitch_shift is True.
 
     Returns:
-    str: The filename of the generated audio file. If to_pitch_shift is True, the modified audio file's filename is returned instead.
+    str: The filename of the generated audio file.
     """
     speech_config.set_speech_synthesis_output_format(speechsdk.SpeechSynthesisOutputFormat.Riff24Khz16BitMonoPcm)
     speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=None)
@@ -168,12 +187,6 @@ def generate_tts_azurespeech(text : str, to_pitch_shift = False, pitch_shift = 1
     result = speech_synthesizer.speak_text_async(text).get()
     stream = speechsdk.AudioDataStream(result)
     stream.save_to_wav_file(audio_file)
-
-    if to_pitch_shift:
-
-        modify_pitch(audio_file, 'mod_azuretts.wav', pitch_shift)
-        os.remove(audio_file)
-        audio_file = 'mod_azuretts.wav'
 
     return audio_file
 
@@ -228,7 +241,7 @@ def listen(prompt='', catchword=''):
 
     return text 
 
-def say(text: str, elevenlabs = False, audiodevice = "2"):
+def say(text: str, method : str = tts_method, pitch_shift : float = pitch_shift, audiodevice : int = audio_device):
     """Generate text-to-speech audio and play it using `mpg123`.
 
     By default, the function uses Azure TTS to generate the audio. If that fails,
@@ -237,39 +250,54 @@ def say(text: str, elevenlabs = False, audiodevice = "2"):
 
     Args:
         text (str): The text to be spoken.
-        elevenlabs (bool, optional): Whether to use Elevenlabs TTS or not.
-            Defaults to False.
+        method (str, optional): Which text to speech method to use.
+            Defaults to config file.
+        pitch_shift (float, optional): The amount of pitch shift to apply in semitones.
+            Defaults to config file.
         audiodevice (str, optional): The audio device to be used by `mpg123`.
-            Defaults to "2".
+            Defaults to config file.
     """
+    tts_exception = False
 
-    if elevenlabs:
-        try:
+    # synthesizes text to speech using selected method (azure, elevenlabs)
+    try:
+
+        if tts_method == 'elevenlabs':
             audio = generate_tts_elevenlabs(text)
-            os.system(f"mpg123 -q --audiodevice {audiodevice} {audio}")
-            os.remove(audio)
-            return
+        elif tts_method == 'azure':
+            audio = generate_tts_azurespeech(text)
+
+    # catches exceptions and sets exception flag
+    except Exception as e:
+
+        tts_exception = True
+
+        print(f'Failed to generate {tts_method} tts.')
+        print('Error:', e)
+        print('Defaulting to gtts...')
+        print()
+
+    # synthesizes text to speech using GTTS if GTTS method is selected or if the selected method failed
+    if tts_method == 'gtts' or tts_exception:
+
+        try:
+            audio = generate_tts_gtts(text)
         except Exception as e:
-            print('Failed to generate elevenlabs tts.')
+
+            print(f'Failed to generate {tts_method} tts.')
             print('Error:', e)
-    # azure tts (costs money)
-    try:
-        audio = generate_tts_azurespeech(text, True, 2.5)
-        os.system(f"mpg123 -q --audiodevice {audiodevice} {audio}")
-        os.remove(audio)
-        return
-    except Exception as e:
-        print('Failed to generate Azure tts.')
-        print('Error:', e)
-    # google gtts
-    try:
-        audio = generate_tts_gtts(text, to_pitch_shift = True, pitch_shift = 2.0)
-        os.system(f"mpg123 -q --audiodevice {audiodevice} {audio}")
-        os.remove(audio)
-        return
-    except Exception as e:
-        print('Failed to gtts tts.')
-        print('Error:', e)
+            print('Defaulting to gtts...')
+            print()
+
+    
+    # applies pitch shift, if appliable
+    if pitch_shift > 0:
+        modify_pitch(audio, 'mod_audio.wav', pitch_shift)
+        audio = 'mod_audio.wav'
+
+    # plays generated audio file and removes it
+    os.system(f"mpg123 -q --audiodevice {audiodevice} {audio}")
+    os.remove(audio)
 
 def start_push_to_talk(hotkey : str = 'num 0'):
     """

@@ -28,6 +28,8 @@ her temporary memory with the comments.
 - Implemented previous messages removal after Aiko picks a chat message
 0.7.7
 - User can now choose to immediately generate a completion when side prompting
+0.7.8
+- Implemented .ini configuration file
     ===================================================================== '''
 
 print('AikoLivestream.py: Starting...')
@@ -46,70 +48,75 @@ import keyboard                                             # for hotkeys
 import time                                                 # measures time for silence breaker
 from pytimedinput import timedInput                         # for side prompting without interruptions
 
-# --------------------------------------------------
-
-
-
-# Set livestream ID here
-chat = pytchat.create(video_id="hkEhRB16Fu0")
-
-
-
 # ------------------ Set Variables -----------------
+# reads config file
+config = ConfigParser()
+config.read('AikoPrefs.ini')
 
-breaker = 'code red'                                    # To end the program. Activated through microphone.
-patience = randint(6, 24)                               # Patience for silence breaker
-silence_breaker_time = randint(patience, 60)            # ints in which aiko is going to talk without user's input is seconds
-message_limit = 10                                      # determined length limit of the list containing messages
-chance = 1                                              # 0 no messages will be read; 100 all messages will be read
+# sets variables according to config
+breaker = config.get('GENERAL', 'breaker_phrase')            # to end the program. activated through microphone.
+username = config.get('GENERAL', 'username')                 # the name AIko will know the microphone user as
+message_limit = config.getint('LIVESTREAM', 'message_limit') # determined length limit of the list containing messages
+chance = config.getint('LIVESTREAM', 'talking_chance')       # 0 no messages will be read; 100 all messages will be read
+ptt_hotkey = config.get('LIVESTREAM', 'ptt_hotkey')          # push to talk hotkey
+sp_hotkey = config.get('LIVESTREAM', 'sp_hotkey')            # side prompt hotkey
+livestream_id = config.get('LIVESTREAM', 'liveid')           # youtube livestream ID
 
-# --------------------------------------------------
+min_silence_breaker_time = config.getint('SILENCE_BREAKER', 'min_silence_breaker_time')
+max_silence_breaker_time = config.getint('SILENCE_BREAKER', 'max_silence_breaker_time')
 
-
+silence_breaker_time = randint(                              # time in seconds for silence breaker to trigger
+min_silence_breaker_time,                                    
+max_silence_breaker_time
+)
 
 # ------------------ Variables ---------------------
+# controls loop execution
 to_break = False
 
+# starts a chat instance
+chat = pytchat.create(video_id=livestream_id)
+
+# threading locks
 message_lists_lock = Lock()
 side_prompt_queue_lock = Lock()
 is_saying_lock = Lock()
 
+# list which will store live chat messages
 messages = []
 
-# Everytime an item is added to the messages list, a bool should also be added to this list.
-# If the added message is a microphone message, the bool should be True, else, it should be False.
+# everytime an item is added to the messages list, a bool should also be added to this list.
+# if the added message is a microphone message, the bool should be True, else, it should be False.
 message_priorities = [] 
 
-# starts aiko functionality variables
-
-username = txt_to_string('username.txt')
+# sets strings for prompting
 personality = txt_to_string('AIko.txt')
 context_start = 'For context, here are our last interactions:'
 sideprompt_start = 'And to keep you up to date, here are a few facts:'
 
+# creates lists which will store context
 context_list = create_context_list()
 side_prompts_list = create_context_list()
 
+# creates strings which will store context
 side_prompts_string = 'EMPTY'
 context_string = 'EMPTY'
 
+# creates a log instance
 log = create_log()
 
+# saves silence breaker prompts into a list so they can be randomly chosen when silence breaker triggers
 time_out_prompts = txt_to_list('silence_breaker_prompts.txt')
 
+# side prompting variables
 is_side_prompt_queued = False
 queued_side_prompt = ''
 
-# --------------------------------------------------
-
-
 
 #--------------------------------------- THREADED FUNCTIONS -----------------------------------------------------
-
-
-def thread_hotkeys():
+def thread_hotkeys(ptt_hotkey : str = ptt_hotkey, sp_hotkey : str = sp_hotkey ):
     """
-    Listens for push to talk key presses and side prompting key presses.
+    Listens for key presses, executes code if the specified keys are pressed.
 
     Push to talk:
     If push to talk key is pressed, it records audio from the user's microphone and transcribes it to a string
@@ -127,9 +134,6 @@ def thread_hotkeys():
     global side_prompts_string
     global is_side_prompt_queued
     global queued_side_prompt
-
-    ptt_hotkey = 'num minus' # push to talk hotkey
-    sp_hotkey = 'num plus'   # side prompt hotkey
 
     while not to_break:
         # push to talk
@@ -171,9 +175,6 @@ def thread_hotkeys():
         # to save on cpu usage
         sleep(0.1)
 
-
-
-
 def thread_read_chat():
     """
     Adds chat messages to a queue list. Removes the first item (oldest item) from the list if the length
@@ -208,7 +209,6 @@ def thread_read_chat():
 
         # to keep CPU usage from maxing out
         sleep(0.1)
-
 
 def thread_talk():
     """
@@ -454,8 +454,8 @@ def thread_talk():
         prompt = messages[prompt_index][0]
         author = messages[prompt_index][1]
 
-        messages = messages[prompt_index+1 : ]
-        message_priorities = message_priorities[promt_index+1 : ]
+        messages = messages[prompt_index + 1 : ]
+        message_priorities = message_priorities[prompt_index + 1 : ]
 
 
         print(f'Picked CHAT message to answer:')
@@ -495,8 +495,7 @@ def thread_talk():
 
         t_0 = time.time()       # restarts the timer
 
-
-# ---------------------------------- END OF THREADED FUNCTIONS --------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------
 
 
 

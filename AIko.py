@@ -14,27 +14,16 @@ txt files:
 - AIko.txt
 - time_out_prompts.txt
 - key_openai.txt
-- username.txt
 
 Changelog:
 
-070:
-- Moved all context functionality into the new general use update_context() function.
-071:
-- Implemented dynamic summarization in the interaction loop.
-- Removed context summarization in favor of context summarization
-072:
-- Removed leftover context summarization functions.
-- Added evaluate_then_summarize() function as a general use dynamic summarization function.
-0721:
-- Added log (log filename) parameter to evaluate_then_summarize() function.
-0722:
-- Fixed missing parameter exception when trying to call evaluate function from the interaction loop.
+080:
+- Implemented .ini configuration file.
 ===============================================================================================================================
 """ 
 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko0722').upper()
+build_version = ('Aiko080').upper()
 
 print(f'{build_version}: Starting...')
 print()
@@ -47,18 +36,21 @@ from AikoSpeechInterface import listen # speech to text function
 from datetime import datetime          # for logging
 from pytimedinput import timedInput    # input with timeout
 from random import randint             # random number generator
+from configparser import ConfigParser  # ini file config
 
 # -------------------------------------------
 
 
 
 # ------------- Set variables ---------------
+# reads config file
+config = ConfigParser()
+config.read('AikoPrefs.ini')
 
-patience = randint(6, 24)                                         # patience
-breaker = "code red"                                              # breaker phrase for aiko's interaction loop
-context_start = f'For context, here are our last interactions:'   # prepares aiko's context variables
-# dynamic summarization instruction
-summarization_instruction = "Summarize this shortly without removing core info:"
+# sets variables according to config
+breaker = config.get('GENERAL', 'breaker_phrase')
+summarization_instruction = config.get('SUMMARIZATION', 'summary_instruction')
+context_character_limit = config.getint('SUMMARIZATION', 'context_character_limit')
 
 # -------------------------------------------
 
@@ -236,7 +228,7 @@ def update_context(latest_context : str, contexts_list : list):
 def evaluate_then_summarize(
   context : str,
   log : str,
-  max_length : int = 400,
+  max_length : int = context_character_limit,
   instruction : str = 'Summarize this shortly without removing core info:',
   ):
 
@@ -259,9 +251,8 @@ def evaluate_then_summarize(
 
 if __name__ == "__main__":
 
-  # saves the user's name into a string
-
-  username = txt_to_string('username.txt')
+  # gets the user's name from config
+  username = config.get('GENERAL', 'username')
 
   # saves the time out prompts into a list
 
@@ -279,9 +270,17 @@ if __name__ == "__main__":
 
   context_list = create_context_list()
 
+  # sentence written before main context string in prompt, to make things clear for AIko
+
+  context_start = f'For context, here are our last interactions:'
+
   # memory string used to hold context strings
 
   aikos_memory = 'EMPTY'
+
+  # sets silence breaker times
+  min_silence_breaker_time = config.getint('SILENCE_BREAKER', 'min_silence_breaker_time')
+  max_silence_breaker_time = config.getint('SILENCE_BREAKER', 'max_silence_breaker_time')
 
   # prompts the user to choose a prompting method. defaults to text if input is invalid.
 
@@ -298,7 +297,10 @@ if __name__ == "__main__":
 
     # how long aiko waits for user input before getting impatient
 
-    silence_breaker_time = randint(patience, 60)
+    silence_breaker_time = randint(
+    min_silence_breaker_time,
+    max_silence_breaker_time
+    )
 
     # asks the user for input depending on the chosen input method
   
@@ -332,7 +334,7 @@ if __name__ == "__main__":
     print()
 
     # voices aiko. set elevenlabs = True if you want to use elevenlabs TTS (needs elevenlabs API key set in key_elevenlabs.txt)
-    say(text=aiko_completion_text, elevenlabs = False, audiodevice = "2")
+    say(text=aiko_completion_text)
 
     # updates log
     update_log(log, user_input, aiko_completion_request, True, aikos_memory)

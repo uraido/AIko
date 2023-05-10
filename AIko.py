@@ -19,11 +19,13 @@ Changelog:
 
 080:
 - Implemented .ini configuration file.
+0801:
+- Fixed bug where setting the summarization instruction in the .ini file had no actual effect.
 ===============================================================================================================================
 """ 
 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko080').upper()
+build_version = ('Aiko0801').upper()
 
 print(f'{build_version}: Starting...')
 print()
@@ -229,7 +231,7 @@ def evaluate_then_summarize(
   context : str,
   log : str,
   max_length : int = context_character_limit,
-  instruction : str = 'Summarize this shortly without removing core info:',
+  instruction : str = summarization_instruction,
   ):
 
   '''
@@ -343,7 +345,7 @@ if __name__ == "__main__":
     context = f'{username}: {user_input} | Aiko: {aiko_completion_text}'
 
     # summarizes context if it exceeds the length limit
-    context = evaluate_then_summarize(context, log = log, instruction = summarization_instruction)
+    context = evaluate_then_summarize(context, log = log)
 
     # updates context
     aikos_memory = update_context(context, context_list)

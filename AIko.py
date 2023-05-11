@@ -30,7 +30,7 @@ Changelog:
 """ 
 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko0802').upper() 
+build_version = ('Aiko081').upper() 
 
 print(f'{build_version}: Starting...')
 print()

@@ -36,7 +36,7 @@ when calling the say() function.
 0501:
 - Added AIkoINIhandler.py as a dependency.
 051:
-- Improved even more say() function exception
+- Further improved say() function exception handling.
 """
 
 print('AikoSpeechInterface.py: Starting...')

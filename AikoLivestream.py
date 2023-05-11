@@ -5,7 +5,7 @@ Script for livestreaming with AIko in youtube.
 Requirements:
 - AikoSpeechInterface.py (5.0 or greater) and its requirements
 - AIko.py (0.8.0 or greater) and its requirements
-- AikoPrefs.ini
+- AikoINIhandler.py
 
 pip install:
 - pytchat
@@ -36,10 +36,17 @@ her temporary memory with the comments.
 - Implemented .ini configuration file
 0.7.9
 - Removed 'exceedancy' message list limit control in favor of the 'removing previous messages' way to do it.
+0.7.91
+- Added AIkoINIhandler.py as a dependency.
+- Will ask the user for a livestream ID if it is not set in the INI file.
     ===================================================================== '''
 
 print('AikoLivestream.py: Starting...')
 print()
+
+if __name__ == '__main__':
+    from AikoINIhandler import handle_ini
+    handle_ini()
 
 # -------------------- Imports ---------------------
 
@@ -79,8 +86,20 @@ max_silence_breaker_time
 # controls loop execution
 to_break = False
 
-# starts a chat instance
-chat = pytchat.create(video_id=livestream_id)
+# attempts starts a chat instance
+try:
+    chat = pytchat.create(video_id=livestream_id)
+
+# asks for the user to set the livestream ID if it fails
+except pytchat.exceptions.InvalidVideoIdException:
+    print('Livestream ID is either not set in INI or invalid.')
+    livestream_id = input('Please set it now: ')
+    chat = pytchat.create(video_id=livestream_id)
+
+    # writes the set livestream ID to the INI file
+    config.set('LIVESTREAM', 'liveid', livestream_id)
+    with open('AikoPrefs.ini', 'w') as configfile:
+        config.write(configfile)
 
 # threading locks
 message_lists_lock = Lock()

@@ -7,6 +7,7 @@ Library of text to speech functions for Aiko.
 Requirements:
 
 - mpg123 and ffmpeg installed and added to PATH
+- AikoINIhandler.py
 
 pip install:
 
@@ -32,10 +33,16 @@ say() function.
 - If azure or elevenlabs text to speech fail to start, the speech method is set to GTTS to avoid error message spam
 when calling the say() function.
 - Rewrote say() function for better exception handling.
+0501:
+- Added AIkoINIhandler.py as a dependency.
 """
 
 print('AikoSpeechInterface.py: Starting...')
 print()
+
+if __name__ == '__main__':
+    from AikoINIhandler import handle_ini
+    handle_ini()
 
 import gtts                                         # text to mp3 file
 import os                                           # to play audio file using mpg123

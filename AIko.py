@@ -2,7 +2,8 @@
 AIko.py
 
 Requirements:
-- AikoSpeechInterface.py (3.1 or greater) and its requirements
+- AikoSpeechInterface.py (5.0 or greater) and its requirements
+- AikoINIhandler.py
 
 pip install:
 - openai
@@ -21,14 +22,20 @@ Changelog:
 - Implemented .ini configuration file.
 0801:
 - Fixed bug where setting the summarization instruction in the .ini file had no actual effect.
+0802:
+- Added AIkoINIhandler.py as a dependency.
 ===============================================================================================================================
 """ 
 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko0801').upper()
+build_version = ('Aiko0802').upper() 
 
 print(f'{build_version}: Starting...')
 print()
+
+if __name__ == '__main__':
+  from AikoINIhandler import handle_ini
+  handle_ini()
 
 # ----------------- Imports -----------------
 
@@ -45,6 +52,7 @@ from configparser import ConfigParser  # ini file config
 
 
 # ------------- Set variables ---------------
+
 # reads config file
 config = ConfigParser()
 config.read('AikoPrefs.ini')

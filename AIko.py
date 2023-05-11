@@ -24,6 +24,8 @@ Changelog:
 - Fixed bug where setting the summarization instruction in the .ini file had no actual effect.
 0802:
 - Added AIkoINIhandler.py as a dependency.
+081:
+- Memory slot limit is now configurable.
 ===============================================================================================================================
 """ 
 
@@ -59,6 +61,7 @@ config.read('AikoPrefs.ini')
 
 # sets variables according to config
 breaker = config.get('GENERAL', 'breaker_phrase')
+context_slots = config.getint('GENERAL', 'context_slots')
 summarization_instruction = config.get('SUMMARIZATION', 'summary_instruction')
 context_character_limit = config.getint('SUMMARIZATION', 'context_character_limit')
 
@@ -73,7 +76,7 @@ openai.api_key = open("key_openai.txt", "r").read().strip('\n')
 
 # ------------------------------------------- functions -----------------------------------------------
 
-def create_context_list(length : int = 5):
+def create_context_list(length : int = context_slots):
   '''
   Returns a limited list of empty strings.
   '''

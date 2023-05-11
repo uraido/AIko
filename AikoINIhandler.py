@@ -26,7 +26,8 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
     # the options each section should contain, followed by their default values and comments.
     GENERAL = [
         ('username', 'Ulaidh'),
-        ('breaker_phrase', 'code red')
+        ('breaker_phrase', 'code red'),
+        ('context_slots', '5')
     ]
 
     SPEECH_INTERFACE = [

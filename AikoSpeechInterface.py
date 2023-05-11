@@ -35,6 +35,8 @@ when calling the say() function.
 - Rewrote say() function for better exception handling.
 0501:
 - Added AIkoINIhandler.py as a dependency.
+051:
+- Improved even more say() function exception
 """
 
 print('AikoSpeechInterface.py: Starting...')
@@ -160,7 +162,7 @@ def generate_tts_gtts(text : str, tld = 'us', lang = 'en', slow = False):
     slow (bool): Whether to speak slowly or not.
         """
     audio_file = "audio.mp3"
-    gtts.gTTS(text, tld= tld, lang = lang, slow = slow).save(audio_file)
+    gtts.gTTS(text, tld = tld, lang = lang, slow = slow).save(audio_file)
 
     return(audio_file)
 
@@ -279,6 +281,7 @@ def say(text: str, method : str = tts_method, pitch_shift : float = pitch_shift,
 
         tts_exception = True
 
+        print('AikoSpeechInterface.py:')
         print(f'Failed to generate {tts_method} tts.')
         print('Error:', e)
         print('Defaulting to gtts...')
@@ -290,21 +293,31 @@ def say(text: str, method : str = tts_method, pitch_shift : float = pitch_shift,
         try:
             audio = generate_tts_gtts(text)
         except Exception as e:
-
-            print(f'Failed to generate {tts_method} tts.')
+            
+            print('AikoSpeechInterface.py:')
+            print(f'Failed to generate GTTS tts.')
             print('Error:', e)
-            print('Defaulting to gtts...')
             print()
 
     
     # applies pitch shift, if appliable
-    if pitch_shift > 0:
-        modify_pitch(audio, 'mod_audio.wav', pitch_shift)
-        audio = 'mod_audio.wav'
+    try:
+        if pitch_shift > 0:
+            modify_pitch(audio, 'mod_audio.wav', pitch_shift)
+            audio = 'mod_audio.wav'
+    except Exception as e:
+        print('AikoSpeechInterface.py: Error modifying pitch')
+        print(e)
+        print()
 
     # plays generated audio file and removes it
-    os.system(f"mpg123 -q --audiodevice {audiodevice} {audio}")
-    os.remove(audio)
+    try:
+        os.system(f"mpg123 -q --audiodevice {audiodevice} {audio}")
+        os.remove(audio)
+    except Exception as e:
+        print('AikoSpeechInterface.py: Error playing audio')
+        print(e)
+        print()
 
 def start_push_to_talk(hotkey : str = 'num 0'):
     """

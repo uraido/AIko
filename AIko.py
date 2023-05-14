@@ -26,11 +26,13 @@ Changelog:
 - Added AIkoINIhandler.py as a dependency.
 081:
 - Memory slot limit is now configurable.
+082:
+- Implemented exception handling into generate_gpt_completion() and evaluate_then_summarize()
 ===============================================================================================================================
 """ 
 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko081').upper() 
+build_version = ('Aiko082').upper() 
 
 print(f'{build_version}: Starting...')
 print()
@@ -126,14 +128,19 @@ def generate_gpt_completion(system_message, user_message):
         the number of tokens used from the generated completion, and the total number of tokens used.
     :rtype: tuple
     """
+    try:
+      completion_request = openai.ChatCompletion.create(
+        model = "gpt-3.5-turbo", 
+        messages = [
+        {"role":"system", "content": system_message},
+        {"role":"user", "content": user_message}]
 
-    completion_request = openai.ChatCompletion.create(
-      model = "gpt-3.5-turbo", 
-      messages = [
-      {"role":"system", "content": system_message},
-      {"role":"user", "content": user_message}]
-
-    )
+      )
+    except openai.error.RateLimitError as e:
+      print('Aiko.py:')
+      print(e)
+      print()
+      return('', (0,0,0))
 
     completion_text = completion_request.choices[0].message.content
     completion_token_usage_data = (completion_request.usage.prompt_tokens, completion_request.usage.completion_tokens, completion_request.usage.total_tokens)
@@ -254,6 +261,10 @@ def evaluate_then_summarize(
   if len(context) > max_length:
     summary_request = generate_gpt_completion(instruction, context)
     update_log(log, f'{instruction} {context}', summary_request)
+
+    # returns if the summary request fails
+    if summary_request[0] == '':
+      return context
 
     context = summary_request[0]
 

@@ -369,34 +369,14 @@ def start_push_to_talk(hotkey : str = 'num 0'):
         os.remove(WAVE_OUTPUT_FILENAME)
         return stt
     except Exception as e:
+        print('AikoSpeechInterface.py:')
         print(f'Could not transcribe push to talk: {e}')
+        print()
         return ''
 
 if __name__ == "__main__":
-    
-    # for testing push to talk
-    '''hotkey = 'num 2'
-    while True:
-        if keyboard.is_pressed(hotkey):
-            stt = start_push_to_talk(hotkey)
-            print(stt)
-
-            if 'code red' in stt.lower():
-                break
-
-        sleep(0.1)'''
-
-    # for testing google speech recognition
-
-    #print(listen('Listening...', 'hey'))
-
-    # for testing the say function
-
-    #say("Hello Rchart-Kun! 1", audiodevice = 1)
+    # for testing audio devices
+    say("Hello Rchart-Kun! 1", audiodevice = 1)
     say("Hello Rchart-Kun! 2", audiodevice = 2)
-    #say("Hello Rchart-Kun! 3", audiodevice = 3)
-    #say("Hello Rchart-Kun! 4", audiodevice = 4)
-
-    # for testing elevenlabs voice
-
-    #say("Hello Rchart-Kun!", elevenlabs=True)
+    say("Hello Rchart-Kun! 3", audiodevice = 3)
+    say("Hello Rchart-Kun! 4", audiodevice = 4)

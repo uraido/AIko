@@ -74,7 +74,7 @@ pitch_shift = config.getfloat('SPEECH_INTERFACE', 'pitch_shift')
 # attempts to starts elevenlabs tts, if set in the config
 if tts_method == 'elevenlabs':
     try:
-        user = ElevenLabsUser(open("key_elevenlabs.txt", "r").read().strip('\n'))
+        user = ElevenLabsUser(open("keys/key_elevenlabs.txt", "r").read().strip('\n'))
         voice = user.get_voices_by_name(elevenlabs_voice)[0]
     except Exception as e:
         tts_method = 'gtts'
@@ -89,7 +89,7 @@ if tts_method == 'elevenlabs':
 elif tts_method == 'azure':
     try:
         speech_config = speechsdk.SpeechConfig(
-        subscription=open("key_azurespeech.txt", "r").read().strip('\n'),
+        subscription=open("keys/key_azurespeech.txt", "r").read().strip('\n'),
         region=azure_region
         )
 
@@ -117,7 +117,7 @@ else:
 
 # attempts to set openAI API key. required for whisperAPI TTS
 try:
-    openai.api_key = open("key_openai.txt", "r").read().strip('\n')
+    openai.api_key = open("keys/key_openai.txt", "r").read().strip('\n')
 except Exception as e:
     print('AikoSpeechInterface:')
     print('OpenAI API key failed to be set.')

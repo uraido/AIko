@@ -8,7 +8,7 @@ from AIko import *
 
 intents = discord.Intents.all()
 client = discord.Client(intents = intents)
-discord_token = open("discord_token.txt", "r").read().strip('\n')
+discord_token = open("keys/discord_token.txt", "r").read().strip('\n')
 
 # aiko functionality related variables
 

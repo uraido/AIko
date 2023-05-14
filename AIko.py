@@ -26,13 +26,13 @@ Changelog:
 - Added AIkoINIhandler.py as a dependency.
 081:
 - Memory slot limit is now configurable.
-082:
+083:
 - Implemented exception handling into generate_gpt_completion() and evaluate_then_summarize()
 ===============================================================================================================================
 """ 
 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko082').upper() 
+build_version = ('Aiko083').upper() 
 
 print(f'{build_version}: Starting...')
 print()
@@ -64,6 +64,7 @@ config.read('AikoPrefs.ini')
 # sets variables according to config
 breaker = config.get('GENERAL', 'breaker_phrase')
 context_slots = config.getint('GENERAL', 'context_slots')
+dynamic_scenarios = config.getboolean('GENERAL', 'dynamic_scenarios')
 summarization_instruction = config.get('SUMMARIZATION', 'summary_instruction')
 context_character_limit = config.getint('SUMMARIZATION', 'context_character_limit')
 
@@ -72,7 +73,7 @@ context_character_limit = config.getint('SUMMARIZATION', 'context_character_limi
 
 
 # Set OpenAPI key here
-openai.api_key = open("key_openai.txt", "r").read().strip('\n')
+openai.api_key = open("keys/key_openai.txt", "r").read().strip('\n')
 
 
 
@@ -181,7 +182,7 @@ def create_log():
   with open(r'log/{}.txt'.format(time), 'w') as log:
     log.write(f'{hour} AIKO.PY BUILD VERSION: {build_version} \n')
     log.write(f'{hour} AIko.txt: \n')
-    with open('AIko.txt', 'r') as aiko_txt:
+    with open('prompts/AIko.txt', 'r') as aiko_txt:
       for line in aiko_txt:
         log.write(line)
     log.write('\n')
@@ -280,11 +281,20 @@ if __name__ == "__main__":
 
   # saves the time out prompts into a list
 
-  time_out_prompts = txt_to_list('time_out_prompts.txt')
+  time_out_prompts = txt_to_list('prompts/time_out_prompts.txt')
     
   # gets aiko.txt and saves it into a string for prompting gpt3
 
-  personality = txt_to_string('AIko.txt')
+  personality = txt_to_string('prompts/AIko.txt')
+
+  # saves the scenarios into a list
+
+  scenarios = txt_to_list('prompts/scenarios.txt')
+
+  # picks a random scenario and adds it to the personality prompt
+  if dynamic_scenarios:
+    scenario = scenarios[randint(0, len(scenarios) - 1)]
+    personality += scenario
 
   # creates the log with initial info and saves the logs filename into a variable
 
@@ -332,7 +342,7 @@ if __name__ == "__main__":
 
     # prepares system message to generate the completion
 
-    system_role_aiko = f'{personality} {context_start} ### {aikos_memory} ###'
+    system_role_aiko = f'{personality} {context_start} {aikos_memory}'
 
 
     if timed_out:
@@ -346,7 +356,7 @@ if __name__ == "__main__":
 
     # prepares user message to generate the completion
 
-    user_role_aiko = f'{username}: ### {user_input} ### Aiko: '
+    user_role_aiko = f'{username}: {user_input} Aiko: '
 
     # requests the completion and saves it into a string
 

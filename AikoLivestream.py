@@ -114,7 +114,7 @@ messages = []
 message_priorities = [] 
 
 # sets strings for prompting
-personality = txt_to_string('AIko.txt')
+personality = txt_to_string('prompts/AIko.txt')
 context_start = 'For context, here are our last interactions:'
 sideprompt_start = 'And to keep you up to date, here are a few facts:'
 
@@ -130,7 +130,7 @@ context_string = 'EMPTY'
 log = create_log()
 
 # saves silence breaker prompts into a list so they can be randomly chosen when silence breaker triggers
-time_out_prompts = txt_to_list('silence_breaker_prompts.txt')
+time_out_prompts = txt_to_list('prompts/silence_breaker_prompts.txt')
 
 # side prompting variables
 is_side_prompt_queued = False

@@ -28,7 +28,8 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
         ('username', 'Ulaidh'),
         ('breaker_phrase', 'code red'),
         ('context_slots', '5'),
-        ('dynamic_scenarios', 'True')
+        ('dynamic_scenarios', 'True'),
+        ('completion_timeout', '10')
     ]
 
     SPEECH_INTERFACE = [

@@ -39,6 +39,8 @@ her temporary memory with the comments.
 0.7.91
 - Added AIkoINIhandler.py as a dependency.
 - Will ask the user for a livestream ID if it is not set in the INI file.
+0.7.92
+- Now uses new generate_gpt_completion_timeout() function instead of regular version
     ===================================================================== '''
 
 print('AikoLivestream.py: Starting...')
@@ -296,7 +298,7 @@ def thread_talk():
 
             user_message = f"System: ### {prompt} ### Aiko: "
 
-            completion_request = generate_gpt_completion(system_message, user_message)
+            completion_request = generate_gpt_completion_timeout(system_message, user_message)
             print(f'Aiko: {completion_request[0]}')
             
             # voices aiko's answer
@@ -353,7 +355,7 @@ def thread_talk():
 
                 user_message = f"System: ### {prompt} ### Aiko: "
 
-                completion_request = generate_gpt_completion(system_message, user_message)
+                completion_request = generate_gpt_completion_timeout(system_message, user_message)
                 print(f'Aiko: {completion_request[0]}')
                 
                 # voices aiko's answer
@@ -411,7 +413,7 @@ def thread_talk():
 
             user_message = f"{username}: ### {prompt} ### Aiko: "
 
-            completion_request = generate_gpt_completion(system_message, user_message)
+            completion_request = generate_gpt_completion_timeout(system_message, user_message)
             print(f'Aiko: {completion_request[0]}')
             
             # voices aiko's answer
@@ -476,7 +478,7 @@ def thread_talk():
 
         user_message = f"(Live Viewer) {author}: ### {prompt} ### Aiko: "
 
-        completion_request = generate_gpt_completion(system_message, user_message)
+        completion_request = generate_gpt_completion_timeout(system_message, user_message)
         print(f'Aiko: {completion_request[0]}')
         
         # voices aiko's answer

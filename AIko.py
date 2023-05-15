@@ -31,11 +31,15 @@ Changelog:
 - Implemented exception handling into generate_gpt_completion() and evaluate_then_summarize()
 083:
 - Implemented dynamic scenarios
+084:
+- Further improved completion exception handling by adding the generate_gpt_completion_timeout() function,
+which can be useful for circumventing RateLimit errors when the openAI API is overloaded. Default time out
+can be configured in the INI.
 ===============================================================================================================================
 """ 
 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko083').upper() 
+build_version = ('Aiko084').upper() 
 
 print(f'{build_version}: Starting...')
 print()
@@ -53,6 +57,7 @@ from datetime import datetime          # for logging
 from pytimedinput import timedInput    # input with timeout
 from random import randint             # random number generator
 from configparser import ConfigParser  # ini file config
+from func_timeout import func_timeout, FunctionTimedOut # for handling openAI ratelimit errors
 
 # -------------------------------------------
 
@@ -68,6 +73,7 @@ config.read('AikoPrefs.ini')
 breaker = config.get('GENERAL', 'breaker_phrase')
 context_slots = config.getint('GENERAL', 'context_slots')
 dynamic_scenarios = config.getboolean('GENERAL', 'dynamic_scenarios')
+completion_timeout = config.getint('GENERAL', 'completion_timeout')
 summarization_instruction = config.get('SUMMARIZATION', 'summary_instruction')
 context_character_limit = config.getint('SUMMARIZATION', 'context_character_limit')
 
@@ -117,39 +123,59 @@ def txt_to_string(filename: str):
         return None
     return string
 
-def generate_gpt_completion(system_message, user_message):
-    """
-    Generate a text completion for the given user message, with the help of a system message, using the OpenAI GPT-3.5-Turbo model.
+def generate_gpt_completion(system_message : str, user_message : str):
+  """
+  Generate a text completion for the given user message, with the help of a system message, using the OpenAI GPT-3.5-Turbo model.
 
-    :param system_message: The system message to provide additional context or guidance to the model.
-    :type system_message: str
+  :param system_message: The system message to provide additional context or guidance to the model.
+  :type system_message: str
 
-    :param user_message: The user message to generate a completion for.
-    :type user_message: str
+  :param user_message: The user message to generate a completion for.
+  :type user_message: str
 
-    :return: A tuple containing the completion text as a string and usage data for the generated tokens.
-        The usage data is a tuple containing three integers: the number of tokens used from the prompt,
-        the number of tokens used from the generated completion, and the total number of tokens used.
-    :rtype: tuple
-    """
-    try:
-      completion_request = openai.ChatCompletion.create(
-        model = "gpt-3.5-turbo", 
-        messages = [
-        {"role":"system", "content": system_message},
-        {"role":"user", "content": user_message}]
+  :return: A tuple containing the completion text as a string and usage data for the generated tokens.
+      The usage data is a tuple containing three integers: the number of tokens used from the prompt,
+      the number of tokens used from the generated completion, and the total number of tokens used.
+  :rtype: tuple
+  """
 
-      )
-    except openai.error.RateLimitError as e:
-      print('Aiko.py:')
-      print(e)
-      print()
-      return('', (0,0,0))
+  try:
+    request = openai.ChatCompletion.create(
+      model = "gpt-3.5-turbo",
+      messages = [{"role":"system", "content": system_message},
+    {"role":"user", "content": user_message}]
+    )
 
-    completion_text = completion_request.choices[0].message.content
-    completion_token_usage_data = (completion_request.usage.prompt_tokens, completion_request.usage.completion_tokens, completion_request.usage.total_tokens)
+    completion = request.choices[0].message.content
+    token_usage = (request.usage.prompt_tokens, request.usage.completion_tokens, request.usage.total_tokens)
 
-    return (completion_text, completion_token_usage_data)
+    return (completion, token_usage)
+
+  except openai.error.RateLimitError as e:
+    print('Aiko.py:')
+    print(e)
+    print()
+
+    return('', (0,0,0))
+
+def generate_gpt_completion_timeout(system_message : str, user_message : str, timeout : int = completion_timeout):
+  """
+  Requests a completion under a set timeout in seconds. 
+  If the first request fails to return a value under the set time out value, a second request is made.
+  Useful for circumventing RateLimit errors when the OpenAI API is overloaded.
+
+  Returns a tuple containing:
+  - Str, Completion text
+  - Tuple, usage data in tokens.
+
+  """
+
+  try:
+    completion_request = func_timeout(timeout, generate_gpt_completion, args = (system_message, user_message))
+  except FunctionTimedOut:
+    completion_request = generate_gpt_completion(system_message, user_message)
+    
+  return (completion_request)
 
 def get_user_input(timer : int, user : str):
   """
@@ -266,7 +292,7 @@ def evaluate_then_summarize(
     summary_request = generate_gpt_completion(instruction, context)
     update_log(log, f'{instruction} {context}', summary_request)
 
-    # returns if the summary request fails
+    # returns context without changes if the summary request fails
     if summary_request[0] == '':
       return context
 
@@ -363,12 +389,11 @@ if __name__ == "__main__":
 
     # requests the completion and saves it into a string
 
-    aiko_completion_request = generate_gpt_completion(system_role_aiko, user_role_aiko)
+    aiko_completion_request = generate_gpt_completion_timeout(system_role_aiko, user_role_aiko)
 
     aiko_completion_text = aiko_completion_request[0]
 
     print("Aiko: " + aiko_completion_text)
-    print()
 
     # voices aiko. set elevenlabs = True if you want to use elevenlabs TTS (needs elevenlabs API key set in key_elevenlabs.txt)
     say(text=aiko_completion_text)

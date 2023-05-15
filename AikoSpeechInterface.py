@@ -37,6 +37,9 @@ when calling the say() function.
 - Added AIkoINIhandler.py as a dependency.
 051:
 - Further improved say() function exception handling.
+052:
+- Say() function now writes its "text" parameter to a txt file, allowing software like OBS to display
+captions.
 """
 
 print('AikoSpeechInterface.py: Starting...')
@@ -256,6 +259,8 @@ def say(text: str, method : str = tts_method, pitch_shift : float = pitch_shift,
     By default, the function uses Azure TTS to generate the audio. If that fails,
     it falls back to Google TTS. If the `elevenlabs` parameter is set to `True`,
     the function uses Elevenlabs TTS instead of Azure TTS.
+    Also saves text parameter into a .txt file (captions.txt) so it can be used to generate captions
+    when using software such as OBS.
 
     Args:
         text (str): The text to be spoken.
@@ -267,6 +272,10 @@ def say(text: str, method : str = tts_method, pitch_shift : float = pitch_shift,
             Defaults to config file.
     """
     tts_exception = False
+
+    # writes said text to txt file so OBS can read it to display it on screen
+    with open('captions.txt', 'w') as captions:
+        captions.write(text)
 
     # synthesizes text to speech using selected method (azure, elevenlabs)
     try:
@@ -310,10 +319,14 @@ def say(text: str, method : str = tts_method, pitch_shift : float = pitch_shift,
         print(e)
         print()
 
-    # plays generated audio file and removes it
     try:
+
+        # plays generated audio file and removes it
         os.system(f"mpg123 -q --audiodevice {audiodevice} {audio}")
         os.remove(audio)
+
+        # removes captions file after audio is done playing
+        os.remove('captions.txt')
     except Exception as e:
         print('AikoSpeechInterface.py: Error playing audio')
         print(e)

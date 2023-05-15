@@ -15,6 +15,7 @@ txt files:
 - AIko.txt
 - time_out_prompts.txt
 - key_openai.txt
+- scenarios.txt
 
 Changelog:
 
@@ -26,8 +27,10 @@ Changelog:
 - Added AIkoINIhandler.py as a dependency.
 081:
 - Memory slot limit is now configurable.
-083:
+082:
 - Implemented exception handling into generate_gpt_completion() and evaluate_then_summarize()
+083:
+- Implemented dynamic scenarios
 ===============================================================================================================================
 """ 
 

@@ -35,6 +35,9 @@ Changelog:
 - Further improved completion exception handling by adding the generate_gpt_completion_timeout() function,
 which can be useful for circumventing RateLimit errors when the openAI API is overloaded. Default time out
 can be configured in the INI.
+085:
+- Inverted the order that personality and context are placed in the final prompt. Now, context comes first
+and personality comes last, to make sure Aiko's personality remains consistent, regardless of context.
 ===============================================================================================================================
 """ 
 
@@ -335,7 +338,7 @@ if __name__ == "__main__":
 
   # sentence written before main context string in prompt, to make things clear for AIko
 
-  context_start = f'For context, here are our last interactions:'
+  context_start = f'You are Aiko. Here are our last interactions with Aiko:'
 
   # memory string used to hold context strings
 
@@ -371,7 +374,7 @@ if __name__ == "__main__":
 
     # prepares system message to generate the completion
 
-    system_role_aiko = f'{personality} {context_start} {aikos_memory}'
+    system_role_aiko = f'{context_start} {aikos_memory} {personality}'
 
 
     if timed_out:

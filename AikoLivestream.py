@@ -41,6 +41,9 @@ her temporary memory with the comments.
 - Will ask the user for a livestream ID if it is not set in the INI file.
 0.7.92
 - Now uses new generate_gpt_completion_timeout() function instead of regular version
+0.7.93
+- Inverted the order that personality and context are placed in the final prompt. Now, context comes first
+and personality comes last, to make sure Aiko's personality remains consistent, regardless of context.
     ===================================================================== '''
 
 print('AikoLivestream.py: Starting...')
@@ -294,7 +297,7 @@ def thread_talk():
             # generates aiko's answer
 
             system_message = \
-            f'{personality} {context_start} ### {context_string} ### {sideprompt_start} ### {side_prompts_string} ###'
+            f'{context_start} ### {context_string} ### {sideprompt_start} ### {side_prompts_string} ### {personality}'
 
             user_message = f"System: ### {prompt} ### Aiko: "
 
@@ -351,7 +354,7 @@ def thread_talk():
                 # generates aiko's answer
 
                 system_message = \
-                f'{personality} {context_start} ### {context_string} ### {sideprompt_start} ### {side_prompts_string} ###'
+                f'{context_start} ### {context_string} ### {sideprompt_start} ### {side_prompts_string} ### {personality}'
 
                 user_message = f"System: ### {prompt} ### Aiko: "
 
@@ -409,7 +412,7 @@ def thread_talk():
             # generates aiko's answer
 
             system_message = \
-            f'{personality} {context_start} ### {context_string} ### {sideprompt_start} ### {side_prompts_string} ###'
+            f'{context_start} ### {context_string} ### {sideprompt_start} ### {side_prompts_string} ### {personality}'
 
             user_message = f"{username}: ### {prompt} ### Aiko: "
 
@@ -474,7 +477,7 @@ def thread_talk():
         # generates aiko's answer
 
         system_message = \
-        f'{personality} {context_start} ### {context_string} ### {sideprompt_start} ### {side_prompts_string} ###'
+        f'{context_start} ### {context_string} ### {sideprompt_start} ### {side_prompts_string} ### {personality}'
 
         user_message = f"(Live Viewer) {author}: ### {prompt} ### Aiko: "
 

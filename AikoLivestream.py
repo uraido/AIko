@@ -44,6 +44,10 @@ her temporary memory with the comments.
 0.7.93
 - Inverted the order that personality and context are placed in the final prompt. Now, context comes first
 and personality comes last, to make sure Aiko's personality remains consistent, regardless of context.
+0.7.94
+- Moved personality to user message while keeping context and side prompts in the system message. This
+should keep Aiko from getting 'addicted' to the information stored in the context, since the system
+message has less weight.
     ===================================================================== '''
 
 print('AikoLivestream.py: Starting...')
@@ -297,9 +301,9 @@ def thread_talk():
             # generates aiko's answer
 
             system_message = \
-            f'{context_start} ### {context_string} ### {sideprompt_start} ### {side_prompts_string} ### {personality}'
+            f'{context_start} {context_string} {sideprompt_start} {side_prompts_string}'
 
-            user_message = f"System: ### {prompt} ### Aiko: "
+            user_message = f"{personality} System: {prompt} Aiko: "
 
             completion_request = generate_gpt_completion_timeout(system_message, user_message)
             print(f'Aiko: {completion_request[0]}')
@@ -354,9 +358,9 @@ def thread_talk():
                 # generates aiko's answer
 
                 system_message = \
-                f'{context_start} ### {context_string} ### {sideprompt_start} ### {side_prompts_string} ### {personality}'
+                f'{context_start} {context_string} {sideprompt_start} {side_prompts_string}'
 
-                user_message = f"System: ### {prompt} ### Aiko: "
+                user_message = f"{personality} System: {prompt} Aiko: "
 
                 completion_request = generate_gpt_completion_timeout(system_message, user_message)
                 print(f'Aiko: {completion_request[0]}')
@@ -412,9 +416,9 @@ def thread_talk():
             # generates aiko's answer
 
             system_message = \
-            f'{context_start} ### {context_string} ### {sideprompt_start} ### {side_prompts_string} ### {personality}'
+            f'{context_start} {context_string} {sideprompt_start} {side_prompts_string}'
 
-            user_message = f"{username}: ### {prompt} ### Aiko: "
+            user_message = f"{personality} {username}: {prompt} Aiko: "
 
             completion_request = generate_gpt_completion_timeout(system_message, user_message)
             print(f'Aiko: {completion_request[0]}')
@@ -477,10 +481,9 @@ def thread_talk():
         # generates aiko's answer
 
         system_message = \
-        f'{context_start} ### {context_string} ### {sideprompt_start} ### {side_prompts_string} ### {personality}'
+        f'{context_start} {context_string} {sideprompt_start} {side_prompts_string}'
 
-        user_message = f"(Live Viewer) {author}: ### {prompt} ### Aiko: "
-
+        user_message = f"{personality} {author}: {prompt} Aiko: "
         completion_request = generate_gpt_completion_timeout(system_message, user_message)
         print(f'Aiko: {completion_request[0]}')
         
@@ -494,7 +497,7 @@ def thread_talk():
         update_log(log, prompt, completion_request, True, context_string)
 
         # prepares the latest interaction to be added to the context
-        context = f'(Live Viewer) {author}: {prompt} | Aiko: {completion_request[0]}'
+        context = f'{author}: {prompt} | Aiko: {completion_request[0]}'
 
         # summarizes the latest interaction, if necessary
         context = evaluate_then_summarize(context, log)

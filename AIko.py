@@ -38,11 +38,15 @@ can be configured in the INI.
 085:
 - Inverted the order that personality and context are placed in the final prompt. Now, context comes first
 and personality comes last, to make sure Aiko's personality remains consistent, regardless of context.
+086:
+- Moved context to the system prompt and personality to the user prompt. This seems to prevent Aiko from
+getting 'addicted' to the information stored in the context, since the system prompt has less weight on
+the output.
 ===============================================================================================================================
 """ 
 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko084').upper() 
+build_version = ('Aiko086').upper() 
 
 print(f'{build_version}: Starting...')
 print()
@@ -374,7 +378,7 @@ if __name__ == "__main__":
 
     # prepares system message to generate the completion
 
-    system_role_aiko = f'{context_start} {aikos_memory} {personality}'
+    system_role_aiko = f"{context_start} {aikos_memory} "
 
 
     if timed_out:
@@ -388,7 +392,7 @@ if __name__ == "__main__":
 
     # prepares user message to generate the completion
 
-    user_role_aiko = f'{username}: {user_input} Aiko: '
+    user_role_aiko = f'{personality} {username}: {user_input} Aiko: '
 
     # requests the completion and saves it into a string
 

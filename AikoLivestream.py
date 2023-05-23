@@ -1,5 +1,5 @@
 ''' =====================================================================
-AikoLivestream.py (v0.7.8)
+AikoLivestream.py (v080)
 Script for livestreaming with AIko in youtube.
 
 Requirements:

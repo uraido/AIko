@@ -5,49 +5,16 @@ Script for livestreaming with AIko in youtube.
 Requirements:
 - AikoSpeechInterface.py (5.0 or greater) and its requirements
 - AIko.py (0.8.0 or greater) and its requirements
-- AikoINIhandler.py
+- AikoINIhandler.py (1.0 or greater)
 
 pip install:
 - pytchat
 - keyboard
 
 Changelog:
-0.7: 
-- Added versification and instalation requirements
-- Now the "breaker" is defined out of the functions, in "Set Variables"
-0.7.1:
-- Implemented Silence Breaker
-0.7.2:
-- Implemented Side Prompting
-0.7.3:
-- Aiko will now know the username of the authors of chat comments she picks to read. Their names will also be saved in
-her temporary memory with the comments.
-- Added 'start statement' to be printed when the script starts.
-0.7.4
-- Updated to work with AIko070
-0.7.5
-- Fixed side prompting getting interrupted when messages were printed to the console.
-- Implemented dynamic summarization through the evaluate_then_summarize function from AIko072 
-0.7.6
-- Implemented previous messages removal after Aiko picks a chat message
-0.7.7
-- User can now choose to immediately generate a completion when side prompting
-0.7.8
-- Implemented .ini configuration file
-0.7.9
-- Removed 'exceedancy' message list limit control in favor of the 'removing previous messages' way to do it.
-0.7.91
-- Added AIkoINIhandler.py as a dependency.
-- Will ask the user for a livestream ID if it is not set in the INI file.
-0.7.92
-- Now uses new generate_gpt_completion_timeout() function instead of regular version
-0.7.93
-- Inverted the order that personality and context are placed in the final prompt. Now, context comes first
-and personality comes last, to make sure Aiko's personality remains consistent, regardless of context.
-0.7.94
-- Moved personality to user message while keeping context and side prompts in the system message. This
-should keep Aiko from getting 'addicted' to the information stored in the context, since the system
-message has less weight.
+080:
+- Silence breaker time now changes every iteration of the talking thread while loop.
+- Added a hotkey (Default is F5, configurable) to refresh some variables from the config file.
     ===================================================================== '''
 
 print('AikoLivestream.py: Starting...')
@@ -81,15 +48,11 @@ username = config.get('GENERAL', 'username')                 # the name AIko wil
 chance = config.getint('LIVESTREAM', 'talking_chance')       # 0 no messages will be read; 100 all messages will be read
 ptt_hotkey = config.get('LIVESTREAM', 'ptt_hotkey')          # push to talk hotkey
 sp_hotkey = config.get('LIVESTREAM', 'sp_hotkey')            # side prompt hotkey
+cfg_hotkey = config.get('LIVESTREAM', 'cfg_hotkey')           # cfg refresh hotkey
 livestream_id = config.get('LIVESTREAM', 'liveid')           # youtube livestream ID
 
 min_silence_breaker_time = config.getint('SILENCE_BREAKER', 'min_silence_breaker_time')
 max_silence_breaker_time = config.getint('SILENCE_BREAKER', 'max_silence_breaker_time')
-
-silence_breaker_time = randint(                              # time in seconds for silence breaker to trigger
-min_silence_breaker_time,                                    
-max_silence_breaker_time
-)
 
 # ------------------ Variables ---------------------
 # controls loop execution
@@ -114,6 +77,7 @@ except pytchat.exceptions.InvalidVideoIdException:
 message_lists_lock = Lock()
 side_prompt_queue_lock = Lock()
 is_saying_lock = Lock()
+refresh_cfg_lock = Lock()
 
 # list which will store live chat messages
 messages = []
@@ -147,7 +111,7 @@ queued_side_prompt = ''
 
 
 #--------------------------------------- THREADED FUNCTIONS -----------------------------------------------------
-def thread_hotkeys(ptt_hotkey : str = ptt_hotkey, sp_hotkey : str = sp_hotkey ):
+def thread_hotkeys():
     """
     Listens for key presses, executes code if the specified keys are pressed.
 
@@ -167,6 +131,17 @@ def thread_hotkeys(ptt_hotkey : str = ptt_hotkey, sp_hotkey : str = sp_hotkey ):
     global side_prompts_string
     global is_side_prompt_queued
     global queued_side_prompt
+
+    global config
+
+    global sp_hotkey
+    global ptt_hotkey
+    global cfg_hotkey
+
+    global chance
+    global max_silence_breaker_time
+    global min_silence_breaker_time
+    global username
 
     while not to_break:
         # push to talk
@@ -203,8 +178,28 @@ def thread_hotkeys(ptt_hotkey : str = ptt_hotkey, sp_hotkey : str = sp_hotkey ):
                 print('Queued side prompt for completion.')
                 
                 side_prompt_queue_lock.release()
-                
 
+        # refresh config (only applies to silence_breaker, livestream sections and username)
+        if keyboard.is_pressed(cfg_hotkey):
+            print()
+            print('Refreshing LIVESTREAM, SILENCE_BREAKER and username config...')
+            print()
+
+            config.read('AikoPrefs.ini')
+
+            username = config.get('GENERAL', 'username')                 # the name AIko will know the microphone user as
+            chance = config.getint('LIVESTREAM', 'talking_chance')       # 0 no messages will be read; 100 all messages will be read
+            ptt_hotkey = config.get('LIVESTREAM', 'ptt_hotkey')          # push to talk hotkey
+            sp_hotkey = config.get('LIVESTREAM', 'sp_hotkey')            # side prompt hotkey
+            cfg_hotkey = config.get('LIVESTREAM', 'cfg_hotkey')          # cfg refresh hotkey
+
+            min_silence_breaker_time = config.getint('SILENCE_BREAKER', 'min_silence_breaker_time')
+            max_silence_breaker_time = config.getint('SILENCE_BREAKER', 'max_silence_breaker_time')
+
+            print(breaker)
+
+            sleep(0.5)
+            
         # to save on cpu usage
         sleep(0.1)
 
@@ -230,6 +225,8 @@ def thread_read_chat():
         # executes for every message
 
         for c in chat.get().sync_items():
+            if to_break:
+                break
 
             message_lists_lock.acquire()
 
@@ -284,7 +281,14 @@ def thread_talk():
 
     while not to_break:
 
-        t_now = time.time()         # measures time since t0
+        # measures time since t0
+        t_now = time.time()
+
+        # time at which silence breaker will be triggered
+        silence_breaker_time = randint(               
+        min_silence_breaker_time,                                    
+        max_silence_breaker_time
+        )
 
         #---------- Side Prompt ---------
         # answers side prompt if the user choses to

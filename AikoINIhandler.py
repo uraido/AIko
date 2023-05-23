@@ -1,9 +1,13 @@
 '''
 AikoINIhandler.py
 
-Version 0.1
+Version 1.0
 
 Parses Aikos INI configuration file and adds any missing values to avoid raising any missing value exceptions.
+
+Changelog:
+10:
+- Added cfg_hotkey to LIVESTREAM section.
 '''
 
 from configparser import ConfigParser
@@ -55,7 +59,8 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
         ('liveid', ''),
         ('talking_chance', '1'),
         ('ptt_hotkey', 'num minus'),
-        ('sp_hotkey', 'num plus')
+        ('sp_hotkey', 'num plus'),
+        ('cfg_hotkey', 'F5')
     ]
 
     # saves the lists containing the values in a dictionary, with their respective sections as the key

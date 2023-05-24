@@ -19,37 +19,13 @@ txt files:
 
 Changelog:
 
-080:
-- Implemented .ini configuration file.
-0801:
-- Fixed bug where setting the summarization instruction in the .ini file had no actual effect.
-0802:
-- Added AIkoINIhandler.py as a dependency.
-081:
-- Memory slot limit is now configurable.
-082:
-- Implemented exception handling into generate_gpt_completion() and evaluate_then_summarize()
-083:
-- Implemented dynamic scenarios
-084:
-- Further improved completion exception handling by adding the generate_gpt_completion_timeout() function,
-which can be useful for circumventing RateLimit errors when the openAI API is overloaded. Default time out
-can be configured in the INI.
-085:
-- Inverted the order that personality and context are placed in the final prompt. Now, context comes first
-and personality comes last, to make sure Aiko's personality remains consistent, regardless of context.
-086:
-- Moved context to the system prompt and personality to the user prompt. This seems to prevent Aiko from
-getting 'addicted' to the information stored in the context, since the system prompt has less weight on
-the output.
-087:
-- Whether or not to write the context string to the log is now configurable.
-- Log now reports total session token usage each time its updated.
+090:
+- Implemented dynamic personality.
 ===============================================================================================================================
 """ 
 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko087').upper() 
+build_version = ('Aiko090').upper() 
 
 print(f'{build_version}: Starting...')
 print()
@@ -65,9 +41,10 @@ from AikoSpeechInterface import say    # text to speech function
 from AikoSpeechInterface import listen # speech to text function
 from datetime import datetime          # for logging
 from pytimedinput import timedInput    # input with timeout
-from random import randint             # random number generator
+from random import randint, choice     # random number generator
 from configparser import ConfigParser  # ini file config
 from func_timeout import func_timeout, FunctionTimedOut # for handling openAI ratelimit errors
+import os
 
 # -------------------------------------------
 
@@ -251,6 +228,14 @@ def update_log(log_filepath : str, user_string : str, completion_data : tuple, i
     log.write(f'{hour} Tokens used this session: {session_token_usage}\n')
     log.write('\n')
 
+def write_to_log(log_filepath : str, text : str):
+  time = datetime.now()
+  hour = f'[{time.hour}:{time.minute}:{time.second}]'
+
+  with open(log_filepath, 'a') as log:
+    log.write(f'{hour} {text}\n')
+    log.write('\n')
+
 def txt_to_list(txt_filename : str):
   """
     Reads a text file with the specified filename and returns a list of its lines.
@@ -316,11 +301,37 @@ def evaluate_then_summarize(
     context = summary_request[0]
 
   return context
+
+def gather_personalities():
+  personalities = {}
+
+  # adds main personality to the dictionary
+  personalities['Main'] = txt_to_string('prompts/Aiko.txt')
+
+  # adds each personality in personalities folder to dictionary
+  for filename in os.scandir('dynamic_personalities'):
+
+    # formats the filename to be added as the dictionary's key
+    pers_name = str(filename)
+    pers_name = pers_name[1:-1]
+    pers_name = pers_name.replace('DirEntry', '')
+    pers_name = pers_name.replace('.txt', '')
+    pers_name = pers_name.replace("'", '')
+    pers_name = pers_name.replace(' ', '')
+    pers_name = pers_name.capitalize()
+
+    # adds the contents of the txt to the dictionary using the filename as key
+    personality = txt_to_string(filename)
+    personalities[pers_name] = personality
+
+  return personalities
 # ----------------------------------- end of functions ------------------------------------------------
 
 
 
 if __name__ == "__main__":
+
+  personalities = gather_personalities()
 
   # gets the user's name from config
   username = config.get('GENERAL', 'username')
@@ -331,7 +342,7 @@ if __name__ == "__main__":
     
   # gets aiko.txt and saves it into a string for prompting gpt3
 
-  personality = txt_to_string('prompts/AIko.txt')
+  personality = personalities['Main']
 
   # saves the scenarios into a list
 
@@ -371,9 +382,22 @@ if __name__ == "__main__":
     print('Invalid input method. Defaulting to text.')
     print()
 
+  # for keeping track of the amount of interactions before a personality change
+
+  interaction_count = 0
+
   # ----------------------------------------- aiko's interaction loop --------------------------------------------------
 
   while True:
+
+    if interaction_count > 3:
+      interaction_count = 0
+
+      key = choice(list(personalities))
+      personality = personalities[key]
+
+      write_to_log(log, 'PERSONALITY CHANGE TRIGGERED')
+      write_to_log(log, f'Chosen personality: {key}')
 
     # how long aiko waits for user input before getting impatient
 
@@ -431,6 +455,8 @@ if __name__ == "__main__":
 
     # updates context
     aikos_memory = update_context(context, context_list)
+
+    interaction_count += 1
 
     # breaks the loop if the user types the breaker message
     if breaker in user_input.lower():

@@ -15,6 +15,8 @@ Changelog:
 080:
 - Silence breaker time now changes every iteration of the talking thread while loop.
 - Added a hotkey (Default is F5, configurable) to refresh some variables from the config file.
+081:
+- update_log() function calls updated to work with latest Aiko.py
     ===================================================================== '''
 
 print('AikoLivestream.py: Starting...')
@@ -319,7 +321,12 @@ def thread_talk():
 
             is_saying_lock.release()
 
-            update_log(log, prompt, completion_request, True, context_string)
+            update_log(
+                log_filepath = log,
+                user_string = prompt, 
+                completion_data = completion_request, 
+                context_string = context_string
+                )
 
             # prepares the latest interaction to be added to the context
             # (just Aiko's answer in this case, since saving the side prompt here
@@ -376,7 +383,12 @@ def thread_talk():
 
                 is_saying_lock.release()
 
-                update_log(log, prompt, completion_request, True, context_string)
+                update_log(
+                    log_filepath = log,
+                    user_string = prompt, 
+                    completion_data = completion_request, 
+                    context_string = context_string
+                    )
 
                 # prepares the latest interaction to be added to the context
                 # (only with Aiko's answer in this case, since saving the time out prompt into 
@@ -434,7 +446,12 @@ def thread_talk():
 
             is_saying_lock.release()
 
-            update_log(log, prompt, completion_request, True, context_string)
+            update_log(
+                log_filepath = log,
+                user_string = prompt, 
+                completion_data = completion_request, 
+                context_string = context_string
+                )
 
             # prepares the latest interaction to be added to the context
             context = f'{username}: {prompt} | Aiko: {completion_request[0]}'
@@ -498,7 +515,12 @@ def thread_talk():
 
         is_saying_lock.release()
 
-        update_log(log, prompt, completion_request, True, context_string)
+        update_log(
+            log_filepath = log,
+            user_string = prompt, 
+            completion_data = completion_request, 
+            context_string = context_string
+            )
 
         # prepares the latest interaction to be added to the context
         context = f'{author}: {prompt} | Aiko: {completion_request[0]}'

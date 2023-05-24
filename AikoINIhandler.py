@@ -1,13 +1,15 @@
 '''
 AikoINIhandler.py
 
-Version 1.0
+Version 1.1
 
 Parses Aikos INI configuration file and adds any missing values to avoid raising any missing value exceptions.
 
 Changelog:
 10:
 - Added cfg_hotkey to LIVESTREAM section.
+11:
+- Added LOGGING section with include_context bool option.
 '''
 
 from configparser import ConfigParser
@@ -24,7 +26,8 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
         'SPEECH_INTERFACE',
         'SUMMARIZATION',
         'SILENCE_BREAKER',
-        'LIVESTREAM'
+        'LIVESTREAM',
+        'LOGGING'
     ]
 
     # the options each section should contain, followed by their default values and comments.
@@ -33,7 +36,7 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
         ('breaker_phrase', 'code red'),
         ('context_slots', '5'),
         ('dynamic_scenarios', 'True'),
-        ('completion_timeout', '10')
+        ('completion_timeout', '10'),
     ]
 
     SPEECH_INTERFACE = [
@@ -42,17 +45,17 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
         ('elevenlabs_voice', 'asuka-langley-yuko-miyamura'),
         ('azure_voice', 'en-US-Sara-Neural'),
         ('azure_region', 'brazilsouth'),
-        ('pitch_shift', '2.0')
+        ('pitch_shift', '2.0'),
     ]
 
     SUMMARIZATION = [
         ('summary_instruction', 'Summarize this shortly without removing core info:'),
-        ('context_character_limit', '375')
+        ('context_character_limit', '375'),
     ]
 
     SILENCE_BREAKER = [
         ('min_silence_breaker_time', '9'),
-        ('max_silence_breaker_time', '90')
+        ('max_silence_breaker_time', '90'),
     ]
 
     LIVESTREAM = [
@@ -60,7 +63,11 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
         ('talking_chance', '1'),
         ('ptt_hotkey', 'num minus'),
         ('sp_hotkey', 'num plus'),
-        ('cfg_hotkey', 'F5')
+        ('cfg_hotkey', 'F5'),
+    ]
+
+    LOGGING = [
+        ('include_context', 'False'),
     ]
 
     # saves the lists containing the values in a dictionary, with their respective sections as the key
@@ -69,7 +76,8 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
         'SPEECH_INTERFACE': SPEECH_INTERFACE,
         'SUMMARIZATION': SUMMARIZATION,
         'SILENCE_BREAKER': SILENCE_BREAKER,
-        'LIVESTREAM': LIVESTREAM
+        'LIVESTREAM': LIVESTREAM,
+        'LOGGING': LOGGING,
     }
 
     # creates config instance

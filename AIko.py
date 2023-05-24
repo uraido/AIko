@@ -42,11 +42,14 @@ and personality comes last, to make sure Aiko's personality remains consistent, 
 - Moved context to the system prompt and personality to the user prompt. This seems to prevent Aiko from
 getting 'addicted' to the information stored in the context, since the system prompt has less weight on
 the output.
+087:
+- Whether or not to write the context string to the log is now configurable.
+- Log now reports total session token usage each time its updated.
 ===============================================================================================================================
 """ 
 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko086').upper() 
+build_version = ('Aiko087').upper() 
 
 print(f'{build_version}: Starting...')
 print()
@@ -83,15 +86,15 @@ dynamic_scenarios = config.getboolean('GENERAL', 'dynamic_scenarios')
 completion_timeout = config.getint('GENERAL', 'completion_timeout')
 summarization_instruction = config.get('SUMMARIZATION', 'summary_instruction')
 context_character_limit = config.getint('SUMMARIZATION', 'context_character_limit')
+include_context_in_log = config.getboolean('LOGGING', 'include_context')
 
 # -------------------------------------------
-
-
 
 # Set OpenAPI key here
 openai.api_key = open("keys/key_openai.txt", "r").read().strip('\n')
 
-
+# for keeping track of token usage
+session_token_usage = 0
 
 # ------------------------------------------- functions -----------------------------------------------
 
@@ -228,9 +231,14 @@ def create_log():
 
   return log_filename
 
-def update_log(log_filepath : str, user_string : str, completion_data : tuple, include_context : bool = False, context_string : str = ''):
+def update_log(log_filepath : str, user_string : str, completion_data : tuple, include_context : bool = include_context_in_log, context_string : str = ''):
+  
+  global session_token_usage
+
   time = datetime.now()
   hour = f'[{time.hour}:{time.minute}:{time.second}]'
+
+  session_token_usage += completion_data[1][2]
 
   with open(log_filepath, 'a') as log:
     if include_context:
@@ -239,6 +247,8 @@ def update_log(log_filepath : str, user_string : str, completion_data : tuple, i
     log.write(f'{hour} Prompt: {user_string} --TOKENS USED: {completion_data[1][0]}\n')
     log.write(f'{hour} Output: {completion_data[0]} --TOKENS USED: {completion_data[1][1]}\n')
     log.write(f'{hour} Total tokens used: {completion_data[1][2]}\n')
+    log.write('\n')
+    log.write(f'{hour} Tokens used this session: {session_token_usage}\n')
     log.write('\n')
 
 def txt_to_list(txt_filename : str):
@@ -406,7 +416,12 @@ if __name__ == "__main__":
     say(text=aiko_completion_text)
 
     # updates log
-    update_log(log, user_input, aiko_completion_request, True, aikos_memory)
+    update_log(
+      log_filepath = log,
+      user_string = user_input, 
+      completion_data = aiko_completion_request, 
+      context_string = aikos_memory
+      )
 
     # prepares latest interaction to be added to the context
     context = f'{username}: {user_input} | Aiko: {aiko_completion_text}'

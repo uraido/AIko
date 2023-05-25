@@ -21,6 +21,9 @@ Changelog:
 
 090:
 - Implemented dynamic personality.
+091:
+- Dynamic personality can now be toggled on or off through the INI.
+- The limit of interactions that triggers a personality change is now randomized. Configurable.
 ===============================================================================================================================
 """ 
 
@@ -64,6 +67,9 @@ completion_timeout = config.getint('GENERAL', 'completion_timeout')
 summarization_instruction = config.get('SUMMARIZATION', 'summary_instruction')
 context_character_limit = config.getint('SUMMARIZATION', 'context_character_limit')
 include_context_in_log = config.getboolean('LOGGING', 'include_context')
+dynamic_personality = config.getboolean('DYNAMIC_PERSONALITY', 'dynamic_personality')
+min_interactions = config.getint('DYNAMIC_PERSONALITY', 'min_interactions')
+max_interactions = config.getint('DYNAMIC_PERSONALITY', 'max_interactions')
 
 # -------------------------------------------
 
@@ -331,21 +337,25 @@ def gather_personalities():
 
 if __name__ == "__main__":
 
-  personalities = gather_personalities()
+  if dynamic_personality:
+    # saves personalities from the dynamic_pers. directory into a dictionary of strings
+    personalities = gather_personalities()
+    # sets initial personality to the main one (AIko.txt)
+    personality = personalities['Main']
+    # for keeping track of the amount of interactions before a personality change
+    interaction_count = 0
+    # how many interactions before triggering a personality change
+    interaction_limit = randint(min_interactions, max_interactions)
+  else:
+    personality = txt_to_string('prompts/AIko.txt')
 
   # gets the user's name from config
   username = config.get('GENERAL', 'username')
 
   # saves the time out prompts into a list
-
   time_out_prompts = txt_to_list('prompts/time_out_prompts.txt')
     
-  # gets aiko.txt and saves it into a string for prompting gpt3
-
-  personality = personalities['Main']
-
   # saves the scenarios into a list
-
   scenarios = txt_to_list('prompts/scenarios.txt')
 
   # picks a random scenario and adds it to the personality prompt
@@ -354,19 +364,15 @@ if __name__ == "__main__":
     personality += scenario
 
   # creates the log with initial info and saves the logs filename into a variable
-
   log = create_log()
 
   # list to save context strings
-
   context_list = create_context_list()
 
   # sentence written before main context string in prompt, to make things clear for AIko
-
   context_start = f'You are Aiko. Here are our last interactions with Aiko:'
 
   # memory string used to hold context strings
-
   aikos_memory = 'EMPTY'
 
   # sets silence breaker times
@@ -374,7 +380,6 @@ if __name__ == "__main__":
   max_silence_breaker_time = config.getint('SILENCE_BREAKER', 'max_silence_breaker_time')
 
   # prompts the user to choose a prompting method. defaults to text if input is invalid.
-
   possible_user_input_methods = ('1', '2')
   user_input_method = input('Choose an input method: 1 - Text 2 - Microphone (PRESS 1 OR 2): ')
   if user_input_method not in possible_user_input_methods:
@@ -382,22 +387,24 @@ if __name__ == "__main__":
     print('Invalid input method. Defaulting to text.')
     print()
 
-  # for keeping track of the amount of interactions before a personality change
-
-  interaction_count = 0
-
   # ----------------------------------------- aiko's interaction loop --------------------------------------------------
 
   while True:
 
-    if interaction_count > 3:
-      interaction_count = 0
+    if dynamic_personality:
+      if interaction_count > interaction_limit:
+        print()
+        print('PERSONALITY CHANGE!')
+        print()
 
-      key = choice(list(personalities))
-      personality = personalities[key]
+        interaction_count = 0
+        interaction_limit = randint(min_interactions, max_interactions)
 
-      write_to_log(log, 'PERSONALITY CHANGE TRIGGERED')
-      write_to_log(log, f'Chosen personality: {key}')
+        key = choice(list(personalities))
+        personality = personalities[key]
+
+        write_to_log(log, 'PERSONALITY CHANGE TRIGGERED')
+        write_to_log(log, f'Chosen personality: {key}')
 
     # how long aiko waits for user input before getting impatient
 
@@ -456,7 +463,8 @@ if __name__ == "__main__":
     # updates context
     aikos_memory = update_context(context, context_list)
 
-    interaction_count += 1
+    if dynamic_personality:
+      interaction_count += 1
 
     # breaks the loop if the user types the breaker message
     if breaker in user_input.lower():

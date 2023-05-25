@@ -10,6 +10,8 @@ Changelog:
 - Added cfg_hotkey to LIVESTREAM section.
 11:
 - Added LOGGING section with include_context bool option.
+12:
+- Added DYNAMIC_PERSONALITY section with relevant options.
 '''
 
 from configparser import ConfigParser
@@ -27,7 +29,8 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
         'SUMMARIZATION',
         'SILENCE_BREAKER',
         'LIVESTREAM',
-        'LOGGING'
+        'LOGGING',
+        'DYNAMIC_PERSONALITY',
     ]
 
     # the options each section should contain, followed by their default values and comments.
@@ -70,6 +73,12 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
         ('include_context', 'False'),
     ]
 
+    DYNAMIC_PERSONALITY = [
+        ('dynamic_personality', 'False'),
+        ('min_interactions', '3'),
+        ('max_interactions', '9'),
+    ]
+
     # saves the lists containing the values in a dictionary, with their respective sections as the key
     options = {
         'GENERAL': GENERAL,
@@ -78,6 +87,7 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
         'SILENCE_BREAKER': SILENCE_BREAKER,
         'LIVESTREAM': LIVESTREAM,
         'LOGGING': LOGGING,
+        'DYNAMIC_PERSONALITY': DYNAMIC_PERSONALITY,
     }
 
     # creates config instance

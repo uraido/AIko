@@ -28,7 +28,7 @@ Changelog:
 """ 
 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko090').upper() 
+build_version = ('Aiko091').upper() 
 
 print(f'{build_version}: Starting...')
 print()
@@ -444,7 +444,7 @@ if __name__ == "__main__":
     print("Aiko: " + aiko_completion_text)
 
     # voices aiko. set elevenlabs = True if you want to use elevenlabs TTS (needs elevenlabs API key set in key_elevenlabs.txt)
-    say(text=aiko_completion_text)
+    #say(text=aiko_completion_text)
 
     # updates log
     update_log(

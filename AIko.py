@@ -24,6 +24,8 @@ Changelog:
 091:
 - Dynamic personality can now be toggled on or off through the INI.
 - The limit of interactions that triggers a personality change is now randomized. Configurable.
+092:
+- Initial implementation of sentiment analysis. Configurable.
 ===============================================================================================================================
 """ 
 
@@ -70,6 +72,7 @@ include_context_in_log = config.getboolean('LOGGING', 'include_context')
 dynamic_personality = config.getboolean('DYNAMIC_PERSONALITY', 'dynamic_personality')
 min_interactions = config.getint('DYNAMIC_PERSONALITY', 'min_interactions')
 max_interactions = config.getint('DYNAMIC_PERSONALITY', 'max_interactions')
+sentiment_analysis = config.getboolean('DYNAMIC_PERSONALITY', 'sentiment_analysis')
 
 # -------------------------------------------
 
@@ -348,6 +351,9 @@ if __name__ == "__main__":
     interaction_limit = randint(min_interactions, max_interactions)
   else:
     personality = txt_to_string('prompts/AIko.txt')
+  
+  if sentiment_analysis:
+    analysis_prompt = txt_to_string('prompts/sentiment_analysis.txt')
 
   # gets the user's name from config
   username = config.get('GENERAL', 'username')
@@ -392,7 +398,7 @@ if __name__ == "__main__":
   while True:
 
     if dynamic_personality:
-      if interaction_count > interaction_limit:
+      if interaction_count >= interaction_limit:
         print()
         print('PERSONALITY CHANGE!')
         print()
@@ -400,8 +406,25 @@ if __name__ == "__main__":
         interaction_count = 0
         interaction_limit = randint(min_interactions, max_interactions)
 
-        key = choice(list(personalities))
-        personality = personalities[key]
+        if sentiment_analysis:
+          moods = ''
+          for mood in personalities:
+            moods += f'{mood}, '
+          moods = moods[0:-2]
+          moods += '.'
+
+          key_request = generate_gpt_completion_timeout(
+            system_message = '',
+            user_message = f'Aiko can ONLY have ONE of the following moods: {moods} {analysis_prompt} {aiko_completion_text} Mood:'
+            )
+
+          key = key_request[0]
+          key = key.replace(".", "")
+
+          personality = personalities[key]
+        else:
+          key = choice(list(personalities))
+          personality = personalities[key]
 
         write_to_log(log, 'PERSONALITY CHANGE TRIGGERED')
         write_to_log(log, f'Chosen personality: {key}')

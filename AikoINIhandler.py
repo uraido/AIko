@@ -12,6 +12,8 @@ Changelog:
 - Added LOGGING section with include_context bool option.
 12:
 - Added DYNAMIC_PERSONALITY section with relevant options.
+13:
+- Added sentiment_analysis option to DYNAMIC_PERSONALITY
 '''
 
 from configparser import ConfigParser
@@ -75,6 +77,7 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
 
     DYNAMIC_PERSONALITY = [
         ('dynamic_personality', 'False'),
+        ('sentiment_analysis', 'False'),
         ('min_interactions', '3'),
         ('max_interactions', '9'),
     ]

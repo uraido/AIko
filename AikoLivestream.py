@@ -19,6 +19,10 @@ Changelog:
 - update_log() function calls updated to work with latest Aiko.py
 082:
 - Moved side prompts back to user message to make sure Aiko respects the side prompts.
+083:
+- Fixed bug introduced in 082 where the proper usernames were not added to the final prompt.
+- When Aiko picks a chat comment to answer, a different TTS voice reads the chat comment before Aiko
+answers it.
     ===================================================================== '''
 
 print('AikoLivestream.py: Starting...')
@@ -29,17 +33,28 @@ if __name__ == '__main__':
     handle_ini()
 
 # -------------------- Imports ---------------------
-
-import pytchat                                              # for reading youtube live chat                                       # data proccessing
-from AikoSpeechInterface import say, start_push_to_talk     # custom tts and tts functions
-from threading import Thread, Lock                          # for running concurrent loops
-from random import randint                                  # for picking random comments
-from time import sleep                                      # for waiting between reading comments
-from AIko import *                                          # AIko
-from random import randint                                  # for randomly choosing comments
-import keyboard                                             # for hotkeys
-import time                                                 # measures time for silence breaker
-from pytimedinput import timedInput                         # for side prompting without interruptions
+# for reading youtube live chat
+import pytchat
+# custom tts and tts functions                                                                                     
+from AikoSpeechInterface import say, start_push_to_talk, play, generate_tts_gtts
+# for running concurrent loops
+from threading import Thread, Lock
+# for picking random comments                          
+from random import randint
+# for waiting between reading comments                                  
+from time import sleep
+# AIko                                      
+from AIko import *
+# for randomly choosing comments                                          
+from random import randint     
+# for hotkeys                             
+import keyboard
+# measures time for silence breaker                                             
+import time
+# for side prompting without interruptions                                                 
+from pytimedinput import timedInput   
+# for handling some files
+import os                      
 
 # ------------------ Set Variables -----------------
 # reads config file
@@ -436,7 +451,7 @@ def thread_talk():
             system_message = \
             f'{context_start} {context_string}'
 
-            user_message = f"{personality} {sideprompt_start} {side_prompts_string} System: {prompt} Aiko: "
+            user_message = f"{personality} {sideprompt_start} {side_prompts_string} {username}: {prompt} Aiko: "
 
             completion_request = generate_gpt_completion_timeout(system_message, user_message)
             print(f'Aiko: {completion_request[0]}')
@@ -506,10 +521,15 @@ def thread_talk():
         system_message = \
         f'{context_start} {context_string}'
 
-        user_message = f"{personality} {sideprompt_start} {side_prompts_string} System: {prompt} Aiko: "
+        user_message = f"{personality} {sideprompt_start} {side_prompts_string} {author}: {prompt} Aiko: "
         completion_request = generate_gpt_completion_timeout(system_message, user_message)
         print(f'Aiko: {completion_request[0]}')
         
+        # reads picked chat message using gtts
+        comment_tts = generate_tts_gtts(prompt)
+        play(comment_tts)
+        os.remove(comment_tts)
+
         # voices aiko's answer
         is_saying_lock.acquire()
 

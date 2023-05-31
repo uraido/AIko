@@ -40,6 +40,9 @@ when calling the say() function.
 052:
 - Say() function now writes its "text" parameter to a txt file, allowing software like OBS to display
 captions.
+053:
+- Added general use play() function to play any audio files using mpg123.
+- say() function now use the play() function to play the audio.
 """
 
 print('AikoSpeechInterface.py: Starting...')
@@ -164,7 +167,7 @@ def generate_tts_gtts(text : str, tld = 'us', lang = 'en', slow = False):
     lang (str): Language. 'en', 'es', 'pt-br', etc. Defaults to "en".
     slow (bool): Whether to speak slowly or not.
         """
-    audio_file = "audio.mp3"
+    audio_file = "gtts_audio.mp3"
     gtts.gTTS(text, tld = tld, lang = lang, slow = slow).save(audio_file)
 
     return(audio_file)
@@ -173,7 +176,7 @@ def generate_tts_elevenlabs(text):
     """Generates a text-to-speech mp3 file using elevenlabs API. Returns the name of the generated audio file.
      """
 
-    audio_file = "audio.mp3"
+    audio_file = "elevenlabs_audio.mp3"
     mp3_bytes = voice.generate_audio_bytes(prompt = text, stability = 0.75, similarity_boost = 0.75)
 
     with open(audio_file, "wb") as f:
@@ -253,7 +256,7 @@ def listen(prompt='', catchword=''):
 
     return text 
 
-def say(text: str, method : str = tts_method, pitch_shift : float = pitch_shift, audiodevice : int = audio_device):
+def say(text: str, method : str = tts_method, pitch_shift : float = pitch_shift):
     """Generate text-to-speech audio and play it using `mpg123`.
 
     By default, the function uses Azure TTS to generate the audio. If that fails,
@@ -267,8 +270,6 @@ def say(text: str, method : str = tts_method, pitch_shift : float = pitch_shift,
         method (str, optional): Which text to speech method to use.
             Defaults to config file.
         pitch_shift (float, optional): The amount of pitch shift to apply in semitones.
-            Defaults to config file.
-        audiodevice (str, optional): The audio device to be used by `mpg123`.
             Defaults to config file.
     """
     tts_exception = False
@@ -319,18 +320,12 @@ def say(text: str, method : str = tts_method, pitch_shift : float = pitch_shift,
         print(e)
         print()
 
-    try:
+    # plays audio file then removes it
+    play(audio)
+    os.remove(audio)
 
-        # plays generated audio file and removes it
-        os.system(f"mpg123 -q --audiodevice {audiodevice} {audio}")
-        os.remove(audio)
-
-        # removes captions file after audio is done playing
-        os.remove('captions.txt')
-    except Exception as e:
-        print('AikoSpeechInterface.py: Error playing audio')
-        print(e)
-        print()
+    # removes captions file after audio is done playing
+    os.remove('captions.txt')
 
 def start_push_to_talk(hotkey : str = 'num 0'):
     """
@@ -387,9 +382,38 @@ def start_push_to_talk(hotkey : str = 'num 0'):
         print()
         return ''
 
+def play(audio_filename : str, audiodevice : int = audio_device):
+    """
+    Plays an audio file using the mpg123 command-line tool.
+
+    Args:
+        audio_filename (str): The path to the audio file to be played.
+        audiodevice (int, optional): The audio device ID to be used for playback. Defaults to audio_device.
+
+    Returns:
+        bool: True if the audio is played successfully, False otherwise.
+
+    Raises:
+        Exception: If there is an error playing the audio.
+
+    Example:
+        >>> play("audio.mp3", audiodevice=2)
+        True
+    """
+    try:
+        # plays audio file
+        os.system(f"mpg123 -q --audiodevice {audiodevice} {audio_filename}")
+        return True
+    except Exception as e:
+        print('AikoSpeechInterface.py: Error playing audio')
+        print(e)
+        print()
+        return False
+
 if __name__ == "__main__":
     # for testing audio devices
-    say("Hello Rchart-Kun! 1", audiodevice = 1)
-    say("Hello Rchart-Kun! 2", audiodevice = 2)
-    say("Hello Rchart-Kun! 3", audiodevice = 3)
-    say("Hello Rchart-Kun! 4", audiodevice = 4)
+    for device in range(0, 5):
+        audio = generate_tts_gtts(str(device))
+        play(audio, device)
+        os.remove(audio)
+    # ------------------------------

@@ -43,6 +43,8 @@ captions.
 053:
 - Added general use play() function to play any audio files using mpg123.
 - say() function now use the play() function to play the audio.
+054:
+- Added remove parameter to play() function. Removes the audio file after playing, defaults to False.
 """
 
 print('AikoSpeechInterface.py: Starting...')
@@ -321,8 +323,7 @@ def say(text: str, method : str = tts_method, pitch_shift : float = pitch_shift)
         print()
 
     # plays audio file then removes it
-    play(audio)
-    os.remove(audio)
+    play(audio, True)
 
     # removes captions file after audio is done playing
     os.remove('captions.txt')
@@ -382,13 +383,14 @@ def start_push_to_talk(hotkey : str = 'num 0'):
         print()
         return ''
 
-def play(audio_filename : str, audiodevice : int = audio_device):
+def play(audio_filename : str, audiodevice : int = audio_device, remove : bool = False):
     """
     Plays an audio file using the mpg123 command-line tool.
 
     Args:
         audio_filename (str): The path to the audio file to be played.
         audiodevice (int, optional): The audio device ID to be used for playback. Defaults to audio_device.
+        remove (bool, optional): Removes the audio file after playing it.
 
     Returns:
         bool: True if the audio is played successfully, False otherwise.
@@ -409,6 +411,9 @@ def play(audio_filename : str, audiodevice : int = audio_device):
         print(e)
         print()
         return False
+
+    if remove:
+        os.remove(audio_filename)
 
 if __name__ == "__main__":
     # for testing audio devices

@@ -17,6 +17,8 @@ Changelog:
 - Added a hotkey (Default is F5, configurable) to refresh some variables from the config file.
 081:
 - update_log() function calls updated to work with latest Aiko.py
+082:
+- Moved side prompts back to user message to make sure Aiko respects the side prompts.
     ===================================================================== '''
 
 print('AikoLivestream.py: Starting...')
@@ -307,9 +309,9 @@ def thread_talk():
             # generates aiko's answer
 
             system_message = \
-            f'{context_start} {context_string} {sideprompt_start} {side_prompts_string}'
+            f'{context_start} {context_string}'
 
-            user_message = f"{personality} System: {prompt} Aiko: "
+            user_message = f"{personality} {sideprompt_start} {side_prompts_string} System: {prompt} Aiko: "
 
             completion_request = generate_gpt_completion_timeout(system_message, user_message)
             print(f'Aiko: {completion_request[0]}')
@@ -369,9 +371,9 @@ def thread_talk():
                 # generates aiko's answer
 
                 system_message = \
-                f'{context_start} {context_string} {sideprompt_start} {side_prompts_string}'
+                f'{context_start} {context_string}'
 
-                user_message = f"{personality} System: {prompt} Aiko: "
+                user_message = f"{personality} {sideprompt_start} {side_prompts_string} System: {prompt} Aiko: "
 
                 completion_request = generate_gpt_completion_timeout(system_message, user_message)
                 print(f'Aiko: {completion_request[0]}')
@@ -432,9 +434,9 @@ def thread_talk():
             # generates aiko's answer
 
             system_message = \
-            f'{context_start} {context_string} {sideprompt_start} {side_prompts_string}'
+            f'{context_start} {context_string}'
 
-            user_message = f"{personality} {username}: {prompt} Aiko: "
+            user_message = f"{personality} {sideprompt_start} {side_prompts_string} System: {prompt} Aiko: "
 
             completion_request = generate_gpt_completion_timeout(system_message, user_message)
             print(f'Aiko: {completion_request[0]}')
@@ -502,9 +504,9 @@ def thread_talk():
         # generates aiko's answer
 
         system_message = \
-        f'{context_start} {context_string} {sideprompt_start} {side_prompts_string}'
+        f'{context_start} {context_string}'
 
-        user_message = f"{personality} {author}: {prompt} Aiko: "
+        user_message = f"{personality} {sideprompt_start} {side_prompts_string} System: {prompt} Aiko: "
         completion_request = generate_gpt_completion_timeout(system_message, user_message)
         print(f'Aiko: {completion_request[0]}')
         

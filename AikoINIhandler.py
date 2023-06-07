@@ -1,7 +1,7 @@
 '''
 AikoINIhandler.py
 
-Version 1.1
+Version 1.2
 
 Parses Aikos INI configuration file and adds any missing values to avoid raising any missing value exceptions.
 
@@ -10,6 +10,9 @@ Changelog:
 - Added cfg_hotkey to LIVESTREAM section.
 11:
 - Added LOGGING section with include_context bool option.
+12:
+- Renamed SPEECH_INTERFACE section to VOICE and removed deprecated settings related to the phased out
+AikoSpeechInterface script.
 '''
 
 from configparser import ConfigParser
@@ -23,7 +26,7 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
     # sections the ini file should contain
     sections = [
         'GENERAL',
-        'SPEECH_INTERFACE',
+        'VOICE',
         'SUMMARIZATION',
         'SILENCE_BREAKER',
         'LIVESTREAM',
@@ -39,13 +42,10 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
         ('completion_timeout', '10'),
     ]
 
-    SPEECH_INTERFACE = [
-        ('audio_device', '2'),
-        ('tts_method', 'gtts'),
-        ('elevenlabs_voice', 'asuka-langley-yuko-miyamura'),
+    VOICE = [
         ('azure_voice', 'en-US-Sara-Neural'),
         ('azure_region', 'brazilsouth'),
-        ('pitch_shift', '2.0'),
+        ('audio_device', 'Cable Input'),
     ]
 
     SUMMARIZATION = [
@@ -73,7 +73,7 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
     # saves the lists containing the values in a dictionary, with their respective sections as the key
     options = {
         'GENERAL': GENERAL,
-        'SPEECH_INTERFACE': SPEECH_INTERFACE,
+        'VOICE': VOICE,
         'SUMMARIZATION': SUMMARIZATION,
         'SILENCE_BREAKER': SILENCE_BREAKER,
         'LIVESTREAM': LIVESTREAM,

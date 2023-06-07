@@ -5009,3 +5009,9 @@ key_azurespeech.txt
 key_region_azurespeech.txt
 .gitignore
 AikoPrefs.ini
+aiko.txt library/
+convo exs/
+convo evaluating/
+prompt engineering/
+keys/
+personality_tester.py

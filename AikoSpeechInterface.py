@@ -7,7 +7,7 @@ Library of text to speech functions for Aiko.
 Requirements:
 
 - mpg123 and ffmpeg installed and added to PATH
-- AikoINIhandler.py
+- AikoINIhandler.py (max 1.1)
 
 pip install:
 

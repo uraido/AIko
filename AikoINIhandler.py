@@ -13,6 +13,8 @@ Changelog:
 12:
 - Renamed SPEECH_INTERFACE section to VOICE and removed deprecated settings related to the phased out
 AikoSpeechInterface script.
+13:
+- Replaced ptt_hotkey with toggle_listening.
 '''
 
 from configparser import ConfigParser
@@ -61,7 +63,7 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
     LIVESTREAM = [
         ('liveid', ''),
         ('talking_chance', '1'),
-        ('ptt_hotkey', 'num minus'),
+        ('toggle_listening', 'Page Down'),
         ('sp_hotkey', 'num plus'),
         ('cfg_hotkey', 'F5'),
     ]

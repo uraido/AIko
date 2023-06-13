@@ -15,6 +15,8 @@ Changelog:
 090:
 - Replaced push to talk with VoiceLink's continuous speech recognition feature.
 - Loops are now broken through side prompts instead of MIC messages.
+091:
+- Speech recognition pause key can now be refreshed through the the refresh hotkey.
     ===================================================================== '''
 
 print('AikoLivestream.py: Starting...')
@@ -174,6 +176,7 @@ def thread_hotkeys():
 
     global sp_hotkey
     global cfg_hotkey
+    global listen_hotkey
 
     global chance
     global max_silence_breaker_time
@@ -217,7 +220,7 @@ def thread_hotkeys():
 
             username = config.get('GENERAL', 'username')                 # the name AIko will know the microphone user as
             chance = config.getint('LIVESTREAM', 'talking_chance')       # 0 no messages will be read; 100 all messages will be read
-            ptt_hotkey = config.get('LIVESTREAM', 'ptt_hotkey')          # push to talk hotkey
+            listen_hotkey = config.get('LIVESTREAM', 'toggle_listening')
             sp_hotkey = config.get('LIVESTREAM', 'sp_hotkey')            # side prompt hotkey
             cfg_hotkey = config.get('LIVESTREAM', 'cfg_hotkey')          # cfg refresh hotkey
 

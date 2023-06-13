@@ -1,7 +1,7 @@
 '''
 AikoINIhandler.py
 
-Version 1.2
+Version 1.4
 
 Parses Aikos INI configuration file and adds any missing values to avoid raising any missing value exceptions.
 
@@ -15,6 +15,8 @@ Changelog:
 AikoSpeechInterface script.
 13:
 - Replaced ptt_hotkey with toggle_listening.
+14:
+- Added mic_device option to VOICE section.
 '''
 
 from configparser import ConfigParser
@@ -48,6 +50,7 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
         ('azure_voice', 'en-US-Sara-Neural'),
         ('azure_region', 'brazilsouth'),
         ('audio_device', 'Cable Input'),
+        ('mic_device', 'Cable-B Output'),
     ]
 
     SUMMARIZATION = [

@@ -4,7 +4,7 @@ Voicelink.py
 Handles voice related functionality such as text to speech and speech to text for Aiko's scripts.
 
 File requirements:
-- AikoINIhandler.py >= 1.2
+- AikoINIhandler.py >= 1.4
 
 pip install:
 - azure.cognitiveservices.speech
@@ -17,6 +17,8 @@ Changelog:
 041:
 - Built AudioConfig class with use_default_microphone=True and passed it to the speechRecognizer class to
 make sure speech to text only transcribes the user's default microphone.
+042:
+- Audio Input Device for continuous speech recognition is now configurable.
 """
 import os
 import azure.cognitiveservices.speech as speechsdk
@@ -35,6 +37,7 @@ config.read('AikoPrefs.ini')
 
 # sets variables according to config
 audio_device = config.get('VOICE', 'audio_device')
+mic_device = config.get('VOICE', 'mic_device')
 azure_voice = config.get('VOICE', 'azure_voice')
 azure_region = config.get('VOICE', 'azure_region')
 
@@ -74,6 +77,7 @@ try:
     default_speaker = False
 except:
     print(f"Couldn't find {audio_device} audio device. Using default speakers.")
+    device_id = ''
     default_speaker = True
 
 # builds AudioOutputConfig class
@@ -93,11 +97,25 @@ def say(text : str):
 
     speech_synthesis_result = speech_synthesizer.speak_text_async(text).get()
 
+# get the users chosen microphone device's endpoint id
+try:
+    mic_id = get_device_endpoint_id(mic_device)
+    default_mic = False
+except:
+    print(f"Couldn't find {audio_device} audio device. Using default speakers.")
+    mic_id = ''
+    default_mic = True
+
 # builds AudioConfig class
-input_config = speechsdk.audio.AudioConfig(use_default_microphone=True)
+input_config = speechsdk.audio.AudioConfig(
+    use_default_microphone=default_mic,
+    device_name=mic_id
+    )
 
 # builds SpeechRecognizer class
-speech_recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config, audio_config=input_config)
+speech_recognizer = speechsdk.SpeechRecognizer(
+    speech_config=speech_config,
+    audio_config=input_config)
 
 # sets variable for handling speech recognizing loop
 recognition_activated = False

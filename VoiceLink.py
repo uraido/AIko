@@ -14,6 +14,9 @@ Changelog:
 
 040:
 - Added speech to text functionality through start_speech_recognition() and stop_speech_recognition().
+041:
+- Built AudioConfig class with use_default_microphone=True and passed it to the speechRecognizer class to
+make sure speech to text only transcribes the user's default microphone.
 """
 import os
 import azure.cognitiveservices.speech as speechsdk
@@ -90,8 +93,11 @@ def say(text : str):
 
     speech_synthesis_result = speech_synthesizer.speak_text_async(text).get()
 
+# builds AudioConfig class
+input_config = speechsdk.audio.AudioConfig(use_default_microphone=True)
+
 # builds SpeechRecognizer class
-speech_recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config)
+speech_recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config, audio_config=input_config)
 
 # sets variable for handling speech recognizing loop
 recognition_activated = False

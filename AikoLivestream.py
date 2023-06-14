@@ -17,6 +17,8 @@ Changelog:
 - Loops are now broken through side prompts instead of MIC messages.
 091:
 - Speech recognition pause key can now be refreshed through the the refresh hotkey.
+092:
+- Aiko now only answers the lastest MIC message, for more natural interactions.
     ===================================================================== '''
 
 print('AikoLivestream.py: Starting...')
@@ -137,11 +139,18 @@ def speech_event(evt):
     message = event[stt_start + len(keyword):stt_end]
 
     if message != '':
-        print('Picked MIC message to answer:')
+        print('Recognized MIC message:')
         print(message)
         message_lists_lock.acquire()
-        messages.append(message)
-        message_priorities.append(True)
+        # replaces present mic message in the list with the latest phrase recognized through STT
+        try:
+            mic_msg_index = message_priorities.index(True)
+            messages[mic_msg_index] = message
+            message_lists_lock.release()
+        # appends a new mic message if no messages are present
+        except:
+            messages.append(message)
+            message_priorities.append(True)
         message_lists_lock.release()
 
 #--------------------------------------- THREADED FUNCTIONS -----------------------------------------------------

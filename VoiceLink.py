@@ -19,6 +19,8 @@ Changelog:
 make sure speech to text only transcribes the user's default microphone.
 042:
 - Audio Input Device for continuous speech recognition is now configurable.
+043:
+- Whether to use the default mic or not is configurable.
 """
 import os
 import azure.cognitiveservices.speech as speechsdk
@@ -37,6 +39,7 @@ config.read('AikoPrefs.ini')
 
 # sets variables according to config
 audio_device = config.get('VOICE', 'audio_device')
+use_default_mic = config.get('VOICE', 'use_default_mic')
 mic_device = config.get('VOICE', 'mic_device')
 azure_voice = config.get('VOICE', 'azure_voice')
 azure_region = config.get('VOICE', 'azure_region')
@@ -97,18 +100,27 @@ def say(text : str):
 
     speech_synthesis_result = speech_synthesizer.speak_text_async(text).get()
 
-# get the users chosen microphone device's endpoint id
-try:
-    mic_id = get_device_endpoint_id(mic_device)
-    default_mic = False
-except:
-    print(f"Couldn't find {audio_device} audio device. Using default speakers.")
-    mic_id = ''
-    default_mic = True
+# get the users chosen microphone device's endpoint id and builds AudioConfig class
+if use_default_mic:
+    input_config = speechsdk.audio.AudioConfig(
+    use_default_microphone=True
+        )
+else:
+    try:
+        mic_id = get_device_endpoint_id(mic_device)
+        input_config = speechsdk.audio.AudioConfig(
+        use_default_microphone=False,
+        device_name=mic_id
+            )
+    except:
+        print(f"Couldn't find {audio_device} audio device. Using default speakers.")
+        input_config = speechsdk.audio.AudioConfig(
+        use_default_microphone=True,
+            )
 
 # builds AudioConfig class
 input_config = speechsdk.audio.AudioConfig(
-    use_default_microphone=default_mic,
+    use_default_microphone=True,
     device_name=mic_id
     )
 

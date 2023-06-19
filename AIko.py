@@ -19,37 +19,14 @@ txt files:
 
 Changelog:
 
-080:
-- Implemented .ini configuration file.
-0801:
-- Fixed bug where setting the summarization instruction in the .ini file had no actual effect.
-0802:
-- Added AIkoINIhandler.py as a dependency.
-081:
-- Memory slot limit is now configurable.
-082:
-- Implemented exception handling into generate_gpt_completion() and evaluate_then_summarize()
-083:
-- Implemented dynamic scenarios
-084:
-- Further improved completion exception handling by adding the generate_gpt_completion_timeout() function,
-which can be useful for circumventing RateLimit errors when the openAI API is overloaded. Default time out
-can be configured in the INI.
-085:
-- Inverted the order that personality and context are placed in the final prompt. Now, context comes first
-and personality comes last, to make sure Aiko's personality remains consistent, regardless of context.
-086:
-- Moved context to the system prompt and personality to the user prompt. This seems to prevent Aiko from
-getting 'addicted' to the information stored in the context, since the system prompt has less weight on
-the output.
-087:
-- Whether or not to write the context string to the log is now configurable.
-- Log now reports total session token usage each time its updated.
+090:
+- Replaced AikoSpeechInterface.py with VoiceLink.py
+- Removed microphone input feature, since VoiceLink doesn't support it yet.
 ===============================================================================================================================
 """ 
 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko087').upper() 
+build_version = ('Aiko090').upper() 
 
 print(f'{build_version}: Starting...')
 print()
@@ -61,8 +38,7 @@ if __name__ == '__main__':
 # ----------------- Imports -----------------
 
 import openai                          # gpt3
-from AikoSpeechInterface import say    # text to speech function
-from AikoSpeechInterface import listen # speech to text function
+from VoiceLink import say    # text to speech function
 from datetime import datetime          # for logging
 from pytimedinput import timedInput    # input with timeout
 from random import randint             # random number generator
@@ -189,19 +165,9 @@ def generate_gpt_completion_timeout(system_message : str, user_message : str, ti
 
 def get_user_input(timer : int, user : str):
   """
-  Prompts user for input depending on the input method chosen (Text or Microphone)
-  and returns the as a string.
+  Prompts user for input and returns the input as a string.
   """
-  if user_input_method == '1':
-    user_input, timed_out = timedInput(f'{user}: ', timeout=timer)
-
-  elif user_input_method == '2':
-    user_input = listen('Listening for mic input...')
-    timed_out = False
-    print(f'User: {user_input}')
-    if user_input == None:
-      print('No speech detected. Resorting to text...')
-      user_input, timed_out = timedInput(f'{user}: ', timeout=timer)
+  user_input, timed_out = timedInput(f'{user}: ', timeout=timer)
   
   return user_input, timed_out
 
@@ -361,15 +327,6 @@ if __name__ == "__main__":
   # sets silence breaker times
   min_silence_breaker_time = config.getint('SILENCE_BREAKER', 'min_silence_breaker_time')
   max_silence_breaker_time = config.getint('SILENCE_BREAKER', 'max_silence_breaker_time')
-
-  # prompts the user to choose a prompting method. defaults to text if input is invalid.
-
-  possible_user_input_methods = ('1', '2')
-  user_input_method = input('Choose an input method: 1 - Text 2 - Microphone (PRESS 1 OR 2): ')
-  if user_input_method not in possible_user_input_methods:
-    user_input_method = '1'
-    print('Invalid input method. Defaulting to text.')
-    print()
 
   # ----------------------------------------- aiko's interaction loop --------------------------------------------------
 

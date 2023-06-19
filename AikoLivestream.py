@@ -1,9 +1,9 @@
 ''' =====================================================================
-AikoLivestream.py (v080)
+AikoLivestream.py (v090)
 Script for livestreaming with AIko in youtube.
 
 Requirements:
-- AikoSpeechInterface.py (5.0 or greater) and its requirements
+- VoiceLink.py (1.3 or greater) and its requirements
 - AIko.py (0.8.0 or greater) and its requirements
 - AikoINIhandler.py (1.0 or greater)
 
@@ -12,17 +12,13 @@ pip install:
 - keyboard
 
 Changelog:
-080:
-- Silence breaker time now changes every iteration of the talking thread while loop.
-- Added a hotkey (Default is F5, configurable) to refresh some variables from the config file.
-081:
-- update_log() function calls updated to work with latest Aiko.py
-082:
-- Moved side prompts back to user message to make sure Aiko respects the side prompts.
-083:
-- Fixed bug introduced in 082 where the proper usernames were not added to the final prompt.
-- When Aiko picks a chat comment to answer, a different TTS voice reads the chat comment before Aiko
-answers it.
+090:
+- Replaced push to talk with VoiceLink's continuous speech recognition feature.
+- Loops are now broken through side prompts instead of MIC messages.
+091:
+- Speech recognition pause key can now be refreshed through the the refresh hotkey.
+092:
+- Aiko now only answers the lastest MIC message, for more natural interactions.
     ===================================================================== '''
 
 print('AikoLivestream.py: Starting...')
@@ -35,8 +31,8 @@ if __name__ == '__main__':
 # -------------------- Imports ---------------------
 # for reading youtube live chat
 import pytchat
-# custom tts and tts functions                                                                                     
-from AikoSpeechInterface import say, start_push_to_talk, play, generate_tts_gtts
+# custom tts and stt functions                                                                                     
+from VoiceLink import say, start_speech_recognition, stop_speech_recognition
 # for running concurrent loops
 from threading import Thread, Lock
 # for picking random comments                          
@@ -65,10 +61,10 @@ config.read('AikoPrefs.ini')
 breaker = config.get('GENERAL', 'breaker_phrase')            # to end the program. activated through microphone.
 username = config.get('GENERAL', 'username')                 # the name AIko will know the microphone user as
 chance = config.getint('LIVESTREAM', 'talking_chance')       # 0 no messages will be read; 100 all messages will be read
-ptt_hotkey = config.get('LIVESTREAM', 'ptt_hotkey')          # push to talk hotkey
 sp_hotkey = config.get('LIVESTREAM', 'sp_hotkey')            # side prompt hotkey
-cfg_hotkey = config.get('LIVESTREAM', 'cfg_hotkey')           # cfg refresh hotkey
+cfg_hotkey = config.get('LIVESTREAM', 'cfg_hotkey')          # cfg refresh hotkey
 livestream_id = config.get('LIVESTREAM', 'liveid')           # youtube livestream ID
+listen_hotkey = config.get('LIVESTREAM', 'toggle_listening') # toggle speech to text hotkey
 
 min_silence_breaker_time = config.getint('SILENCE_BREAKER', 'min_silence_breaker_time')
 max_silence_breaker_time = config.getint('SILENCE_BREAKER', 'max_silence_breaker_time')
@@ -128,8 +124,44 @@ time_out_prompts = txt_to_list('prompts/silence_breaker_prompts.txt')
 is_side_prompt_queued = False
 queued_side_prompt = ''
 
+def speech_event(evt):
+    global message_lists_lock
+    global messages
+    global message_priorities
+    global username
+
+    event = str(evt)
+
+    keyword = 'text="'
+    stt_start = event.index(keyword)
+    stt_end = event.index('",')
+    
+    message = event[stt_start + len(keyword):stt_end]
+
+    if message != '':
+        print('Recognized MIC message:')
+        print(message)
+        message_lists_lock.acquire()
+        # replaces present mic message in the list with the latest phrase recognized through STT
+        try:
+            mic_msg_index = message_priorities.index(True)
+            messages[mic_msg_index] = message
+            message_lists_lock.release()
+        # appends a new mic message if no messages are present
+        except:
+            messages.append(message)
+            message_priorities.append(True)
+        message_lists_lock.release()
 
 #--------------------------------------- THREADED FUNCTIONS -----------------------------------------------------
+def thread_speech_recognition():
+    global listen_hotkey
+
+    start_speech_recognition(
+        parse_func=speech_event,
+        hotkey=listen_hotkey
+        )
+
 def thread_hotkeys():
     """
     Listens for key presses, executes code if the specified keys are pressed.
@@ -143,8 +175,6 @@ def thread_hotkeys():
     The user can chose to immediately generate a completion for the written message, or to simply add it to her
     memory so that it will be added to the prompt whenever a completion is requested.
     """
-    global messages
-    global message_priorities
     global to_break
     global side_prompts_list
     global side_prompts_string
@@ -154,35 +184,26 @@ def thread_hotkeys():
     global config
 
     global sp_hotkey
-    global ptt_hotkey
     global cfg_hotkey
+    global listen_hotkey
 
     global chance
     global max_silence_breaker_time
     global min_silence_breaker_time
     global username
+    global breaker
 
     while not to_break:
-        # push to talk
-        if keyboard.is_pressed(ptt_hotkey):
-            stt = start_push_to_talk(ptt_hotkey)
-
-            message_lists_lock.acquire()
-
-            messages.append(stt)
-            message_priorities.append(True)
-
-            message_lists_lock.release()
-
-            print(f'Added microphone message to mic_list:\n{stt}')
-
-            if breaker in stt.lower():
-                to_break = True
-
         # side prompt
         if keyboard.is_pressed(sp_hotkey):
             print("Write a side prompt to be added to Aiko's memory:")
             side_prompt, unused = timedInput(timeout = 99999)
+
+            if breaker.lower() in side_prompt.lower():
+                to_break = True
+                stop_speech_recognition()
+                break
+
             side_prompts_string = update_context(side_prompt, side_prompts_list)
             print('Side prompts currently in memory:')
             print(side_prompts_string)
@@ -208,7 +229,7 @@ def thread_hotkeys():
 
             username = config.get('GENERAL', 'username')                 # the name AIko will know the microphone user as
             chance = config.getint('LIVESTREAM', 'talking_chance')       # 0 no messages will be read; 100 all messages will be read
-            ptt_hotkey = config.get('LIVESTREAM', 'ptt_hotkey')          # push to talk hotkey
+            listen_hotkey = config.get('LIVESTREAM', 'toggle_listening')
             sp_hotkey = config.get('LIVESTREAM', 'sp_hotkey')            # side prompt hotkey
             cfg_hotkey = config.get('LIVESTREAM', 'cfg_hotkey')          # cfg refresh hotkey
 
@@ -525,10 +546,8 @@ def thread_talk():
         completion_request = generate_gpt_completion_timeout(system_message, user_message)
         print(f'Aiko: {completion_request[0]}')
         
-        # reads picked chat message using gtts
-        comment_tts = generate_tts_gtts(prompt)
-        play(comment_tts)
-        os.remove(comment_tts)
+        # reads picked chat message
+        say(prompt)
 
         # voices aiko's answer
         is_saying_lock.acquire()
@@ -566,6 +585,8 @@ if __name__ == '__main__':
     print()
 
     # starts threads
+    Thread(target=thread_speech_recognition).start()
+    print('Thread #0 started')
     Thread(target=thread_hotkeys).start()
     print('Thread #1 started')
     Thread(target=thread_read_chat).start()

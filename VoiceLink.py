@@ -118,12 +118,6 @@ else:
         use_default_microphone=True,
             )
 
-# builds AudioConfig class
-input_config = speechsdk.audio.AudioConfig(
-    use_default_microphone=True,
-    device_name=mic_id
-    )
-
 # builds SpeechRecognizer class
 speech_recognizer = speechsdk.SpeechRecognizer(
     speech_config=speech_config,

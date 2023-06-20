@@ -24,6 +24,12 @@ Changelog:
 - txt_to_string() function now returns an empty string instead of None when an error occurs.
 - Many dynamic features, such as silence breaker and scenarios have been temporalily removed. They need to be
 adapted to work with the latest changes before they can be reimplemented.
+
+101alpha:
+- Reimplemented scenarios.
+- Implemented side prompts, which can be added using the add_side_prompt AIko method.
+- Using non timeout version of generate_gpt_completion function for now, since the timeout version is throwing
+errors.
 ===============================================================================================================================
 """ 
 
@@ -43,7 +49,7 @@ import openai                          # gpt3
 from VoiceLink import say    # text to speech function
 from datetime import datetime          # for logging
 from pytimedinput import timedInput    # input with timeout
-from random import randint             # random number generator
+from random import choice              # random
 from configparser import ConfigParser  # ini file config
 from func_timeout import func_timeout, FunctionTimedOut # for handling openAI ratelimit errors
 
@@ -76,13 +82,13 @@ session_token_usage = 0
 
 # ------------------------------------------- functions -----------------------------------------------
 
-def create_context_list(length : int = context_slots):
+def create_context_list(dummy_object : "any" = '', length : int = context_slots):
   '''
   Returns a limited list of empty strings.
   '''
   new_list = []
   for i in range(length):
-    new_list.append(('', ''))
+    new_list.append(dummy_object)
   return new_list
 
 def txt_to_string(filename: str):
@@ -210,7 +216,7 @@ class AIko:
             Interacts with the AI character by providing a username and a message.
     """
 
-  def __init__(self, character_name : str, personality_filename : str):
+  def __init__(self, character_name : str, personality_filename : str, scenario : str = ''):
     """
     Initializes an instance of the AIko class.
 
@@ -220,9 +226,11 @@ class AIko:
     """
     self.character_name = character_name
     self.personality_file = personality_filename
+    self.scenario = scenario
     self.__personality__ = txt_to_string(personality_filename)
     self.__log__ = self.__create_log__()
-    self.__context__ = create_context_list()
+    self.__context__ = create_context_list(('', ''))
+    self.__side_prompts__ = create_context_list()
 
   def __create_log__(self):
     """
@@ -285,16 +293,26 @@ class AIko:
         message (str): The message sent by the user.
     """
     messages = [{"role":"system", "content": self.__personality__},]
+    if self.scenario != '':
+      messages.append({"role":"system", "content": self.scenario})
 
+    # parses side prompts and adds them to the messages
+    if self.__side_prompts__[-1] != '':
+      for side_prompt in self.__side_prompts__:
+        if side_prompt != '':
+          messages.append({"role":"system", "content": side_prompt})
+
+    # parses context list and adds interactions to the messages
     if self.__context__[-1] != ('', ''):
       for context in self.__context__:
         if context != ('', ''):
           messages.append({"role":"user", "content": context[0]})
           messages.append({"role":"assistant", "content": context[1]})
 
+    # adds user prompt to the messages
     messages.append({"role":"user", "content": f'{username}: {message}'})
 
-    completion = generate_gpt_completion_timeout(messages)
+    completion = generate_gpt_completion(messages)
     print(completion[0])
     if f'{self.character_name}:' in completion[0][:len(self.character_name) + 2]:
       say(completion[0][len(self.character_name) + 1:])
@@ -303,9 +321,13 @@ class AIko:
     self.__context__.append((f'{username}: {message}', completion[0]))
     self.__update_log__(message, completion)
 
+  def add_side_prompt(self, side_prompt):
+    self.__side_prompts__.pop(0)
+    self.__side_prompts__.append(side_prompt)
 if __name__ == "__main__":
   username = config.get('GENERAL', 'username')
-  aiko = AIko('Aiko', 'prompts\AIko.txt')
+  scenario = choice(txt_to_list('prompts\scenarios.txt'))
+  aiko = AIko('Aiko', 'prompts\AIko.txt', scenario)
   while True:
     message = input(f'{username}: ')
     if breaker.lower() in message.lower():

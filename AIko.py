@@ -19,14 +19,16 @@ txt files:
 
 Changelog:
 
-090:
-- Replaced AikoSpeechInterface.py with VoiceLink.py
-- Removed microphone input feature, since VoiceLink doesn't support it yet.
+100alpha:
+- Interactions are now fully handed by the new AIko class.
+- txt_to_string() function now returns an empty string instead of None when an error occurs.
+- Many dynamic features, such as silence breaker and scenarios have been temporalily removed. They need to be
+adapted to work with the latest changes before they can be reimplemented.
 ===============================================================================================================================
 """ 
 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko090').upper() 
+build_version = ('Aiko100alpha').upper() 
 
 print(f'{build_version}: Starting...')
 print()
@@ -80,7 +82,7 @@ def create_context_list(length : int = context_slots):
   '''
   new_list = []
   for i in range(length):
-    new_list.append('')
+    new_list.append(('', ''))
   return new_list
 
 def txt_to_string(filename: str):
@@ -93,8 +95,7 @@ def txt_to_string(filename: str):
         filename (str): the name of the file to read from
 
     Returns:
-        str or None: the contents of the file as a string, with comment lines removed,
-        or `None` if an error occurs
+        str: the contents of the file as a string, with comment lines removed
     """
     string = ''
     try:
@@ -106,31 +107,32 @@ def txt_to_string(filename: str):
                 string = string + line
     except OSError:
         print(f"Could not open file '{filename}'")
-        return None
     return string
 
-def generate_gpt_completion(system_message : str, user_message : str):
+def generate_gpt_completion(messages : list):
   """
-  Generate a text completion for the given user message, with the help of a system message, using the OpenAI GPT-3.5-Turbo model.
+  Generates a GPT completion by providing a list of messages.
 
-  :param system_message: The system message to provide additional context or guidance to the model.
-  :type system_message: str
+  Args:
+      messages (list): A list of dictionaries representing the messages in the conversation.
+          Each dictionary should follow the format: {"role": <role>, "content": <content>}.
+          - <role> (str): The role of the message, such as "user" or "assistant".
+          - <content> (str): The content of the message.
 
-  :param user_message: The user message to generate a completion for.
-  :type user_message: str
-
-  :return: A tuple containing the completion text as a string and usage data for the generated tokens.
-      The usage data is a tuple containing three integers: the number of tokens used from the prompt,
-      the number of tokens used from the generated completion, and the total number of tokens used.
-  :rtype: tuple
+  Returns:
+      tuple: A tuple containing the generated completion and token usage information.
+          - completion (str): The generated completion text.
+          - token_usage (tuple): A tuple of token usage information.
+              - prompt_tokens (int): The number of tokens used in the prompt.
+              - completion_tokens (int): The number of tokens used in the completion.
+              - total_tokens (int): The total number of tokens used.
   """
 
   try:
     request = openai.ChatCompletion.create(
       model = "gpt-3.5-turbo",
-      messages = [{"role":"system", "content": system_message},
-    {"role":"user", "content": user_message}]
-    )
+      messages = messages
+      )
 
     completion = request.choices[0].message.content
     token_usage = (request.usage.prompt_tokens, request.usage.completion_tokens, request.usage.total_tokens)
@@ -144,7 +146,7 @@ def generate_gpt_completion(system_message : str, user_message : str):
 
     return('', (0,0,0))
 
-def generate_gpt_completion_timeout(system_message : str, user_message : str, timeout : int = completion_timeout):
+def generate_gpt_completion_timeout(messages : list, timeout : int = completion_timeout):
   """
   Requests a completion under a set timeout in seconds. 
   If the first request fails to return a value under the set time out value, a second request is made.
@@ -157,65 +159,11 @@ def generate_gpt_completion_timeout(system_message : str, user_message : str, ti
   """
 
   try:
-    completion_request = func_timeout(timeout, generate_gpt_completion, args = (system_message, user_message))
+    completion_request = func_timeout(timeout, generate_gpt_completion, args = (messages))
   except FunctionTimedOut:
-    completion_request = generate_gpt_completion(system_message, user_message)
+    completion_request = generate_gpt_completion(messages)
     
   return (completion_request)
-
-def get_user_input(timer : int, user : str):
-  """
-  Prompts user for input and returns the input as a string.
-  """
-  user_input, timed_out = timedInput(f'{user}: ', timeout=timer)
-  
-  return user_input, timed_out
-
-def create_log():
-  global build_version
-
-  time = datetime.now()
-  hour = f'[{time.hour}:{time.minute}:{time.second}]'
-  time = time.strftime("%d/%m/%Y %H:%M:%S")
-  time = time.replace(' ','_').replace('/','-').replace(':','-')
-
-
-
-  # creates the log and reports initial info
-  log_filename = r'log/{}.txt'.format(time)
-
-  with open(r'log/{}.txt'.format(time), 'w') as log:
-    log.write(f'{hour} AIKO.PY BUILD VERSION: {build_version} \n')
-    log.write(f'{hour} AIko.txt: \n')
-    with open('prompts/AIko.txt', 'r') as aiko_txt:
-      for line in aiko_txt:
-        log.write(line)
-    log.write('\n')
-    log.write('\n')
-    log.write('---------------END OF "AIko.txt"---------------\n')
-    log.write('\n')
-
-  return log_filename
-
-def update_log(log_filepath : str, user_string : str, completion_data : tuple, include_context : bool = include_context_in_log, context_string : str = ''):
-  
-  global session_token_usage
-
-  time = datetime.now()
-  hour = f'[{time.hour}:{time.minute}:{time.second}]'
-
-  session_token_usage += completion_data[1][2]
-
-  with open(log_filepath, 'a') as log:
-    if include_context:
-      log.write(f'{hour} Context string: {context_string}\n')
-      log.write('\n')
-    log.write(f'{hour} Prompt: {user_string} --TOKENS USED: {completion_data[1][0]}\n')
-    log.write(f'{hour} Output: {completion_data[0]} --TOKENS USED: {completion_data[1][1]}\n')
-    log.write(f'{hour} Total tokens used: {completion_data[1][2]}\n')
-    log.write('\n')
-    log.write(f'{hour} Tokens used this session: {session_token_usage}\n')
-    log.write('\n')
 
 def txt_to_list(txt_filename : str):
   """
@@ -235,160 +183,131 @@ def txt_to_list(txt_filename : str):
       lines_list.append(line)
   
   return lines_list
-
-def update_context(latest_context : str, contexts_list : list):
-  '''
-  Appends the given context to the given context list and removes the oldest item in the list (index 0).
-  Returns a string composed of every item in the context list.
-  '''
-
-  contexts_list.pop(0)
-  contexts_list.append(latest_context)
-
-  context_string = ''
-
-  for index, context in enumerate(contexts_list, start = 1):
-    if context == '':
-      continue
-    if index == 5:
-      context_string += f' {index} (latest) - {context}'
-      continue
-
-    context_string += f' {index} - {context}'
-
-  return context_string
-
-def evaluate_then_summarize(
-  context : str,
-  log : str,
-  max_length : int = context_character_limit,
-  instruction : str = summarization_instruction,
-  ):
-
-  '''
-  Summarizes the given string if it is longer than the specified max length.
-  Returns the summary as a string OR
-  the given string with no changes if the length limit isn't exceeded.
-  '''
-
-  if len(context) > max_length:
-    summary_request = generate_gpt_completion(instruction, context)
-    update_log(log, f'{instruction} {context}', summary_request)
-
-    # returns context without changes if the summary request fails
-    if summary_request[0] == '':
-      return context
-
-    context = summary_request[0]
-
-  return context
 # ----------------------------------- end of functions ------------------------------------------------
 
+class AIko:
+  """
+    A class that can be used for interacting with custom made AI characters.
 
+    Attributes:
+        character_name (str): The name of the AI character.
+        personality_file (str): The filename of the personality file.
+        __personality__ (str): The personality text loaded from the personality file.
+        __log__ (str): The filename of the log file.
+        __context__ (list): A list of user and assistant messages representing the conversation context.
+
+    Methods:
+        __init__(self, character_name: str, personality_filename: str):
+            Initializes an instance of the AIko class.
+        
+        __create_log__(self):
+            Creates a log file and reports initial information.
+        
+        __update_log__(self, user_string: str, completion_data: tuple):
+            Updates the log file with the user's input and the generated output.
+        
+        interact(self, username: str, message: str):
+            Interacts with the AI character by providing a username and a message.
+    """
+
+  def __init__(self, character_name : str, personality_filename : str):
+    """
+    Initializes an instance of the AIko class.
+
+    Args:
+        character_name (str): The name of the AI character.
+        personality_filename (str): The filename of the personality file.
+    """
+    self.character_name = character_name
+    self.personality_file = personality_filename
+    self.__personality__ = txt_to_string(personality_filename)
+    self.__log__ = self.__create_log__()
+    self.__context__ = create_context_list()
+
+  def __create_log__(self):
+    """
+    Creates a log file and reports initial information.
+
+    Returns:
+        log_filename (str): The filename of the created log file.
+    """
+    global build_version
+
+    time = datetime.now()
+    hour = f'[{time.hour}:{time.minute}:{time.second}]'
+    time = time.strftime("%d/%m/%Y %H:%M:%S")
+    time = time.replace(' ','_').replace('/','-').replace(':','-')
+
+    log_filename = r'log/{}.txt'.format(time)
+
+    with open(r'log/{}.txt'.format(time), 'w') as log:
+      log.write(f'{hour} AIKO.PY BUILD VERSION: {build_version} \n')
+      log.write(f'{hour} {self.personality_file}: \n')
+      with open(self.personality_file, 'r') as aiko_txt:
+        for line in aiko_txt:
+          log.write(line)
+      log.write('\n')
+      log.write('\n')
+      log.write(f'---------------END OF "{self.personality_file}"---------------\n')
+      log.write('\n')
+
+    return log_filename
+
+  def __update_log__(self, user_string : str, completion_data : tuple):
+    """
+    Updates the log file with the user's input and the generated output.
+
+    Args:
+        user_string (str): The user's input message.
+        completion_data (tuple): A tuple containing the generated output and token usage information.
+    """
+    global session_token_usage
+
+    time = datetime.now()
+    hour = f'[{time.hour}:{time.minute}:{time.second}]'
+
+    session_token_usage += completion_data[1][2]
+
+    with open(self.__log__, 'a') as log:
+      log.write(f'{hour} Prompt: {user_string} --TOKENS USED: {completion_data[1][0]}\n')
+      log.write(f'{hour} Output: {completion_data[0]} --TOKENS USED: {completion_data[1][1]}\n')
+      log.write(f'{hour} Total tokens used: {completion_data[1][2]}\n')
+      log.write('\n')
+      log.write(f'{hour} Tokens used this session: {session_token_usage}\n')
+      log.write('\n')
+
+  def interact(self, username : str, message : str):
+    """
+    Interacts with the AI character by providing a username and a message.
+
+    Args:
+        username (str): The username.
+        message (str): The message sent by the user.
+    """
+    messages = [{"role":"system", "content": self.__personality__},]
+
+    if self.__context__[-1] != ('', ''):
+      for context in self.__context__:
+        if context != ('', ''):
+          messages.append({"role":"user", "content": context[0]})
+          messages.append({"role":"assistant", "content": context[1]})
+
+    messages.append({"role":"user", "content": f'{username}: {message}'})
+
+    completion = generate_gpt_completion_timeout(messages)
+    print(completion[0])
+    if f'{self.character_name}:' in completion[0][:len(self.character_name) + 2]:
+      say(completion[0][len(self.character_name) + 1:])
+
+    self.__context__.pop(0)
+    self.__context__.append((f'{username}: {message}', completion[0]))
+    self.__update_log__(message, completion)
 
 if __name__ == "__main__":
-
-  # gets the user's name from config
   username = config.get('GENERAL', 'username')
-
-  # saves the time out prompts into a list
-
-  time_out_prompts = txt_to_list('prompts/time_out_prompts.txt')
-    
-  # gets aiko.txt and saves it into a string for prompting gpt3
-
-  personality = txt_to_string('prompts/AIko.txt')
-
-  # saves the scenarios into a list
-
-  scenarios = txt_to_list('prompts/scenarios.txt')
-
-  # picks a random scenario and adds it to the personality prompt
-  if dynamic_scenarios:
-    scenario = scenarios[randint(0, len(scenarios) - 1)]
-    personality += scenario
-
-  # creates the log with initial info and saves the logs filename into a variable
-
-  log = create_log()
-
-  # list to save context strings
-
-  context_list = create_context_list()
-
-  # sentence written before main context string in prompt, to make things clear for AIko
-
-  context_start = f'You are Aiko. Here are our last interactions with Aiko:'
-
-  # memory string used to hold context strings
-
-  aikos_memory = 'EMPTY'
-
-  # sets silence breaker times
-  min_silence_breaker_time = config.getint('SILENCE_BREAKER', 'min_silence_breaker_time')
-  max_silence_breaker_time = config.getint('SILENCE_BREAKER', 'max_silence_breaker_time')
-
-  # ----------------------------------------- aiko's interaction loop --------------------------------------------------
-
+  aiko = AIko('Aiko', 'prompts\AIko.txt')
   while True:
-
-    # how long aiko waits for user input before getting impatient
-
-    silence_breaker_time = randint(
-    min_silence_breaker_time,
-    max_silence_breaker_time
-    )
-
-    # asks the user for input depending on the chosen input method
-  
-    user_input, timed_out = get_user_input(silence_breaker_time, username)
-
-    # prepares system message to generate the completion
-
-    system_role_aiko = f"{context_start} {aikos_memory} "
-
-
-    if timed_out:
-      chosen_prompt = randint(0, len(time_out_prompts) - 1)
-      user_input = time_out_prompts[chosen_prompt]
-
-    # to give aiko a chance to say her goodbye
-
-    if breaker in user_input.lower():
-      user_input += f' ({breaker} means goodbye)'
-
-    # prepares user message to generate the completion
-
-    user_role_aiko = f'{personality} {username}: {user_input} Aiko: '
-
-    # requests the completion and saves it into a string
-
-    aiko_completion_request = generate_gpt_completion_timeout(system_role_aiko, user_role_aiko)
-
-    aiko_completion_text = aiko_completion_request[0]
-
-    print("Aiko: " + aiko_completion_text)
-
-    # voices aiko. set elevenlabs = True if you want to use elevenlabs TTS (needs elevenlabs API key set in key_elevenlabs.txt)
-    say(text=aiko_completion_text)
-
-    # updates log
-    update_log(
-      log_filepath = log,
-      user_string = user_input, 
-      completion_data = aiko_completion_request, 
-      context_string = aikos_memory
-      )
-
-    # prepares latest interaction to be added to the context
-    context = f'{username}: {user_input} | Aiko: {aiko_completion_text}'
-
-    # summarizes context if it exceeds the length limit
-    context = evaluate_then_summarize(context, log = log)
-
-    # updates context
-    aikos_memory = update_context(context, context_list)
-
-    # breaks the loop if the user types the breaker message
-    if breaker in user_input.lower():
+    message = input(f'{username}: ')
+    if breaker.lower() in message.lower():
       break
+    aiko.interact(username, message)

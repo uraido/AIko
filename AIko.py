@@ -30,11 +30,15 @@ adapted to work with the latest changes before they can be reimplemented.
 - Implemented side prompts, which can be added using the add_side_prompt AIko method.
 - Using non timeout version of generate_gpt_completion function for now, since the timeout version is throwing
 errors.
+
+102alpha:
+- AIko.interact() method now has a use_system_role parameter.
+- AIko.interact()'s username parameter is now optional.
 ===============================================================================================================================
 """ 
 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko100alpha').upper() 
+build_version = ('Aiko102alpha').upper() 
 
 print(f'{build_version}: Starting...')
 print()
@@ -66,8 +70,10 @@ config.read('AikoPrefs.ini')
 # sets variables according to config
 breaker = config.get('GENERAL', 'breaker_phrase')
 context_slots = config.getint('GENERAL', 'context_slots')
-dynamic_scenarios = config.getboolean('GENERAL', 'dynamic_scenarios')
 completion_timeout = config.getint('GENERAL', 'completion_timeout')
+
+# unused
+dynamic_scenarios = config.getboolean('GENERAL', 'dynamic_scenarios')
 summarization_instruction = config.get('SUMMARIZATION', 'summary_instruction')
 context_character_limit = config.getint('SUMMARIZATION', 'context_character_limit')
 include_context_in_log = config.getboolean('LOGGING', 'include_context')
@@ -284,13 +290,15 @@ class AIko:
       log.write(f'{hour} Tokens used this session: {session_token_usage}\n')
       log.write('\n')
 
-  def interact(self, username : str, message : str):
+  def interact(self, message : str, username : str = 'User', use_system_role : bool = False):
     """
     Interacts with the AI character by providing a username and a message.
 
     Args:
-        username (str): The username.
         message (str): The message sent by the user.
+        username (str): The username.
+        use_system_role (bool): Whether to use the system role instead of the user role when prompting the user's
+        message.
     """
     messages = [{"role":"system", "content": self.__personality__},]
     if self.scenario != '':
@@ -310,20 +318,32 @@ class AIko:
           messages.append({"role":"assistant", "content": context[1]})
 
     # adds user prompt to the messages
-    messages.append({"role":"user", "content": f'{username}: {message}'})
+    if use_system_role:
+      messages.append({"role":"system", "content": message})
+    else:
+      messages.append({"role":"user", "content": f'{username}: {message}'})
 
+    # requests completion
     completion = generate_gpt_completion(messages)
     print(completion[0])
-    if f'{self.character_name}:' in completion[0][:len(self.character_name) + 2]:
-      say(completion[0][len(self.character_name) + 1:])
 
+    # parses completion to be fed to text to speech
+    #if f'{self.character_name}:' in completion[0][:len(self.character_name) + 2]:
+      #say(completion[0][len(self.character_name) + 1:])
+    # otherwise just voices it if no parsing is needed
+    #else:
+      #say(completion[0])
+
+    # updates context list with latest interaction
     self.__context__.pop(0)
     self.__context__.append((f'{username}: {message}', completion[0]))
+
     self.__update_log__(message, completion)
 
   def add_side_prompt(self, side_prompt):
     self.__side_prompts__.pop(0)
     self.__side_prompts__.append(side_prompt)
+
 if __name__ == "__main__":
   username = config.get('GENERAL', 'username')
   scenario = choice(txt_to_list('prompts\scenarios.txt'))
@@ -332,4 +352,4 @@ if __name__ == "__main__":
     message = input(f'{username}: ')
     if breaker.lower() in message.lower():
       break
-    aiko.interact(username, message)
+    aiko.interact(message, username)

@@ -1,12 +1,28 @@
-import os
+"""
+Streamlabs.py
+
+Requirements:
+- AIko.py (112alpha or greater) and its requirements.
+- VoiceLink.py and its requirements.
+
+txt files:
+- AIko.txt
+- spontaneous_messages.txt
+
+Changelog:
+
+003:
+- Included interaction loop for livestreaming.
+- Added spontaneous talking feature.
+- Removed unused imports.
+- Included versification.
+"""
 import time
 import AIko
 import random
 import pytchat         
-import keyboard    
-from pytimedinput import timedInput         
-from configparser import ConfigParser
-from threading import Thread, Lock, Event                                             
+from threading import Thread, Lock           
+from configparser import ConfigParser                                           
 from VoiceLink import say, start_speech_recognition, stop_speech_recognition                                                                                                                             
 # ----------------------------------------------------------------------------
 class MessageQueue: 
@@ -263,7 +279,7 @@ class MasterQueue:
 
         Returns:
         - A tuple containing the message type and the message content.
-        - An empty string if there are no messages in the queue / 'chat' is in cooldown mode.
+        - A tuple containing empty strings if there are no messages in the queue / 'chat' is in cooldown mode.
         """
         global allow_chat
 
@@ -279,7 +295,7 @@ class MasterQueue:
             Thread(target=chat_cooldown, kwargs={'cooldown': random.randint(2, 6)}).start()
             return ("chat", self.__chat_messages__.pick_message())
 
-        return ''
+        return ('', '')
 # ----------------------------------------------------------------------------
 queue = MasterQueue()
 # ---------------------- CONTINOUSLY THREADED FUNCTIONS ----------------------
@@ -289,12 +305,14 @@ def thread_parse_chat(chat):
         for c in chat.get().sync_items():
 
             queue.add_message(f'{c.author}: {c.message}', "chat")
-            print(f'Added chat message to queue:\n{c.message}')
+            #print(f'Added chat message to queue:\n{c.message}')
 
         # to keep CPU usage from maxing out
         time.sleep(0.1)
         
 def thread_speech_recognition(hotkey : str):
+    username = config.get('GENERAL', 'username')
+
     def parse_event(evt):
         event = str(evt)
 
@@ -305,7 +323,7 @@ def thread_speech_recognition(hotkey : str):
         message = event[stt_start + len(keyword):stt_end]
 
         if message != '':
-            queue.add_message(message, "mic")
+            queue.add_message(f'{username}: {message}', "mic")
             #print(f'Added mic message to queue:\n{message}')
 
     start_speech_recognition(
@@ -313,8 +331,23 @@ def thread_speech_recognition(hotkey : str):
         hotkey=hotkey
         )
 
+def thread_spontaneus_messages():
+    system_prompts = AIko.txt_to_list('prompts\spontaneous_messages.txt')
+
+    while True:
+        time.sleep(random.randint(30, 90))
+        queue.add_message(random.choice(system_prompts), "system")
+
 def thread_talk():
-    pass
+    aiko = AIko.AIko('Aiko', 'prompts\AIko.txt')
+    while True:
+        msg_type, message = queue.get_next()
+
+        if is_empty_string(message):
+            continue 
+
+        aiko.interact(message, use_system_role = msg_type == "system")
+        time.sleep(0.1)
 # ----------------------------------------------------------------------------
 if __name__ == '__main__':
 

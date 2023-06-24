@@ -24,11 +24,13 @@ method.
 - Time is now only reported at the beginning of each log report entry, instead of at every line.
 - Removed 'Starting...' printout when importing the script.
 - Fixed generate_gpt_completion_timeout() function and switched to using it in the AIko class.
+112alpha:
+- - Removed 'username' parameter from interact() AIko method. Usernames should now be handled externally.
 ===============================================================================================================================
 """ 
 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko111alpha').upper() 
+build_version = ('Aiko112alpha').upper() 
 
 if __name__ == '__main__':
   from AikoINIhandler import handle_ini
@@ -325,9 +327,9 @@ class AIko:
       log.write(f'Tokens used this session: {session_token_usage}\n')
       log.write('\n')
 
-  def interact(self, message : str, username : str = 'User', use_system_role : bool = False):
+  def interact(self, message : str, use_system_role : bool = False):
     """
-      Interacts with the AI character by providing an username and a message.
+      Interacts with the AI character by providing a message.
     """
     messages = [{"role":"system", "content": self.__personality__}]
 
@@ -338,7 +340,7 @@ class AIko:
     if use_system_role:
       messages.append({"role":"system", "content": message})
     else:
-      messages.append({"role":"user", "content": f'{username}: {message}'})
+      messages.append({"role":"user", "content": message})
 
     completion = generate_gpt_completion_timeout(messages)
     print(completion[0])
@@ -353,7 +355,7 @@ class AIko:
     if use_system_role:
       self.__context__.add_item(completion[0], "assistant")
     else:
-      self.__context__.add_item(f'{username}: {message}', "user")
+      self.__context__.add_item(message, "user")
       self.__context__.add_item(completion[0], "assistant")
 
     self.__update_log__(message, completion)
@@ -378,6 +380,7 @@ if __name__ == "__main__":
   aiko.add_side_prompt('Aiko prefers cats over dogs. Especially siamese cats.')
   while True:
     message = input(f'{username}: ')
+    prompt = f'{username}: {message}'
     if breaker.lower() in message.lower():
       break
-    aiko.interact(message, username)
+    aiko.interact(prompt)

@@ -20,14 +20,15 @@ Changelog:
 - Added messageList class for handling information such as context lists and side prompts.
 - The scenario is no longer a public attribute of the AIko class. To change it, one must use the change_scenario()
 method.
+111alpha:
+- Time is now only reported at the beginning of each log report entry, instead of at every line.
+- Removed 'Starting...' printout when importing the script.
+- Fixed generate_gpt_completion_timeout() function and switched to using it in the AIko class.
 ===============================================================================================================================
 """ 
 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko110alpha').upper() 
-
-print(f'{build_version}: Starting...')
-print()
+build_version = ('Aiko111alpha').upper() 
 
 if __name__ == '__main__':
   from AikoINIhandler import handle_ini
@@ -157,7 +158,7 @@ def generate_gpt_completion_timeout(messages : list, timeout : int = completion_
   """
 
   try:
-    completion_request = func_timeout(timeout, generate_gpt_completion, args = (messages))
+    completion_request = func_timeout(timeout, generate_gpt_completion, kwargs = {'messages': messages})
   except FunctionTimedOut:
     completion_request = generate_gpt_completion(messages)
     
@@ -285,8 +286,10 @@ class AIko:
     log_filename = r'log/{}.txt'.format(time)
 
     with open(r'log/{}.txt'.format(time), 'w') as log:
-      log.write(f'{hour} AIKO.PY BUILD VERSION: {build_version} \n')
-      log.write(f'{hour} {self.personality_file}: \n')
+      log.write(f'{hour}\n')
+      log.write('\n')
+      log.write(f'AIKO.PY BUILD VERSION: {build_version} \n')
+      log.write(f'{self.personality_file}: \n')
       with open(self.personality_file, 'r') as aiko_txt:
         for line in aiko_txt:
           log.write(line)
@@ -313,11 +316,13 @@ class AIko:
     session_token_usage += completion_data[1][2]
 
     with open(self.__log__, 'a') as log:
-      log.write(f'{hour} Prompt: {user_string} --TOKENS USED: {completion_data[1][0]}\n')
-      log.write(f'{hour} Output: {completion_data[0]} --TOKENS USED: {completion_data[1][1]}\n')
-      log.write(f'{hour} Total tokens used: {completion_data[1][2]}\n')
+      log.write(f'{hour}\n')
       log.write('\n')
-      log.write(f'{hour} Tokens used this session: {session_token_usage}\n')
+      log.write(f'Prompt: {user_string} --TOKENS USED: {completion_data[1][0]}\n')
+      log.write(f'Output: {completion_data[0]} --TOKENS USED: {completion_data[1][1]}\n')
+      log.write(f'Total tokens used: {completion_data[1][2]}\n')
+      log.write('\n')
+      log.write(f'Tokens used this session: {session_token_usage}\n')
       log.write('\n')
 
   def interact(self, message : str, username : str = 'User', use_system_role : bool = False):
@@ -335,7 +340,7 @@ class AIko:
     else:
       messages.append({"role":"user", "content": f'{username}: {message}'})
 
-    completion = generate_gpt_completion(messages)
+    completion = generate_gpt_completion_timeout(messages)
     print(completion[0])
 
     # parses completion (when appliable) to be fed to text to speech

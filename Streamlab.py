@@ -16,6 +16,9 @@ Changelog:
 - Added spontaneous talking feature.
 - Removed unused imports.
 - Included versification.
+004:
+- Fixed spontaneous talking feature not being actually started.
+- Added printout to let user know when all threads have been started.
 """
 import time
 import AIko
@@ -335,7 +338,7 @@ def thread_spontaneus_messages():
     system_prompts = AIko.txt_to_list('prompts\spontaneous_messages.txt')
 
     while True:
-        time.sleep(random.randint(30, 90))
+        time.sleep(random.randint(1, 3))
         queue.add_message(random.choice(system_prompts), "system")
 
 def thread_talk():
@@ -360,4 +363,7 @@ if __name__ == '__main__':
 
     Thread(target = thread_speech_recognition, kwargs = {'hotkey': listen_hotkey}).start()
     Thread(target = thread_parse_chat, kwargs = {'chat': chat}).start()
+    Thread(target = thread_spontaneus_messages).start()
     Thread(target = thread_talk).start()
+
+    print('All threads started.')

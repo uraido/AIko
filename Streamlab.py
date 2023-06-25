@@ -19,6 +19,9 @@ Changelog:
 004:
 - Fixed spontaneous talking feature not being actually started.
 - Added printout to let user know when all threads have been started.
+005:
+- Added username parameter to thread_speech_recognition() function.
+- Messages stored in the MessageContainer class now have an expiration time.
 """
 import time
 import AIko
@@ -88,7 +91,8 @@ class MessageQueue:
         
 class MessageContainer:
     """
-    A singleton class that provides thread-safe storage for a message. Only one instance of the class can exist.
+    A singleton class that provides thread-safe storage for a temporary message. 
+    Only one instance of the class can exist.
 
     Public Methods:
     - switch_message(message: str): Sets the message to the given value.
@@ -113,15 +117,21 @@ class MessageContainer:
         self.__msg__ = ''
         self.__lock__ = Lock()
 
+    def __expiration_countdown__(self, time : int):
+        time.sleep(time)
+        with self.__lock__:
+            self.__msg__ = ''
+
     def switch_message(self, message : str):
         """
-        Sets the message to the given value.
+        Sets the message to the given value. The message will expire after a set amount of seconds.
 
         Args:
         - message: The message to be stored.
         """
         with self.__lock__:
             self.__msg__ = message
+        Thread(target = self.__expiration_countdown__, kwargs = {'time': 15}).start()
 
     def has_message(self):
         """
@@ -286,13 +296,15 @@ class MasterQueue:
         """
         global allow_chat
 
-        system_msg = self.__system_messages__.get_next()
+        msg = self.__system_messages__.get_next()
 
-        if not is_empty_string(system_msg):
-            return ("system", system_msg)
+        if not is_empty_string(msg):
+            return ("system", msg)
 
-        if self.__mic_messages__.has_message():
-            return ("mic", self.__mic_messages__.get_message())
+        msg = self.__mic_messages__.get_message()
+
+        if not is_empty_string(msg):
+            return ("mic", msg)
 
         if allow_chat:
             Thread(target=chat_cooldown, kwargs={'cooldown': random.randint(2, 6)}).start()
@@ -313,8 +325,7 @@ def thread_parse_chat(chat):
         # to keep CPU usage from maxing out
         time.sleep(0.1)
         
-def thread_speech_recognition(hotkey : str):
-    username = config.get('GENERAL', 'username')
+def thread_speech_recognition(hotkey : str, username : str):
 
     def parse_event(evt):
         event = str(evt)
@@ -338,7 +349,7 @@ def thread_spontaneus_messages():
     system_prompts = AIko.txt_to_list('prompts\spontaneous_messages.txt')
 
     while True:
-        time.sleep(random.randint(1, 3))
+        time.sleep(random.randint(30, 90))
         queue.add_message(random.choice(system_prompts), "system")
 
 def thread_talk():
@@ -356,12 +367,13 @@ if __name__ == '__main__':
 
     config = ConfigParser()
     config.read('AikoPrefs.ini')
+    username = config.get('GENERAL', 'username')
     listen_hotkey = config.get('LIVESTREAM', 'toggle_listening')
     livestream_id = config.get('LIVESTREAM', 'liveid')
 
     chat = pytchat.create(video_id=livestream_id)
 
-    Thread(target = thread_speech_recognition, kwargs = {'hotkey': listen_hotkey}).start()
+    Thread(target = thread_speech_recognition, kwargs = {'hotkey': listen_hotkey, 'username': username}).start()
     Thread(target = thread_parse_chat, kwargs = {'chat': chat}).start()
     Thread(target = thread_spontaneus_messages).start()
     Thread(target = thread_talk).start()

@@ -4,7 +4,7 @@ Voicelink.py
 Handles voice related functionality such as text to speech and speech to text for Aiko's scripts.
 
 File requirements:
-- AikoINIhandler.py >= 1.4
+- AikoINIhandler.py >= 1.5
 
 pip install:
 - azure.cognitiveservices.speech
@@ -12,15 +12,9 @@ pip install:
 
 Changelog:
 
-040:
-- Added speech to text functionality through start_speech_recognition() and stop_speech_recognition().
-041:
-- Built AudioConfig class with use_default_microphone=True and passed it to the speechRecognizer class to
-make sure speech to text only transcribes the user's default microphone.
-042:
-- Audio Input Device for continuous speech recognition is now configurable.
-043:
-- Whether to use the default mic or not is configurable.
+050:
+- Removed option to use default mic, since that caused a bug which caused AIko to 'hear' herself and be stuck in a loop
+answering herself. User must specify a microphone device to use speech_recognition.
 """
 import os
 import azure.cognitiveservices.speech as speechsdk
@@ -101,22 +95,14 @@ def say(text : str):
     speech_synthesis_result = speech_synthesizer.speak_text_async(text).get()
 
 # get the users chosen microphone device's endpoint id and builds AudioConfig class
-if use_default_mic:
+try:
+    mic_id = get_device_endpoint_id(mic_device)
     input_config = speechsdk.audio.AudioConfig(
-    use_default_microphone=True
+    use_default_microphone=False,
+    device_name=mic_id
         )
-else:
-    try:
-        mic_id = get_device_endpoint_id(mic_device)
-        input_config = speechsdk.audio.AudioConfig(
-        use_default_microphone=False,
-        device_name=mic_id
-            )
-    except:
-        print(f"Couldn't find {audio_device} audio device. Using default speakers.")
-        input_config = speechsdk.audio.AudioConfig(
-        use_default_microphone=True,
-            )
+except:
+    raise(f"Couldn't find {audio_device} audio device.")
 
 # builds SpeechRecognizer class
 speech_recognizer = speechsdk.SpeechRecognizer(

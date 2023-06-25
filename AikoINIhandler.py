@@ -19,6 +19,9 @@ AikoSpeechInterface script.
 - Added mic_device option to VOICE section.
 15:
 - Added use_default_mic to VOICE section.
+16:
+- Removed use_default_mic. Using the default mic caused a bug where Aiko could hear herself, so now user must specify
+a mic to use speech recognition.
 '''
 
 from configparser import ConfigParser
@@ -52,7 +55,6 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
         ('azure_voice', 'en-US-Sara-Neural'),
         ('azure_region', 'brazilsouth'),
         ('audio_device', 'Cable Input'),
-        ('use_default_mic', 'True'),
         ('mic_device', 'Cable-B Output'),
     ]
 

@@ -15,6 +15,9 @@ Changelog:
 050:
 - Removed option to use default mic, since that caused a bug which caused AIko to 'hear' herself and be stuck in a loop
 answering herself. User must specify a microphone device to use speech_recognition.
+051:
+- Exception printout when getting microphone device is now more specific.
+- Removed leftover use_default_mic setting import that caused an error.
 """
 import os
 import azure.cognitiveservices.speech as speechsdk
@@ -33,7 +36,6 @@ config.read('AikoPrefs.ini')
 
 # sets variables according to config
 audio_device = config.get('VOICE', 'audio_device')
-use_default_mic = config.get('VOICE', 'use_default_mic')
 mic_device = config.get('VOICE', 'mic_device')
 azure_voice = config.get('VOICE', 'azure_voice')
 azure_region = config.get('VOICE', 'azure_region')
@@ -102,7 +104,7 @@ try:
     device_name=mic_id
         )
 except:
-    raise(f"Couldn't find {audio_device} audio device.")
+    raise(f"Couldn't find {mic_device} input device.")
 
 # builds SpeechRecognizer class
 speech_recognizer = speechsdk.SpeechRecognizer(

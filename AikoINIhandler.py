@@ -1,27 +1,14 @@
 '''
 AikoINIhandler.py
 
-Version 1.4
+Version 2.0
 
 Parses Aikos INI configuration file and adds any missing values to avoid raising any missing value exceptions.
 
 Changelog:
-10:
-- Added cfg_hotkey to LIVESTREAM section.
-11:
-- Added LOGGING section with include_context bool option.
-12:
-- Renamed SPEECH_INTERFACE section to VOICE and removed deprecated settings related to the phased out
-AikoSpeechInterface script.
-13:
-- Replaced ptt_hotkey with toggle_listening.
-14:
-- Added mic_device option to VOICE section.
-15:
-- Added use_default_mic to VOICE section.
-16:
-- Removed use_default_mic. Using the default mic caused a bug where Aiko could hear herself, so now user must specify
-a mic to use speech recognition.
+20:
+- Removed a bunch of old, unused settings and sections.
+- Replaced SILENCE_BREAKER section with SPONTANEOUS_TALKING section.
 '''
 
 from configparser import ConfigParser
@@ -36,17 +23,14 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
     sections = [
         'GENERAL',
         'VOICE',
-        'SUMMARIZATION',
-        'SILENCE_BREAKER',
+        'SPONTANEOUS_TALKING',
         'LIVESTREAM',
-        'LOGGING'
     ]
 
     # the options each section should contain, followed by their default values and comments.
     GENERAL = [
         ('username', 'Ulaidh'),
         ('breaker_phrase', 'code red'),
-        ('context_slots', '5'),
         ('dynamic_scenarios', 'True'),
         ('completion_timeout', '10'),
     ]
@@ -58,36 +42,22 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
         ('mic_device', 'Cable-B Output'),
     ]
 
-    SUMMARIZATION = [
-        ('summary_instruction', 'Summarize this shortly without removing core info:'),
-        ('context_character_limit', '375'),
-    ]
-
-    SILENCE_BREAKER = [
-        ('min_silence_breaker_time', '9'),
-        ('max_silence_breaker_time', '90'),
+    SPONTANEOUS_TALKING = [
+        ('min_time', '180'),
+        ('max_time', '540'),
     ]
 
     LIVESTREAM = [
         ('liveid', ''),
-        ('talking_chance', '1'),
-        ('toggle_listening', 'Page Down'),
-        ('sp_hotkey', 'num plus'),
-        ('cfg_hotkey', 'F5'),
-    ]
-
-    LOGGING = [
-        ('include_context', 'False'),
+        ('toggle_listening', 'Page Down')
     ]
 
     # saves the lists containing the values in a dictionary, with their respective sections as the key
     options = {
         'GENERAL': GENERAL,
         'VOICE': VOICE,
-        'SUMMARIZATION': SUMMARIZATION,
-        'SILENCE_BREAKER': SILENCE_BREAKER,
+        'SPONTANEOUS_TALKING': SPONTANEOUS_TALKING,
         'LIVESTREAM': LIVESTREAM,
-        'LOGGING': LOGGING,
     }
 
     # creates config instance

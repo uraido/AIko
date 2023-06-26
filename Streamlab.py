@@ -4,6 +4,7 @@ Streamlabs.py
 Requirements:
 - AIko.py (112alpha or greater) and its requirements.
 - VoiceLink.py (050 or greater) and its requirements.
+- AikoINIhandler.py (20 or greater) and its requirements.
 
 txt files:
 - AIko.txt
@@ -16,12 +17,16 @@ Changelog:
 section.
 - Spontaneous message prompts are deleted from the pool list when picked, to prevent AIko from receiving the same
 spontaneous message prompt multiple times.
+011:
+- MasterQueue object is now passed as a parameter to the interaction loop functions, instead of being passed as a global.
+- Spontaneous messages min and max time interval are now configurable.
 """
 import time
 import AIko
 import random
-import pytchat                 
-from configparser import ConfigParser   
+import pytchat               
+from configparser import ConfigParser
+from AikoINIhandler import handle_ini     
 from threading import Thread, Lock, Event                                          
 from VoiceLink import say, start_speech_recognition, stop_speech_recognition
 # ----------------------------------------------------------------------------
@@ -242,6 +247,7 @@ class MasterQueue:
     def __init__(self):
         if (self.__initialized__):
             return
+
         self.__initialized__ = True
 
         self.__system_messages__ = MessageQueue()
@@ -300,11 +306,8 @@ class MasterQueue:
         return ('', '')
 # ----------------------------------------------------------------------------
 if __name__ == '__main__':
-    queue = MasterQueue()
     # ---------------------- CONTINOUSLY THREADED FUNCTIONS ------------------
-    def thread_parse_chat(config : ConfigParser, chat : pytchat.core.PytchatCore):
-        global queue
-
+    def thread_parse_chat(queue : MasterQueue, config : ConfigParser, chat : pytchat.core.PytchatCore):
         while chat.is_alive():
 
             for c in chat.get().sync_items():
@@ -315,9 +318,7 @@ if __name__ == '__main__':
             # to keep CPU usage from maxing out
             time.sleep(0.1)
             
-    def thread_speech_recognition(config : ConfigParser):
-        global queue
-
+    def thread_speech_recognition(queue : MasterQueue, config : ConfigParser):
         username = config.get('GENERAL', 'username')
         hotkey = config.get('LIVESTREAM', 'toggle_listening')
 
@@ -339,22 +340,21 @@ if __name__ == '__main__':
             hotkey=hotkey
             )
 
-    def thread_spontaneus_messages(config : ConfigParser):
-        global queue
-
+    def thread_spontaneus_messages(queue : MasterQueue, config : ConfigParser):
         system_prompts = AIko.txt_to_list('prompts\spontaneous_messages.txt')
+
+        min_time = config.getint('SPONTANEOUS_TALKING', 'min_time')
+        max_time = config.getint('SPONTANEOUS_TALKING', 'max_time')
 
         while True:
             try:
                 message = system_prompts.pop(random.randint(0, len(system_prompts) - 1))
             except:
                 break
-            time.sleep(random.randint(180, 540))
+            time.sleep(random.randint(min_time, max_time))
             queue.add_message(message, "system")
 
-    def thread_talk():
-            global queue
-
+    def thread_talk(queue : MasterQueue):
             aiko = AIko.AIko('Aiko', 'prompts\AIko.txt')
             while True:
                 msg_type, message = queue.get_next()
@@ -365,12 +365,16 @@ if __name__ == '__main__':
                 aiko.interact(message, use_system_role = msg_type == "system")
                 time.sleep(0.1)
     # --------------------------------------------------------------------------
+    queue = MasterQueue()
+
+    handle_ini()
+    
     config = ConfigParser()
     config.read('AikoPrefs.ini')
 
-    Thread(target = thread_parse_chat, kwargs = {'config': config, 'chat': pytchat.create(video_id=config.get('LIVESTREAM', 'liveid'))}).start()
-    Thread(target = thread_speech_recognition, kwargs = {'config': config}).start()
-    Thread(target = thread_spontaneus_messages, kwargs = {'config': config}).start()
-    Thread(target = thread_talk).start()
+    Thread(target = thread_parse_chat, kwargs = {'queue': queue, 'config': config, 'chat': pytchat.create(video_id=config.get('LIVESTREAM', 'liveid'))}).start()
+    Thread(target = thread_speech_recognition, kwargs = {'queue': queue, 'config': config}).start()
+    Thread(target = thread_spontaneus_messages, kwargs = {'queue': queue, 'config': config}).start()
+    Thread(target = thread_talk, kwargs = {'queue': queue}).start()
 
     print('All threads started.')

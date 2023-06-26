@@ -3,7 +3,7 @@ Streamlabs.py
 
 Requirements:
 - AIko.py (112alpha or greater) and its requirements.
-- VoiceLink.py and its requirements.
+- VoiceLink.py (050 or greater) and its requirements.
 
 txt files:
 - AIko.txt
@@ -22,13 +22,15 @@ Changelog:
 005:
 - Added username parameter to thread_speech_recognition() function.
 - Messages stored in the MessageContainer class now have an expiration time.
+006:
+- Fixed logic error where messages in MessageContainer would expire before they should.
 """
 import time
 import AIko
 import random
-import pytchat         
-from threading import Thread, Lock           
-from configparser import ConfigParser                                           
+import pytchat                 
+from configparser import ConfigParser   
+from threading import Thread, Lock, Event                                          
 from VoiceLink import say, start_speech_recognition, stop_speech_recognition                                                                                                                             
 # ----------------------------------------------------------------------------
 class MessageQueue: 
@@ -88,7 +90,7 @@ class MessageQueue:
             if not self.is_empty():
                 return self.__queue__.pop(0)
             return ''
-        
+  
 class MessageContainer:
     """
     A singleton class that provides thread-safe storage for a temporary message. 
@@ -103,6 +105,8 @@ class MessageContainer:
     _instance = None
     _lock = Lock()
 
+    _thread_started = False
+
     def __new__(cls):
         """
         Ensures that only one instance of the class can be created.
@@ -116,11 +120,28 @@ class MessageContainer:
     def __init__(self):
         self.__msg__ = ''
         self.__lock__ = Lock()
+        self.__switch_evt__ = Event()
+        self.__expiration_time__ = 10.0
+        
+        # to make sure the thread can only be started once
+        if not MessageContainer._thread_started:
+            Thread(target = self.__expiration_countdown__).start()
+            MessageContainer._thread_started = True
 
-    def __expiration_countdown__(self, time : int):
-        time.sleep(time)
-        with self.__lock__:
-            self.__msg__ = ''
+    def __expiration_countdown__(self):
+        timer_start = time.time()
+        while True:
+            timer_now = time.time()
+
+            if self.__switch_evt__.is_set():
+                timer_start = time.time()
+                self.__switch_evt__.clear()
+
+            if (timer_now - timer_start) >= 10.0:
+                with self.__lock__:
+                    self.__msg__ = ''
+                
+            time.sleep(0.1)
 
     def switch_message(self, message : str):
         """
@@ -131,7 +152,7 @@ class MessageContainer:
         """
         with self.__lock__:
             self.__msg__ = message
-        Thread(target = self.__expiration_countdown__, kwargs = {'time': 15}).start()
+            self.__switch_evt__.set()
 
     def has_message(self):
         """
@@ -220,17 +241,8 @@ class MessagePool:
                         break
             return helper
 # ----------------------------------------------------------------------------
-allow_chat = True
-
 def is_empty_string(string : str):
     return string == ''  
-
-def chat_cooldown(cooldown : int):
-    global allow_chat
-
-    allow_chat = False
-    time.sleep(cooldown)
-    allow_chat = True
 
 class MasterQueue:
     """
@@ -265,6 +277,12 @@ class MasterQueue:
         self.__system_messages__ = MessageQueue()
         self.__mic_messages__ = MessageContainer()
         self.__chat_messages__ = MessagePool()
+        self.__allow_chat__ = True
+
+    def __chat_cooldown__(self, cooldown : int):
+        self.__allow_chat__ = False
+        time.sleep(cooldown)
+        self.__allow_chat__ = True
 
     def add_message(self, message : str, message_type : str):
         """
@@ -294,8 +312,6 @@ class MasterQueue:
         - A tuple containing the message type and the message content.
         - A tuple containing empty strings if there are no messages in the queue / 'chat' is in cooldown mode.
         """
-        global allow_chat
-
         msg = self.__system_messages__.get_next()
 
         if not is_empty_string(msg):
@@ -306,8 +322,8 @@ class MasterQueue:
         if not is_empty_string(msg):
             return ("mic", msg)
 
-        if allow_chat:
-            Thread(target=chat_cooldown, kwargs={'cooldown': random.randint(2, 6)}).start()
+        if self.__allow_chat__:
+            Thread(target=self.__chat_cooldown__, kwargs={'cooldown': random.randint(2, 6)}).start()
             return ("chat", self.__chat_messages__.pick_message())
 
         return ('', '')

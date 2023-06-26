@@ -24,6 +24,10 @@ Changelog:
 - Messages stored in the MessageContainer class now have an expiration time.
 006:
 - Fixed logic error where messages in MessageContainer would expire before they should.
+007:
+- Classes MessageQueue and MessagePool are no longer singletons.
+- For the remaining singleton classes - MasterQueue and MessageContainer, singleton logic has been improved to prevent
+code in the __init__ method to be executed more than once when assigning the instance to different references.
 """
 import time
 import AIko
@@ -35,26 +39,13 @@ from VoiceLink import say, start_speech_recognition, stop_speech_recognition
 # ----------------------------------------------------------------------------
 class MessageQueue: 
     """
-    A singleton class representing a thread-safe message queue. Only one instance of this class can exist.
+    A class representing a thread-safe message queue.
 
     Public methods:
     - is_empty(): Checks if the message queue is empty.
     - add_message(message: str): Adds a message to the queue.
     - get_next(): Retrieves and removes the next message from the queue.
     """
-    _instance = None
-    _lock = Lock()
-
-    def __new__(cls):
-        """
-        Ensures that only one instance of the class can be created.
-        """
-        if cls._instance is None: 
-            with cls._lock:
-                if not cls._instance:
-                    cls._instance = super().__new__(cls)
-        return cls._instance
-
     def __init__(self):
         self.__queue__ = []
         self.__lock__ = Lock()
@@ -102,31 +93,31 @@ class MessageContainer:
     - has_message(): Checks if there is a stored message.
 
     """
-    _instance = None
-    _lock = Lock()
-
-    _thread_started = False
+    __instance__ = None
+    __lock__ = Lock()
 
     def __new__(cls):
         """
         Ensures that only one instance of the class can be created.
         """
-        if cls._instance is None: 
-            with cls._lock:
-                if not cls._instance:
-                    cls._instance = super().__new__(cls)
-        return cls._instance
+        if cls.__instance__ is None: 
+            with cls.__lock__:
+                if not cls.__instance__:
+                    cls.__instance__ = super().__new__(cls)
+                    cls.__instance__.__initialized__ = False
+        return cls.__instance__
 
     def __init__(self):
+        if (self.__initialized__):
+            return
+        self.__initialized__ = True
+
         self.__msg__ = ''
         self.__lock__ = Lock()
         self.__switch_evt__ = Event()
         self.__expiration_time__ = 10.0
         
-        # to make sure the thread can only be started once
-        if not MessageContainer._thread_started:
-            Thread(target = self.__expiration_countdown__).start()
-            MessageContainer._thread_started = True
+        Thread(target = self.__expiration_countdown__).start()
 
     def __expiration_countdown__(self):
         timer_start = time.time()
@@ -177,8 +168,7 @@ class MessageContainer:
 
 class MessagePool:
     """
-    A thread-safe singleton class representing a message pool with limited capacity. Only one instance of this class
-    can exist.
+    A thread-safe class representing a message pool with limited capacity.
 
     Public Methods:
         add_chat_message(item: str) -> None:
@@ -188,20 +178,7 @@ class MessagePool:
         pick_chat_message() -> str:
             Picks a random chat message from the message pool and returns it. The picked message
             is removed from the pool. If the pool is empty, an empty string is returned.
-    """
-    _instance = None
-    _lock = Lock()
-
-    def __new__(cls):
-        """
-        Ensures that only one instance of the class can be created.
-        """
-        if cls._instance is None: 
-            with cls._lock:
-                if not cls._instance:
-                    cls._instance = super().__new__(cls)
-        return cls._instance
-        
+    """ 
     def __init__(self):
         self.__pool__ = AIko.create_limited_list(10)
         self.__lock__ = Lock()
@@ -260,23 +237,29 @@ class MasterQueue:
     - add_message(message: str, message_type: str): Adds a message to the master queue.
     - get_next(): Retrieves the next message from the master queue based on priority.
     """
-    _instance = None
-    _lock = Lock()
+    __instance__ = None
+    __lock__ = Lock()
 
     def __new__(cls):
         """
         Ensures that only one instance of the class can be created.
         """
-        if cls._instance is None: 
-            with cls._lock:
-                if not cls._instance:
-                    cls._instance = super().__new__(cls)
-        return cls._instance
+        if cls.__instance__ is None: 
+            with cls.__lock__:
+                if not cls.__instance__:
+                    cls.__instance__ = super().__new__(cls)
+                    cls.__instance__.__initialized__ = False
+        return cls.__instance__
 
     def __init__(self):
+        if (self.__initialized__):
+            return
+        self.__initialized__ = True
+
         self.__system_messages__ = MessageQueue()
         self.__mic_messages__ = MessageContainer()
         self.__chat_messages__ = MessagePool()
+
         self.__allow_chat__ = True
 
     def __chat_cooldown__(self, cooldown : int):

@@ -11,23 +11,11 @@ txt files:
 
 Changelog:
 
-003:
-- Included interaction loop for livestreaming.
-- Added spontaneous talking feature.
-- Removed unused imports.
-- Included versification.
-004:
-- Fixed spontaneous talking feature not being actually started.
-- Added printout to let user know when all threads have been started.
-005:
-- Added username parameter to thread_speech_recognition() function.
-- Messages stored in the MessageContainer class now have an expiration time.
-006:
-- Fixed logic error where messages in MessageContainer would expire before they should.
-007:
-- Classes MessageQueue and MessagePool are no longer singletons.
-- For the remaining singleton classes - MasterQueue and MessageContainer, singleton logic has been improved to prevent
-code in the __init__ method to be executed more than once when assigning the instance to different references.
+010:
+- Reorganized definitions. Now, functionality needed for the interaction loop are defined under if __name__ = '__main__'
+section.
+- Spontaneous message prompts are deleted from the pool list when picked, to prevent AIko from receiving the same
+spontaneous message prompt multiple times.
 """
 import time
 import AIko
@@ -35,7 +23,10 @@ import random
 import pytchat                 
 from configparser import ConfigParser   
 from threading import Thread, Lock, Event                                          
-from VoiceLink import say, start_speech_recognition, stop_speech_recognition                                                                                                                             
+from VoiceLink import say, start_speech_recognition, stop_speech_recognition
+# ----------------------------------------------------------------------------
+def is_empty_string(string : str):
+    return string == ''                                                                                                                               
 # ----------------------------------------------------------------------------
 class MessageQueue: 
     """
@@ -218,9 +209,6 @@ class MessagePool:
                         break
             return helper
 # ----------------------------------------------------------------------------
-def is_empty_string(string : str):
-    return string == ''  
-
 class MasterQueue:
     """
     A singleton class which acts as a priority queue to control and return specific types of messages.
@@ -311,70 +299,78 @@ class MasterQueue:
 
         return ('', '')
 # ----------------------------------------------------------------------------
-queue = MasterQueue()
-# ---------------------- CONTINOUSLY THREADED FUNCTIONS ----------------------
-def thread_parse_chat(chat):
-    while chat.is_alive():
-
-        for c in chat.get().sync_items():
-
-            queue.add_message(f'{c.author}: {c.message}', "chat")
-            #print(f'Added chat message to queue:\n{c.message}')
-
-        # to keep CPU usage from maxing out
-        time.sleep(0.1)
-        
-def thread_speech_recognition(hotkey : str, username : str):
-
-    def parse_event(evt):
-        event = str(evt)
-
-        keyword = 'text="'
-        stt_start = event.index(keyword)
-        stt_end = event.index('",')
-        
-        message = event[stt_start + len(keyword):stt_end]
-
-        if message != '':
-            queue.add_message(f'{username}: {message}', "mic")
-            #print(f'Added mic message to queue:\n{message}')
-
-    start_speech_recognition(
-        parse_func=parse_event,
-        hotkey=hotkey
-        )
-
-def thread_spontaneus_messages():
-    system_prompts = AIko.txt_to_list('prompts\spontaneous_messages.txt')
-
-    while True:
-        time.sleep(random.randint(30, 90))
-        queue.add_message(random.choice(system_prompts), "system")
-
-def thread_talk():
-    aiko = AIko.AIko('Aiko', 'prompts\AIko.txt')
-    while True:
-        msg_type, message = queue.get_next()
-
-        if is_empty_string(message):
-            continue 
-
-        aiko.interact(message, use_system_role = msg_type == "system")
-        time.sleep(0.1)
-# ----------------------------------------------------------------------------
 if __name__ == '__main__':
+    queue = MasterQueue()
+    # ---------------------- CONTINOUSLY THREADED FUNCTIONS ------------------
+    def thread_parse_chat(config : ConfigParser, chat : pytchat.core.PytchatCore):
+        global queue
 
+        while chat.is_alive():
+
+            for c in chat.get().sync_items():
+
+                queue.add_message(f'{c.author}: {c.message}', "chat")
+                #print(f'Added chat message to queue:\n{c.message}')
+
+            # to keep CPU usage from maxing out
+            time.sleep(0.1)
+            
+    def thread_speech_recognition(config : ConfigParser):
+        global queue
+
+        username = config.get('GENERAL', 'username')
+        hotkey = config.get('LIVESTREAM', 'toggle_listening')
+
+        def parse_event(evt):
+            event = str(evt)
+
+            keyword = 'text="'
+            stt_start = event.index(keyword)
+            stt_end = event.index('",')
+            
+            message = event[stt_start + len(keyword):stt_end]
+
+            if message != '':
+                queue.add_message(f'{username}: {message}', "mic")
+                #print(f'Added mic message to queue:\n{message}')
+
+        start_speech_recognition(
+            parse_func=parse_event,
+            hotkey=hotkey
+            )
+
+    def thread_spontaneus_messages(config : ConfigParser):
+        global queue
+
+        system_prompts = AIko.txt_to_list('prompts\spontaneous_messages.txt')
+
+        while True:
+            try:
+                message = system_prompts.pop(random.randint(0, len(system_prompts) - 1))
+            except:
+                break
+            time.sleep(random.randint(180, 540))
+            queue.add_message(message, "system")
+
+    def thread_talk():
+            global queue
+
+            aiko = AIko.AIko('Aiko', 'prompts\AIko.txt')
+            while True:
+                msg_type, message = queue.get_next()
+
+                if is_empty_string(message):
+                    continue 
+
+                aiko.interact(message, use_system_role = msg_type == "system")
+                time.sleep(0.1)
+    # --------------------------------------------------------------------------
     config = ConfigParser()
     config.read('AikoPrefs.ini')
-    username = config.get('GENERAL', 'username')
-    listen_hotkey = config.get('LIVESTREAM', 'toggle_listening')
-    livestream_id = config.get('LIVESTREAM', 'liveid')
 
-    chat = pytchat.create(video_id=livestream_id)
-
-    Thread(target = thread_speech_recognition, kwargs = {'hotkey': listen_hotkey, 'username': username}).start()
-    Thread(target = thread_parse_chat, kwargs = {'chat': chat}).start()
-    Thread(target = thread_spontaneus_messages).start()
+    Thread(target = thread_parse_chat, kwargs = {'config': config, 'chat': pytchat.create(video_id=config.get('LIVESTREAM', 'liveid'))}).start()
+    Thread(target = thread_speech_recognition, kwargs = {'config': config}).start()
+    Thread(target = thread_spontaneus_messages, kwargs = {'config': config}).start()
     Thread(target = thread_talk).start()
 
     print('All threads started.')

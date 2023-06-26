@@ -25,19 +25,20 @@ method.
 - Removed 'Starting...' printout when importing the script.
 - Fixed generate_gpt_completion_timeout() function and switched to using it in the AIko class.
 112alpha:
-- - Removed 'username' parameter from interact() AIko method. Usernames should now be handled externally.
+- Removed 'username' parameter from interact() AIko method. Usernames should now be handled externally.
+113alpha:
+- dynamic_scenario setting setting now actually affects the interaction loop.
+- session_token_usage is now a private attribute of the AIko class instead of a global.
+- Removed unused setting imports.
 ===============================================================================================================================
 """ 
-
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko112alpha').upper() 
-
+build_version = ('Aiko113alpha').upper() 
+# -------------------------------------------
 if __name__ == '__main__':
   from AikoINIhandler import handle_ini
   handle_ini()
-
 # ----------------- Imports -----------------
-
 import openai                          # gpt3
 from VoiceLink import say              # text to speech function
 from datetime import datetime          # for logging
@@ -45,39 +46,17 @@ from pytimedinput import timedInput    # input with timeout
 from random import choice              # random
 from configparser import ConfigParser  # ini file config
 from func_timeout import func_timeout, FunctionTimedOut # for handling openAI ratelimit errors
-
-# -------------------------------------------
-
-
-
 # ------------- Set variables ---------------
-
 # reads config file
 config = ConfigParser()
 config.read('AikoPrefs.ini')
-
-# sets variables according to config
-breaker = config.get('GENERAL', 'breaker_phrase')
-context_slots = config.getint('GENERAL', 'context_slots')
+# Sets variable according to config
 completion_timeout = config.getint('GENERAL', 'completion_timeout')
-
-# unused
-dynamic_scenarios = config.getboolean('GENERAL', 'dynamic_scenarios')
-summarization_instruction = config.get('SUMMARIZATION', 'summary_instruction')
-context_character_limit = config.getint('SUMMARIZATION', 'context_character_limit')
-include_context_in_log = config.getboolean('LOGGING', 'include_context')
-
 # -------------------------------------------
-
 # Set OpenAPI key here
 openai.api_key = open("keys/key_openai.txt", "r").read().strip('\n')
-
-# for keeping track of token usage
-session_token_usage = 0
-
 # ------------------------------------------- functions -----------------------------------------------
-
-def create_limited_list(length : int = context_slots):
+def create_limited_list(length : int):
   '''
   Returns a limited list of empty strings.
   '''
@@ -200,7 +179,7 @@ class messageList:
       is_empty() -> bool:
           Whether items have been added to the list or not.
   """
-  def __init__(self, slots : int = context_slots):
+  def __init__(self, slots : int):
     self.__message_list__ = create_limited_list(slots)
 
   def __str__(self):
@@ -256,8 +235,7 @@ class AIko:
             Injects a side prompt into the character's memory.
         def change_scenario(scenario : str):
             Changes the current scenario.
-    """
-
+  """
   def __init__(self, character_name : str, personality_filename : str, scenario : str = ''):
     self.character_name = character_name
     self.personality_file = personality_filename
@@ -265,11 +243,13 @@ class AIko:
     self.__personality__ = txt_to_string(personality_filename)
     self.__log__ = self.__create_log__()
 
-    self.__context__ = messageList()
+    self.__context__ = messageList(10)
     self.__side_prompts__ = messageList(5)
 
     self.__scenario__ = messageList(1)
     self.__scenario__.add_item(scenario, "system")
+
+    self.__session_token_usage__ = 0
 
   def __create_log__(self):
     """
@@ -310,12 +290,10 @@ class AIko:
           user_string (str): The user's input message.
           completion_data (tuple): A tuple containing the generated output and token usage information.
     """
-    global session_token_usage
-
     time = datetime.now()
     hour = f'[{time.hour}:{time.minute}:{time.second}]'
 
-    session_token_usage += completion_data[1][2]
+    self.__session_token_usage__ += completion_data[1][2]
 
     with open(self.__log__, 'a') as log:
       log.write(f'{hour}\n')
@@ -324,7 +302,7 @@ class AIko:
       log.write(f'Output: {completion_data[0]} --TOKENS USED: {completion_data[1][1]}\n')
       log.write(f'Total tokens used: {completion_data[1][2]}\n')
       log.write('\n')
-      log.write(f'Tokens used this session: {session_token_usage}\n')
+      log.write(f'Tokens used this session: {self.__session_token_usage__}\n')
       log.write('\n')
 
   def interact(self, message : str, use_system_role : bool = False):
@@ -371,13 +349,18 @@ class AIko:
       Changes the current scenario.
     """
     self.__scenario__.add_item(scenario, "system")
-
-
+# -----------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
-  username = config.get('GENERAL', 'username')
-  scenarios = txt_to_list('prompts\scenarios.txt')
-  aiko = AIko('Aiko', 'prompts\AIko.txt', choice(scenarios))
+  aiko = AIko('Aiko', 'prompts\AIko.txt')
   aiko.add_side_prompt('Aiko prefers cats over dogs. Especially siamese cats.')
+
+  dynamic_scenarios = config.getboolean('GENERAL', 'dynamic_scenarios')
+  if dynamic_scenarios:
+    scenarios = txt_to_list('prompts\scenarios.txt')
+    aiko.change_scenario(choice(scenarios))
+
+  username = config.get('GENERAL', 'username')
+  breaker = config.get('GENERAL', 'breaker_phrase')
   while True:
     message = input(f'{username}: ')
     prompt = f'{username}: {message}'

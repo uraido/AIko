@@ -9,6 +9,8 @@ Changelog:
 20:
 - Removed a bunch of old, unused settings and sections.
 - Replaced SILENCE_BREAKER section with SPONTANEOUS_TALKING section.
+21:
+- Fixed typo in azure_voice default value.
 '''
 
 from configparser import ConfigParser
@@ -36,7 +38,7 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
     ]
 
     VOICE = [
-        ('azure_voice', 'en-US-Sara-Neural'),
+        ('azure_voice', 'en-US-SaraNeural'),
         ('azure_region', 'brazilsouth'),
         ('audio_device', 'Cable Input'),
         ('mic_device', 'Cable-B Output'),

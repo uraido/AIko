@@ -18,6 +18,8 @@ answering herself. User must specify a microphone device to use speech_recogniti
 051:
 - Exception printout when getting microphone device is now more specific.
 - Removed leftover use_default_mic setting import that caused an error.
+052:
+- Now generates captions.txt file for displaying subtitles.
 """
 import os
 import azure.cognitiveservices.speech as speechsdk
@@ -25,6 +27,7 @@ import subprocess
 import keyboard
 import time
 from configparser import ConfigParser
+from threading import Thread, Event
 
 if __name__ == '__main__':
     from AikoINIhandler import handle_ini
@@ -91,10 +94,28 @@ speech_config.speech_synthesis_voice_name = azure_voice #'en-AU-CarlyNeural' #'e
 # builds SpeechSynthesizer class
 speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=audio_config)
 
+def generate_captions(text : str, done_event : Event):
+    with open('captions.txt', 'w') as captions:
+        pass
+
+    for letter in text:
+        with open('captions.txt', 'a') as captions:
+            captions.write(letter)
+        time.sleep(0.05)
+    done_event.wait()
+    
+    with open('captions.txt', 'w') as captions:
+        pass
+
 def say(text : str):
     global speech_synthesizer
 
+    done_event = Event()
+
+    Thread(target = generate_captions, kwargs = {'text': text, 'done_event': done_event}).start()
     speech_synthesis_result = speech_synthesizer.speak_text_async(text).get()
+
+    done_event.set()
 
 # get the users chosen microphone device's endpoint id and builds AudioConfig class
 try:

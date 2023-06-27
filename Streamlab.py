@@ -20,11 +20,20 @@ spontaneous message prompt multiple times.
 011:
 - MasterQueue object is now passed as a parameter to the interaction loop functions, instead of being passed as a global.
 - Spontaneous messages min and max time interval are now configurable.
+012:
+- AIko now reads chat messages before answering them.
+- Side prompts can be added through the press of the Page Up button.
+- The script can also be terminated if the breaker phrase is written in the side prompt text box.
+- Chat message cooldown times are now configurable.
+- Mic message expiration time is also configurable.
 """
+import os
 import time
 import AIko
 import random
-import pytchat               
+import pytchat       
+import keyboard
+from pytimedinput import timedInput      
 from configparser import ConfigParser
 from AikoINIhandler import handle_ini     
 from threading import Thread, Lock, Event                                          
@@ -111,8 +120,14 @@ class MessageContainer:
         self.__msg__ = ''
         self.__lock__ = Lock()
         self.__switch_evt__ = Event()
-        self.__expiration_time__ = 10.0
-        
+
+        # gets message expiration time from config
+        config = ConfigParser()
+        config.read('AikoPrefs.ini')
+
+        self.__expiration_time__ = config.getfloat('LIVESTREAM', 'voice_message_expiration_time')
+
+        # starts separate thread to manage expiration
         Thread(target = self.__expiration_countdown__).start()
 
     def __expiration_countdown__(self):
@@ -124,7 +139,7 @@ class MessageContainer:
                 timer_start = time.time()
                 self.__switch_evt__.clear()
 
-            if (timer_now - timer_start) >= 10.0:
+            if (timer_now - timer_start) >= self.__expiration_time__:
                 with self.__lock__:
                     self.__msg__ = ''
                 
@@ -256,6 +271,13 @@ class MasterQueue:
 
         self.__allow_chat__ = True
 
+        # gets chat cooldown times from config
+        config = ConfigParser()
+        config.read('AikoPrefs.ini')
+
+        self.__chat_min_cooldown__ = config.getint('LIVESTREAM', 'chat_min_cooldown')
+        self.__chat_max_cooldown__ = config.getint('LIVESTREAM', 'chat_max_cooldown')
+
     def __chat_cooldown__(self, cooldown : int):
         self.__allow_chat__ = False
         time.sleep(cooldown)
@@ -300,12 +322,14 @@ class MasterQueue:
             return ("mic", msg)
 
         if self.__allow_chat__:
-            Thread(target=self.__chat_cooldown__, kwargs={'cooldown': random.randint(2, 6)}).start()
+            cooldown_time = random.randint(self.__chat_min_cooldown__, self.__chat_max_cooldown__)
+            Thread(target=self.__chat_cooldown__, kwargs={'cooldown': cooldown_time}).start()
             return ("chat", self.__chat_messages__.pick_message())
 
         return ('', '')
 # ----------------------------------------------------------------------------
 if __name__ == '__main__':
+    aiko = AIko.AIko('Aiko', 'prompts\AIko.txt')
     # ---------------------- CONTINOUSLY THREADED FUNCTIONS ------------------
     def thread_parse_chat(queue : MasterQueue, config : ConfigParser, chat : pytchat.core.PytchatCore):
         while chat.is_alive():
@@ -355,19 +379,23 @@ if __name__ == '__main__':
             queue.add_message(message, "system")
 
     def thread_talk(queue : MasterQueue):
-            aiko = AIko.AIko('Aiko', 'prompts\AIko.txt')
-            while True:
-                msg_type, message = queue.get_next()
+        global aiko
 
-                if is_empty_string(message):
-                    continue 
+        while True:
+            msg_type, message = queue.get_next()
 
-                aiko.interact(message, use_system_role = msg_type == "system")
-                time.sleep(0.1)
+            if is_empty_string(message):
+                continue 
+
+            if msg_type == 'chat':
+                say(message)
+
+            aiko.interact(message, use_system_role = msg_type == "system")
+            time.sleep(0.1)
     # --------------------------------------------------------------------------
-    queue = MasterQueue()
-
     handle_ini()
+    
+    queue = MasterQueue()
     
     config = ConfigParser()
     config.read('AikoPrefs.ini')
@@ -378,3 +406,15 @@ if __name__ == '__main__':
     Thread(target = thread_talk, kwargs = {'queue': queue}).start()
 
     print('All threads started.')
+
+    # ------------------------ SIDE PROMPTING / BREAKING  ----------------------
+    breaker = config.get('GENERAL', 'breaker_phrase').lower()
+    while True:
+        keyboard.wait(config.get('LIVESTREAM', 'side_prompt'))
+        message, unused = timedInput(f"\nWrite a side prompt, or {breaker.upper()} to exit the script.\nInclude '432' in your message to cancel it:\n - ", 9999)
+        if breaker in message.lower():
+            os._exit(0)
+        elif '432' in message:
+            print('Side prompt canceled.\n')
+            continue
+        aiko.add_side_prompt(message)

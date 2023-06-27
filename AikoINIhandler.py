@@ -51,7 +51,11 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
 
     LIVESTREAM = [
         ('liveid', ''),
-        ('toggle_listening', 'Page Down')
+        ('toggle_listening', 'Page Down'),
+        ('side_prompt', 'Page Up'),
+        ('voice_message_expiration_time', '10.0'),
+        ('chat_min_cooldown', '2'),
+        ('chat_max_cooldown', '6')
     ]
 
     # saves the lists containing the values in a dictionary, with their respective sections as the key

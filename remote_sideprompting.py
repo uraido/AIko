@@ -21,8 +21,7 @@ import socket
 # ------------ Set Up ----------------
   
 # take the server name and port name
-host = 'local host'
-port = 5000
+port = 5004
 
 # ------------------------------------
 
@@ -33,7 +32,7 @@ while True:
 
 	print()
 	print('Please select one option to send the prompt:')
-	print('1 -Generate completion inmediately (as if it was a message to Aiko)')
+	print('1 -Generate completion inmediately')
 	print('2 -Add the message as extra information to the next user message')
 	print('3 -Abort message')
 

@@ -26,11 +26,14 @@ spontaneous message prompt multiple times.
 - The script can also be terminated if the breaker phrase is written in the side prompt text box.
 - Chat message cooldown times are now configurable.
 - Mic message expiration time is also configurable.
+013:
+- Added Thread to handle remote side prompt receiver.
 """
 import os
 import time
 import AIko
 import random
+import socket
 import pytchat       
 import keyboard
 from pytimedinput import timedInput      
@@ -336,8 +339,8 @@ if __name__ == '__main__':
 
             for c in chat.get().sync_items():
 
-                queue.add_message(f'{c.author}: {c.message}', "chat")
-                #print(f'Added chat message to queue:\n{c.message}')
+                queue.add_message(f'{c.author.name}: {c.message}', "chat")
+                print(f'Added chat message to queue:\n{c.message}')
 
             # to keep CPU usage from maxing out
             time.sleep(0.1)
@@ -392,6 +395,40 @@ if __name__ == '__main__':
 
             aiko.interact(message, use_system_role = msg_type == "system")
             time.sleep(0.1)
+
+    def thread_remote_side_prompt_receiver(queue : MasterQueue):
+        # ------------ Set Up ----------------
+        port = 5004
+        server_ip = '26.124.79.180'    # Ulaidh's ID (FOR RCHART TO USE)
+        #server_ip = '26.246.74.120'     # Rchart's ID (FOR ULAIDH TO USE)
+        # ------------------------------------
+
+        while True:
+
+            try:
+                # ------- TCP IP protocol -------
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.connect((server_ip, port))
+                msg = s.recv(1024)
+                # -------------------------------
+
+                message = msg.decode()[:-1]
+                completion_option_selected = msg.decode()[-1]
+
+                if completion_option_selected == '1':
+                    queue.add_message(message, "system")
+
+                elif completion_option_selected == '2':
+                    aiko.add_side_prompt(message)
+
+                else:
+                    print('Remote side prompt received but something went wrong. Side prompt ABORTED!')
+
+                # disconnect the client
+                s.close()
+            except:
+                pass
+
     # --------------------------------------------------------------------------
     handle_ini()
     
@@ -404,6 +441,7 @@ if __name__ == '__main__':
     Thread(target = thread_speech_recognition, kwargs = {'queue': queue, 'config': config}).start()
     Thread(target = thread_spontaneus_messages, kwargs = {'queue': queue, 'config': config}).start()
     Thread(target = thread_talk, kwargs = {'queue': queue}).start()
+    Thread(target = thread_remote_side_prompt_receiver, kwargs = {'queue': queue}).start()
 
     print('All threads started.')
 

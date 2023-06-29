@@ -28,6 +28,10 @@ spontaneous message prompt multiple times.
 - Mic message expiration time is also configurable.
 013:
 - Added Thread to handle remote side prompt receiver.
+014:
+- Moved local side prompting int oa separate thread.
+- Local side prompting now has option for immediate completions.
+- Speech recognition starts disabled by default.
 """
 import os
 import time
@@ -340,7 +344,7 @@ if __name__ == '__main__':
             for c in chat.get().sync_items():
 
                 queue.add_message(f'{c.author.name}: {c.message}', "chat")
-                print(f'Added chat message to queue:\n{c.message}')
+                print(f'\nAdded chat message to queue:\n{c.message}\n')
 
             # to keep CPU usage from maxing out
             time.sleep(0.1)
@@ -360,7 +364,11 @@ if __name__ == '__main__':
 
             if message != '':
                 queue.add_message(f'{username}: {message}', "mic")
-                #print(f'Added mic message to queue:\n{message}')
+                print(f'\nAdded mic message to queue:\n{message}\n')
+
+        keyboard.wait(hotkey)
+        print('\nEnabled speech recognition.\n')
+        time.sleep(0.1)
 
         start_speech_recognition(
             parse_func=parse_event,
@@ -380,21 +388,6 @@ if __name__ == '__main__':
                 break
             time.sleep(random.randint(min_time, max_time))
             queue.add_message(message, "system")
-
-    def thread_talk(queue : MasterQueue):
-        global aiko
-
-        while True:
-            msg_type, message = queue.get_next()
-
-            if is_empty_string(message):
-                continue 
-
-            if msg_type == 'chat':
-                say(message)
-
-            aiko.interact(message, use_system_role = msg_type == "system")
-            time.sleep(0.1)
 
     def thread_remote_side_prompt_receiver(queue : MasterQueue):
         # ------------ Set Up ----------------
@@ -428,7 +421,42 @@ if __name__ == '__main__':
                 s.close()
             except:
                 pass
+            time.sleep(0.1)
 
+    def thread_local_side_prompting(queue : MasterQueue, config : ConfigParser):
+        global aiko
+
+        breaker = config.get('GENERAL', 'breaker_phrase').lower()
+        hotkey = config.get('LIVESTREAM', 'side_prompt')
+
+        while True:
+            keyboard.wait(hotkey)
+            message, unused = timedInput(f"\nWrite a side prompt, or {breaker.upper()} to exit the script:\n - ", 9999)
+            if breaker in message.lower():
+                os._exit(0)
+            option, unused = timedInput(f"\nPlease select an option to send the side prompt under:\n1 - Generate completion immediately\n2 - Inject information into Aiko's memory\n3 - Abort message.\n\nOption: ", 9999)
+            if option == '1':
+                queue.add_message(message, "system")
+            elif option == '2':
+                aiko.add_side_prompt(message)  
+
+    def thread_talk(queue : MasterQueue):
+        global aiko
+
+        while True:
+            msg_type, message = queue.get_next()
+
+            if is_empty_string(message):
+                continue 
+
+            if msg_type == 'chat':
+                say(message)
+
+            print()
+            aiko.interact(message, use_system_role = msg_type == "system")
+            print()
+
+            time.sleep(0.1)    
     # --------------------------------------------------------------------------
     handle_ini()
     
@@ -437,22 +465,12 @@ if __name__ == '__main__':
     config = ConfigParser()
     config.read('AikoPrefs.ini')
 
+    Thread(target = thread_remote_side_prompt_receiver, kwargs = {'queue': queue}).start()
+    Thread(target = thread_local_side_prompting, kwargs = {'queue': queue, 'config': config}).start()
+
     Thread(target = thread_parse_chat, kwargs = {'queue': queue, 'config': config, 'chat': pytchat.create(video_id=config.get('LIVESTREAM', 'liveid'))}).start()
     Thread(target = thread_speech_recognition, kwargs = {'queue': queue, 'config': config}).start()
     Thread(target = thread_spontaneus_messages, kwargs = {'queue': queue, 'config': config}).start()
     Thread(target = thread_talk, kwargs = {'queue': queue}).start()
-    Thread(target = thread_remote_side_prompt_receiver, kwargs = {'queue': queue}).start()
 
     print('All threads started.')
-
-    # ------------------------ SIDE PROMPTING / BREAKING  ----------------------
-    breaker = config.get('GENERAL', 'breaker_phrase').lower()
-    while True:
-        keyboard.wait(config.get('LIVESTREAM', 'side_prompt'))
-        message, unused = timedInput(f"\nWrite a side prompt, or {breaker.upper()} to exit the script.\nInclude '432' in your message to cancel it:\n - ", 9999)
-        if breaker in message.lower():
-            os._exit(0)
-        elif '432' in message:
-            print('Side prompt canceled.\n')
-            continue
-        aiko.add_side_prompt(message)

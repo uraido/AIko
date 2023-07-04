@@ -30,6 +30,8 @@ method.
 - dynamic_scenario setting setting now actually affects the interaction loop.
 - session_token_usage is now a private attribute of the AIko class instead of a global.
 - Removed unused setting imports.
+114alpha:
+- Reimplemented silence breaker into the local interaction loop.
 ===============================================================================================================================
 """ 
 # PLEASE set it if making a new build. for logging purposes
@@ -43,7 +45,7 @@ import openai                          # gpt3
 from VoiceLink import say              # text to speech function
 from datetime import datetime          # for logging
 from pytimedinput import timedInput    # input with timeout
-from random import choice              # random
+from random import choice, randint     # random
 from configparser import ConfigParser  # ini file config
 from func_timeout import func_timeout, FunctionTimedOut # for handling openAI ratelimit errors
 # ------------- Set variables ---------------
@@ -361,9 +363,16 @@ if __name__ == "__main__":
 
   username = config.get('GENERAL', 'username')
   breaker = config.get('GENERAL', 'breaker_phrase')
+
+  spontaneous_messages = txt_to_list('prompts\spontaneous_messages.txt')
+
   while True:
-    message = input(f'{username}: ')
-    prompt = f'{username}: {message}'
-    if breaker.lower() in message.lower():
+    message, timeout = timedInput(f'{username}: ', randint(60, 300))
+
+    if timeout:
+      aiko.interact(choice(spontaneous_messages), True)
+    elif breaker.lower() in message.lower():
       break
-    aiko.interact(prompt)
+    else:
+      prompt = f'{username}: {message}'
+      aiko.interact(prompt)

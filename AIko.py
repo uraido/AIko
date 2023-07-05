@@ -32,14 +32,21 @@ method.
 - Removed unused setting imports.
 114alpha:
 - Reimplemented silence breaker into the local interaction loop.
-===============================================================================================================================
+120alpha:
+- Implemented profile system, that adds Aiko particular tastes into the prompt
+===================================================================
 """ 
+
 # PLEASE set it if making a new build. for logging purposes
 build_version = ('Aiko113alpha').upper() 
+
+
 # -------------------------------------------
 if __name__ == '__main__':
   from AikoINIhandler import handle_ini
   handle_ini()
+
+
 # ----------------- Imports -----------------
 import openai                          # gpt3
 from VoiceLink import say              # text to speech function
@@ -48,16 +55,22 @@ from pytimedinput import timedInput    # input with timeout
 from random import choice, randint     # random
 from configparser import ConfigParser  # ini file config
 from func_timeout import func_timeout, FunctionTimedOut # for handling openAI ratelimit errors
+# -------------------------------------------
+
+
 # ------------- Set variables ---------------
 # reads config file
 config = ConfigParser()
 config.read('AikoPrefs.ini')
 # Sets variable according to config
 completion_timeout = config.getint('GENERAL', 'completion_timeout')
-# -------------------------------------------
+
 # Set OpenAPI key here
 openai.api_key = open("keys/key_openai.txt", "r").read().strip('\n')
-# ------------------------------------------- functions -----------------------------------------------
+# -------------------------------------------
+
+
+# -------------- Functions ------------------
 def create_limited_list(length : int):
   '''
   Returns a limited list of empty strings.
@@ -165,7 +178,11 @@ def txt_to_list(txt_filename : str):
       lines_list.append(line)
   
   return lines_list
-# ----------------------------------- end of functions ------------------------------------------------
+# -------------------------------------------
+
+
+
+# ----------------- Class -------------------
 class messageList:
   """
   A class that holds a limited list of messages meant for prompting GPT.
@@ -251,6 +268,9 @@ class AIko:
     self.__scenario__ = messageList(1)
     self.__scenario__.add_item(scenario, "system")
 
+    #self.__profile__ = messageList(1)
+    self.__profile__ = txt_to_string('prompts\profile.txt')
+
     self.__session_token_usage__ = 0
 
   def __create_log__(self):
@@ -307,12 +327,14 @@ class AIko:
       log.write(f'Tokens used this session: {self.__session_token_usage__}\n')
       log.write('\n')
 
-  def interact(self, message : str, use_system_role : bool = False):
+  def interact(self, message : str, use_system_role : bool = False, use_profile : bool = False):
     """
       Interacts with the AI character by providing a message.
     """
     messages = [{"role":"system", "content": self.__personality__}]
 
+    if use_profile:
+      messages += [{"role":"system", "content": self.__profile__}]
     messages += self.__scenario__.get_items()
     messages += self.__side_prompts__.get_items()
     messages += self.__context__.get_items()
@@ -351,7 +373,12 @@ class AIko:
       Changes the current scenario.
     """
     self.__scenario__.add_item(scenario, "system")
-# -----------------------------------------------------------------------------------------------------
+# -------------------------------------------
+
+
+
+# ------------------ Main -------------------
+
 if __name__ == "__main__":
   aiko = AIko('Aiko', 'prompts\AIko.txt')
   aiko.add_side_prompt('Aiko prefers cats over dogs. Especially siamese cats.')
@@ -368,6 +395,9 @@ if __name__ == "__main__":
 
   while True:
     message, timeout = timedInput(f'{username}: ', randint(60, 300))
+    use_profile = False
+    if 'what is' in message.lower():
+      use_profile = True
 
     if timeout:
       aiko.interact(choice(spontaneous_messages), True)
@@ -375,4 +405,4 @@ if __name__ == "__main__":
       break
     else:
       prompt = f'{username}: {message}'
-      aiko.interact(prompt)
+      aiko.interact(prompt, False, use_profile)

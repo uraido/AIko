@@ -34,6 +34,8 @@ method.
 - Reimplemented silence breaker into the local interaction loop.
 120alpha:
 - Implemented profile system, that adds Aiko particular tastes into the prompt
+121alpha:
+- Profile system moved inside the "interact" method for readability. "interact" method just needs the message as an input again
 ===================================================================
 """ 
 
@@ -327,14 +329,19 @@ class AIko:
       log.write(f'Tokens used this session: {self.__session_token_usage__}\n')
       log.write('\n')
 
-  def interact(self, message : str, use_system_role : bool = False, use_profile : bool = False):
+  def interact(self, message : str, use_system_role : bool = False):
     """
       Interacts with the AI character by providing a message.
     """
     messages = [{"role":"system", "content": self.__personality__}]
 
+    use_profile = False
+    # Black box simulator
+    if 'what is' in message.lower():
+      use_profile = True
     if use_profile:
       messages += [{"role":"system", "content": self.__profile__}]
+
     messages += self.__scenario__.get_items()
     messages += self.__side_prompts__.get_items()
     messages += self.__context__.get_items()
@@ -395,9 +402,6 @@ if __name__ == "__main__":
 
   while True:
     message, timeout = timedInput(f'{username}: ', randint(60, 300))
-    use_profile = False
-    if 'what is' in message.lower():
-      use_profile = True
 
     if timeout:
       aiko.interact(choice(spontaneous_messages), True)
@@ -405,4 +409,4 @@ if __name__ == "__main__":
       break
     else:
       prompt = f'{username}: {message}'
-      aiko.interact(prompt, False, use_profile)
+      aiko.interact(prompt)

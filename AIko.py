@@ -1,6 +1,8 @@
 """ ==============================================================
 AIko.py
 
+Objects for interaction with custom made AI characters.
+
 Requirements:
 - VoiceLink.py and its requirements
 - AikoINIhandler.py
@@ -16,39 +18,21 @@ txt files:
 
 Changelog:
 
-110alpha:
-- Added messageList class for handling information such as context lists and side prompts.
-- The scenario is no longer a public attribute of the AIko class. To change it, one must use the change_scenario()
-method.
-111alpha:
-- Time is now only reported at the beginning of each log report entry, instead of at every line.
-- Removed 'Starting...' printout when importing the script.
-- Fixed generate_gpt_completion_timeout() function and switched to using it in the AIko class.
-112alpha:
-- Removed 'username' parameter from interact() AIko method. Usernames should now be handled externally.
-113alpha:
-- dynamic_scenario setting setting now actually affects the interaction loop.
-- session_token_usage is now a private attribute of the AIko class instead of a global.
-- Removed unused setting imports.
-114alpha:
-- Reimplemented silence breaker into the local interaction loop.
-120alpha:
-- Implemented profile system, that adds Aiko particular tastes into the prompt
-121alpha:
-- Profile system moved inside the "interact" method for readability. "interact" method just needs the message as an input again
+130alpha:
+- AIko class private attribute "session token usage" is now initialized inside the create log method instead of the
+constructor method.
+- Implemented keywords system for system messages. If a keyword is included at the start of a system message, the
+specific instructions related to that keyword will be injected into context. Keywords can be added into the
+prompts/keywords folder.
+- Added read_aloud parameter to AIko.interact method. True by default. Useful when testing - AIko talks too much .-.
 ===================================================================
 """ 
-
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko113alpha').upper() 
-
-
+build_version = ('Aiko130alpha').upper() 
 # -------------------------------------------
 if __name__ == '__main__':
   from AikoINIhandler import handle_ini
   handle_ini()
-
-
 # ----------------- Imports -----------------
 import openai                          # gpt3
 from VoiceLink import say              # text to speech function
@@ -57,7 +41,9 @@ from pytimedinput import timedInput    # input with timeout
 from random import choice, randint     # random
 from configparser import ConfigParser  # ini file config
 from func_timeout import func_timeout, FunctionTimedOut # for handling openAI ratelimit errors
+import os                              # gathering files from folder
 # -------------------------------------------
+
 
 
 # ------------- Set variables ---------------
@@ -66,10 +52,10 @@ config = ConfigParser()
 config.read('AikoPrefs.ini')
 # Sets variable according to config
 completion_timeout = config.getint('GENERAL', 'completion_timeout')
-
 # Set OpenAPI key here
 openai.api_key = open("keys/key_openai.txt", "r").read().strip('\n')
 # -------------------------------------------
+
 
 
 # -------------- Functions ------------------
@@ -180,6 +166,48 @@ def txt_to_list(txt_filename : str):
       lines_list.append(line)
   
   return lines_list
+
+def gather_txts(directory : str):
+  """
+  Gather text files from a directory and store their contents in a dictionary.
+
+  Args:
+      directory (str): The path to the directory containing the text files.
+
+  Returns:
+      dict: A dictionary where the keys are the modified filenames (uppercase, without file extension or spaces),
+            and the values are the contents of the corresponding text files.
+
+  Example:
+      Given a directory 'my_folder' containing the following files:
+      - file1.txt
+      - file2.txt
+
+      The function gather_txts('my_folder') would return a dictionary like this:
+      {
+          'FILE1': 'Contents of file1',
+          'FILE2': 'Contents of file2'
+      }
+  """
+  txts = {}
+
+  # adds each txt file in folder to dictionary
+  for filename in os.scandir(directory):
+
+    # formats the filename to be added as the dictionary's key
+    txt_name = str(filename)
+    txt_name = txt_name[1:-1]
+    txt_name = txt_name.replace('DirEntry', '')
+    txt_name = txt_name.replace('.txt', '')
+    txt_name = txt_name.replace("'", '')
+    txt_name = txt_name.replace(' ', '')
+    txt_name = txt_name.upper()
+
+    # adds the contents of the txt to the dictionary using the filename as key
+    contents = txt_to_string(filename)
+    txts[txt_name] = contents
+
+  return txts
 # -------------------------------------------
 
 
@@ -270,10 +298,9 @@ class AIko:
     self.__scenario__ = messageList(1)
     self.__scenario__.add_item(scenario, "system")
 
-    #self.__profile__ = messageList(1)
     self.__profile__ = txt_to_string('prompts\profile.txt')
 
-    self.__session_token_usage__ = 0
+    self.__keywords__ = gather_txts('prompts\keywords')
 
   def __create_log__(self):
     """
@@ -283,6 +310,8 @@ class AIko:
           log_filename (str): The filename of the created log file.
     """
     global build_version
+
+    self.__session_token_usage__ = 0
 
     time = datetime.now()
     hour = f'[{time.hour}:{time.minute}:{time.second}]'
@@ -329,7 +358,7 @@ class AIko:
       log.write(f'Tokens used this session: {self.__session_token_usage__}\n')
       log.write('\n')
 
-  def interact(self, message : str, use_system_role : bool = False):
+  def interact(self, message : str, use_system_role : bool = False, read_aloud : bool = True):
     """
       Interacts with the AI character by providing a message.
     """
@@ -347,19 +376,29 @@ class AIko:
     messages += self.__context__.get_items()
 
     if use_system_role:
+
+      # injects keyword instructions into context if keyword is present in the system prompt
+      for keyword in self.__keywords__:
+
+        if message.startswith(keyword):
+          messages += [{"role":"system", "content": self.__keywords__[keyword]}]
+          break
+
+      # prompts message under system role
       messages.append({"role":"system", "content": message})
+
     else:
       messages.append({"role":"user", "content": message})
 
     completion = generate_gpt_completion_timeout(messages)
     print(completion[0])
 
-    # parses completion (when appliable) to be fed to text to speech
-    if f'{self.character_name}:' in completion[0][:len(self.character_name) + 2]:
-      say(completion[0][len(self.character_name) + 1:])
-
-    else:
-      say(completion[0])
+    if read_aloud:
+      # parses completion (when appliable) to be fed to text to speech
+      if f'{self.character_name}:' in completion[0][:len(self.character_name) + 2]:
+        say(completion[0][len(self.character_name) + 1:])
+      else:
+        say(completion[0])
 
     if use_system_role:
       self.__context__.add_item(completion[0], "assistant")
@@ -385,7 +424,6 @@ class AIko:
 
 
 # ------------------ Main -------------------
-
 if __name__ == "__main__":
   aiko = AIko('Aiko', 'prompts\AIko.txt')
   aiko.add_side_prompt('Aiko prefers cats over dogs. Especially siamese cats.')
@@ -404,9 +442,9 @@ if __name__ == "__main__":
     message, timeout = timedInput(f'{username}: ', randint(60, 300))
 
     if timeout:
-      aiko.interact(choice(spontaneous_messages), True)
+      aiko.interact(f'SPONTANEOUS : {choice(spontaneous_messages)}', use_system_role=True)
     elif breaker.lower() in message.lower():
       break
     else:
       prompt = f'{username}: {message}'
-      aiko.interact(prompt)
+      aiko.interact(prompt, read_aloud=True)

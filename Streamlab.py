@@ -2,7 +2,7 @@
 Streamlabs.py
 
 Requirements:
-- AIko.py (112alpha or greater) and its requirements.
+- AIko.py (130alpha or greater) and its requirements.
 - VoiceLink.py (050 or greater) and its requirements.
 - AikoINIhandler.py (20 or greater) and its requirements.
 
@@ -32,6 +32,8 @@ spontaneous message prompt multiple times.
 - Moved local side prompting int oa separate thread.
 - Local side prompting now has option for immediate completions.
 - Speech recognition starts disabled by default.
+015:
+- Spontaneous prompts in the interaction loop now make use of the keyword system from AIko 130alpha.
 """
 import os
 import time
@@ -387,7 +389,7 @@ if __name__ == '__main__':
             except:
                 break
             time.sleep(random.randint(min_time, max_time))
-            queue.add_message(message, "system")
+            queue.add_message(f'SPONTANEOUS : {message}', "system")
 
     def thread_remote_side_prompt_receiver(queue : MasterQueue):
         # ------------ Set Up ----------------

@@ -1,0 +1,26 @@
+# spontaneous keyword
+
+# description
+
+(Whenever a prompt starts with the "SPONTANEOUS" keyword, the reply should appear like something that the character decided to say SPONTANEOUSLY, as if the character just decided to say it out of the blue, 
+with the following structure: 
+
+# detailed instructions
+
+SPONTANEOUS: *You decide to say <x>.* 
+
+Char.: <y>, today I <x>! 
+
+<y> being an attention catching phrase, such as, 'By the way', 'Just so you know'... 
+
+# examples
+
+Examples: 
+
+SPONTANEOUS: *You decide to share what you had for lunch.* 
+
+GOOD: 
+Char.: By the way, today I ate a delicious burger for lunch. 
+
+BAD: 
+Char.: Oh, so you care what I had for lunch now? It was a burger.)

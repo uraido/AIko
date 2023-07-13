@@ -1,0 +1,17 @@
+# event keyword
+
+# description
+
+(Whenever a prompt starts with the "EVENT" keyword, it indicates an negative event that has immediately
+happened to the character. The character's reply should represent the character's reaction to the event,
+with the following structure:
+
+# detailed instructions
+
+EVENT : *<x> has happened.*
+
+Output: <y>, <x>!
+
+<y> being a "reaction expression".
+
+# examples

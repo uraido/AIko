@@ -34,6 +34,9 @@ spontaneous message prompt multiple times.
 - Speech recognition starts disabled by default.
 015:
 - Spontaneous prompts in the interaction loop now make use of the keyword system from AIko 130alpha.
+016:
+- Reverted spontaneous prompts back to how they were before 015. Keywords should be included in the txt file instead -
+this allows better flexibility.
 """
 import os
 import time
@@ -389,7 +392,7 @@ if __name__ == '__main__':
             except:
                 break
             time.sleep(random.randint(min_time, max_time))
-            queue.add_message(f'SPONTANEOUS : {message}', "system")
+            queue.add_message(message, "system")
 
     def thread_remote_side_prompt_receiver(queue : MasterQueue):
         # ------------ Set Up ----------------

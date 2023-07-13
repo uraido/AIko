@@ -25,6 +25,9 @@ constructor method.
 specific instructions related to that keyword will be injected into context. Keywords can be added into the
 prompts/keywords folder.
 - Added read_aloud parameter to AIko.interact method. True by default. Useful when testing - AIko talks too much .-.
+131alpha:
+- Reverted spontaneous prompts back to how they were before 130. Keywords should be included in the txt file instead -
+this allows better flexibility.
 ===================================================================
 """ 
 # PLEASE set it if making a new build. for logging purposes
@@ -382,6 +385,7 @@ class AIko:
 
         if message.startswith(keyword):
           messages += [{"role":"system", "content": self.__keywords__[keyword]}]
+          print('(Generating completion with keyword instructions...)')
           break
 
       # prompts message under system role
@@ -442,7 +446,7 @@ if __name__ == "__main__":
     message, timeout = timedInput(f'{username}: ', randint(60, 300))
 
     if timeout:
-      aiko.interact(f'SPONTANEOUS : {choice(spontaneous_messages)}', use_system_role=True)
+      aiko.interact(choice(spontaneous_messages), use_system_role=True)
     elif breaker.lower() in message.lower():
       break
     else:

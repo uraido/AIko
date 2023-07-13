@@ -1,3 +1,4 @@
-*You decide to point out something about the current activity*
-*You mention what you had for lunch today.*
-*You mention that your favourite song is Free Bird.*
+SPONTANEOUS : *You decide to point out something about the current activity.*
+SPONTANEOUS : *You mention what you had for lunch today.*
+SPONTANEOUS : *You mention that your favourite song is Free Bird.*
+EVENT : *A bird landed on your window.*

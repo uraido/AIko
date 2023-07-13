@@ -7,7 +7,7 @@ with the following structure:
 
 # detailed instructions
 
-SPONTANEOUS: *You decide to say <x>.* 
+SPONTANEOUS : *You decide to say <x>.* 
 
 Char.: <y>, today I <x>! 
 
@@ -17,7 +17,7 @@ Char.: <y>, today I <x>!
 
 Examples: 
 
-SPONTANEOUS: *You decide to share what you had for lunch.* 
+SPONTANEOUS : *You decide to share what you had for lunch.* 
 
 GOOD: 
 Char.: By the way, today I ate a delicious burger for lunch. 

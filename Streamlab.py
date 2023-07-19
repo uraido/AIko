@@ -4,7 +4,7 @@ Streamlabs.py
 Requirements:
 - AIko.py (130alpha or greater) and its requirements.
 - VoiceLink.py (050 or greater) and its requirements.
-- AikoINIhandler.py (20 or greater) and its requirements.
+- AikoINIhandler.py (22 or greater) and its requirements.
 
 txt files:
 - AIko.txt
@@ -37,6 +37,9 @@ spontaneous message prompt multiple times.
 016:
 - Reverted spontaneous prompts back to how they were before 015. Keywords should be included in the txt file instead -
 this allows better flexibility.
+017:
+- Interaction loop: When reading a chat message aloud, Aiko will no longer read the user's name.
+- Interaction loop: Remote side prompting IP and port are now configurable.
 """
 import os
 import time
@@ -394,11 +397,13 @@ if __name__ == '__main__':
             time.sleep(random.randint(min_time, max_time))
             queue.add_message(message, "system")
 
-    def thread_remote_side_prompt_receiver(queue : MasterQueue):
+    def thread_remote_side_prompt_receiver(queue : MasterQueue, config : ConfigParser):
         # ------------ Set Up ----------------
-        port = 5004
-        server_ip = '26.124.79.180'    # Ulaidh's ID (FOR RCHART TO USE)
-        #server_ip = '26.246.74.120'     # Rchart's ID (FOR ULAIDH TO USE)
+        #server_ip = '26.124.79.180'    # Ulaidh's ID (FOR RCHART TO USE)
+        #server_ip = '26.246.74.120'    # Rchart's ID (FOR ULAIDH TO USE)
+        #port = 5004
+        server_ip = config.get('REMOTE_SIDE_PROMPTING', 'server_ip')
+        port = config.getint('REMOTE_SIDE_PROMPTING', 'port')
         # ------------------------------------
 
         while True:
@@ -448,6 +453,12 @@ if __name__ == '__main__':
     def thread_talk(queue : MasterQueue):
         global aiko
 
+        def parse_chat_msg(message : str, character : str = ':'):
+            '''
+            Returns the contents of a string positioned after a given character.
+            '''
+            return message[message.index(character) + 2 :]
+
         while True:
             msg_type, message = queue.get_next()
 
@@ -455,7 +466,7 @@ if __name__ == '__main__':
                 continue 
 
             if msg_type == 'chat':
-                say(message)
+                say(parse_chat_msg(message))
 
             print()
             aiko.interact(message, use_system_role = msg_type == "system")
@@ -470,7 +481,7 @@ if __name__ == '__main__':
     config = ConfigParser()
     config.read('AikoPrefs.ini')
 
-    Thread(target = thread_remote_side_prompt_receiver, kwargs = {'queue': queue}).start()
+    Thread(target = thread_remote_side_prompt_receiver, kwargs = {'queue': queue, 'config': config}).start()
     Thread(target = thread_local_side_prompting, kwargs = {'queue': queue, 'config': config}).start()
 
     Thread(target = thread_parse_chat, kwargs = {'queue': queue, 'config': config, 'chat': pytchat.create(video_id=config.get('LIVESTREAM', 'liveid'))}).start()

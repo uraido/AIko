@@ -1,7 +1,7 @@
 '''
 AikoINIhandler.py
 
-Version 2.0
+Version 2.2
 
 Parses Aikos INI configuration file and adds any missing values to avoid raising any missing value exceptions.
 
@@ -11,6 +11,8 @@ Changelog:
 - Replaced SILENCE_BREAKER section with SPONTANEOUS_TALKING section.
 21:
 - Fixed typo in azure_voice default value.
+22:
+- Added REMOTE_SIDE_PROMPTING section with server_ip and port options.
 '''
 
 from configparser import ConfigParser
@@ -27,6 +29,7 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
         'VOICE',
         'SPONTANEOUS_TALKING',
         'LIVESTREAM',
+        'REMOTE_SIDE_PROMPTING',
     ]
 
     # the options each section should contain, followed by their default values and comments.
@@ -55,7 +58,12 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
         ('side_prompt', 'Page Up'),
         ('voice_message_expiration_time', '10.0'),
         ('chat_min_cooldown', '2'),
-        ('chat_max_cooldown', '6')
+        ('chat_max_cooldown', '6'),
+    ]
+
+    REMOTE_SIDE_PROMPTING = [
+        ('port', '5004'),
+        ('server_ip', ''),
     ]
 
     # saves the lists containing the values in a dictionary, with their respective sections as the key
@@ -64,6 +72,7 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
         'VOICE': VOICE,
         'SPONTANEOUS_TALKING': SPONTANEOUS_TALKING,
         'LIVESTREAM': LIVESTREAM,
+        'REMOTE_SIDE_PROMPTING': REMOTE_SIDE_PROMPTING,
     }
 
     # creates config instance

@@ -2,7 +2,7 @@
 Streamlabs.py
 
 Requirements:
-- AIko.py (130alpha or greater) and its requirements.
+- AIko.py (140beta or greater) and its requirements.
 - VoiceLink.py (050 or greater) and its requirements.
 - AikoINIhandler.py (22 or greater) and its requirements.
 
@@ -40,6 +40,10 @@ this allows better flexibility.
 017:
 - Interaction loop: When reading a chat message aloud, Aiko will no longer read the user's name.
 - Interaction loop: Remote side prompting IP and port are now configurable.
+018:
+- Updated to work with latest Aiko.py (140beta, interact method return value.)
+- Fixed delay between reading chat message and answering it.
+- Writes chat message author's name to txt file when reading it so it can be displayed in OBS.
 """
 import os
 import time
@@ -453,11 +457,18 @@ if __name__ == '__main__':
     def thread_talk(queue : MasterQueue):
         global aiko
 
-        def parse_chat_msg(message : str, character : str = ':'):
+        def parse_chat_msg(message : str, character : str = ':', after = False):
             '''
             Returns the contents of a string positioned after a given character.
             '''
-            return message[message.index(character) + 2 :]
+            if after:
+                return message[message.index(character) + 2 :]
+
+            return message[: message.index(character)]
+
+        # creates/clears text file to display message author's name in OBS
+        with open('message_author.txt', 'w') as txt:
+            pass
 
         while True:
             msg_type, message = queue.get_next()
@@ -465,12 +476,26 @@ if __name__ == '__main__':
             if is_empty_string(message):
                 continue 
 
+            output = aiko.interact(message, use_system_role = msg_type == "system")
+
+            # reads message before answering, if message is a chat message.
             if msg_type == 'chat':
-                say(parse_chat_msg(message))
+                
+                # writes message author's name to text file to display in OBS
+                with open('message_author.txt', 'w') as txt:
+                    txt.write('Now reading:\n')
+                    txt.write(f"{parse_chat_msg(message, after = False).upper()}'s message")
+                    
+                say(parse_chat_msg(message, after = True)) 
 
             print()
-            aiko.interact(message, use_system_role = msg_type == "system")
+            print(f'Aiko:{output}')
             print()
+
+            say(output)
+
+            with open('message_author.txt', 'w') as txt:
+                pass
 
             time.sleep(0.1)    
     # --------------------------------------------------------------------------

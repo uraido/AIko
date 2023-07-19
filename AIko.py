@@ -18,20 +18,14 @@ txt files:
 
 Changelog:
 
-130alpha:
-- AIko class private attribute "session token usage" is now initialized inside the create log method instead of the
-constructor method.
-- Implemented keywords system for system messages. If a keyword is included at the start of a system message, the
-specific instructions related to that keyword will be injected into context. Keywords can be added into the
-prompts/keywords folder.
-- Added read_aloud parameter to AIko.interact method. True by default. Useful when testing - AIko talks too much .-.
-131alpha:
-- Reverted spontaneous prompts back to how they were before 130. Keywords should be included in the txt file instead -
-this allows better flexibility.
+140beta:
+- AIko.interact() method no longer prints or voices the completion. Instead, it returns it.
+- As a consequence of the above change, the read_aloud parameter has been removed.
+- Context is now built in a separate method - AIko.__build_context(), which returns the context dictionary list.
 ===================================================================
 """ 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko130alpha').upper() 
+build_version = ('Aiko140beta').upper() 
 # -------------------------------------------
 if __name__ == '__main__':
   from AikoINIhandler import handle_ini
@@ -285,7 +279,7 @@ class AIko:
             Interacts with the AI character by providing a username and a message.
         add_side_prompt(side_prompt : str):
             Injects a side prompt into the character's memory.
-        def change_scenario(scenario : str):
+        change_scenario(scenario : str):
             Changes the current scenario.
   """
   def __init__(self, character_name : str, personality_filename : str, scenario : str = ''):
@@ -361,17 +355,15 @@ class AIko:
       log.write(f'Tokens used this session: {self.__session_token_usage__}\n')
       log.write('\n')
 
-  def interact(self, message : str, use_system_role : bool = False, read_aloud : bool = True):
+  def __build_context(self, message : str, use_system_role : bool = False):
     """
-      Interacts with the AI character by providing a message.
+      Builds context dictionary list with the currently relevant information.
     """
+    # Personality
     messages = [{"role":"system", "content": self.__personality__}]
 
-    use_profile = False
     # Black box simulator
     if 'what is' in message.lower():
-      use_profile = True
-    if use_profile:
       messages += [{"role":"system", "content": self.__profile__}]
 
     messages += self.__scenario__.get_items()
@@ -382,7 +374,6 @@ class AIko:
 
       # injects keyword instructions into context if keyword is present in the system prompt
       for keyword in self.__keywords__:
-
         if message.startswith(keyword):
           messages += [{"role":"system", "content": self.__keywords__[keyword]}]
           print('(Generating completion with keyword instructions...)')
@@ -394,23 +385,28 @@ class AIko:
     else:
       messages.append({"role":"user", "content": message})
 
+    return messages
+  
+  def interact(self, message : str, use_system_role : bool = False):
+    """
+      Interacts with the AI character by providing a message.
+    """
+    messages = self.__build_context(message, use_system_role)
     completion = generate_gpt_completion_timeout(messages)
-    print(completion[0])
-
-    if read_aloud:
-      # parses completion (when appliable) to be fed to text to speech
-      if f'{self.character_name}:' in completion[0][:len(self.character_name) + 2]:
-        say(completion[0][len(self.character_name) + 1:])
-      else:
-        say(completion[0])
 
     if use_system_role:
-      self.__context__.add_item(completion[0], "assistant")
+      self.__context__.add_item(completion_data[0], "assistant")
     else:
       self.__context__.add_item(message, "user")
       self.__context__.add_item(completion[0], "assistant")
 
     self.__update_log__(message, completion)
+
+    # parses completion before returning it if character's name (E.G, "Aiko: bla bla") happens to be included
+    if f'{self.character_name}:' in completion[0][:len(self.character_name) + 2]:
+      return(completion[0][len(self.character_name) + 1:])
+
+    return(completion[0])
 
   def add_side_prompt(self, side_prompt : str):
     """
@@ -429,9 +425,12 @@ class AIko:
 
 # ------------------ Main -------------------
 if __name__ == "__main__":
+
+  # creates an AIko object
   aiko = AIko('Aiko', 'prompts\AIko.txt')
   aiko.add_side_prompt('Aiko prefers cats over dogs. Especially siamese cats.')
 
+  # enables dynamic scenario if enabled in config
   dynamic_scenarios = config.getboolean('GENERAL', 'dynamic_scenarios')
   if dynamic_scenarios:
     scenarios = txt_to_list('prompts\scenarios.txt')
@@ -442,13 +441,19 @@ if __name__ == "__main__":
 
   spontaneous_messages = txt_to_list('prompts\spontaneous_messages.txt')
 
+  # interaction loop
   while True:
     message, timeout = timedInput(f'{username}: ', randint(60, 300))
+    use_system = False
 
     if timeout:
-      aiko.interact(choice(spontaneous_messages), use_system_role=True)
+      prompt = choice(spontaneous_messages)
+      use_system = True
     elif breaker.lower() in message.lower():
       break
     else:
       prompt = f'{username}: {message}'
-      aiko.interact(prompt, read_aloud=True)
+
+    output = aiko.interact(prompt, use_system)
+    print(f'Aiko:{output}')
+    say(output)

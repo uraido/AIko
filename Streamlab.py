@@ -12,38 +12,14 @@ txt files:
 
 Changelog:
 
-010:
-- Reorganized definitions. Now, functionality needed for the interaction loop are defined under if __name__ = '__main__'
-section.
-- Spontaneous message prompts are deleted from the pool list when picked, to prevent AIko from receiving the same
-spontaneous message prompt multiple times.
-011:
-- MasterQueue object is now passed as a parameter to the interaction loop functions, instead of being passed as a global.
-- Spontaneous messages min and max time interval are now configurable.
-012:
-- AIko now reads chat messages before answering them.
-- Side prompts can be added through the press of the Page Up button.
-- The script can also be terminated if the breaker phrase is written in the side prompt text box.
-- Chat message cooldown times are now configurable.
-- Mic message expiration time is also configurable.
-013:
-- Added Thread to handle remote side prompt receiver.
-014:
-- Moved local side prompting int oa separate thread.
-- Local side prompting now has option for immediate completions.
-- Speech recognition starts disabled by default.
-015:
-- Spontaneous prompts in the interaction loop now make use of the keyword system from AIko 130alpha.
-016:
-- Reverted spontaneous prompts back to how they were before 015. Keywords should be included in the txt file instead -
-this allows better flexibility.
-017:
-- Interaction loop: When reading a chat message aloud, Aiko will no longer read the user's name.
-- Interaction loop: Remote side prompting IP and port are now configurable.
-018:
-- Updated to work with latest Aiko.py (140beta, interact method return value.)
-- Fixed delay between reading chat message and answering it.
-- Writes chat message author's name to txt file when reading it so it can be displayed in OBS.
+020:
+- Added edit_message(original_content, new_content) to MessagePool class which allows finding and editing messages by
+content.
+- Added edit_chat_message(original_content, new_content) to MasterQueue class - it's just a helper method that calls
+the MessagePool method described above on the MasterQueue's on instance of the MessagePool.
+- Interaction loop: If an user immediately follows up with a second message after sending an initial message, the first
+message is edited to also include the contents of the second message.
+- Improved MessagePool.is_empty() method reliability. Should now be infallible.
 """
 import os
 import time
@@ -201,12 +177,12 @@ class MessagePool:
     A thread-safe class representing a message pool with limited capacity.
 
     Public Methods:
-        add_chat_message(item: str) -> None:
-            Adds a chat message to the message pool. If the pool is already at maximum capacity,
+        add_message(item: str) -> None:
+            Adds a message to the message pool. If the pool is already at maximum capacity,
             the oldest message is removed to make room for the new message.
 
-        pick_chat_message() -> str:
-            Picks a random chat message from the message pool and returns it. The picked message
+        pick_message() -> str:
+            Picks a random message from the message pool and returns it. The picked message
             is removed from the pool. If the pool is empty, an empty string is returned.
     """ 
     def __init__(self):
@@ -214,15 +190,18 @@ class MessagePool:
         self.__lock__ = Lock()
 
     def is_empty(self):
-        return self.__pool__[-1] == '' and self.__pool__[0] == ""
+        for item in self.__pool__:
+            if item != '':
+                return False
+        return True
 
     def add_message(self, message : str):
         """
-        Adds a chat message to the message pool. If the pool is already at maximum capacity,
+        Adds a message to the message pool. If the pool is already at maximum capacity,
         the oldest message is removed to make room for the new message.
 
         Args:
-            item (str): The chat message to be added.
+            item (str): The message to be added.
         """
         with self.__lock__:
             self.__pool__.pop(0)
@@ -230,11 +209,11 @@ class MessagePool:
 
     def pick_message(self):
         """
-        Picks a random chat message from the message pool and returns it. The picked message
+        Picks a random message from the message pool and returns it. The picked message
         is removed from the pool. If the pool is empty, an empty string is returned.
 
         Returns:
-            The picked chat message as a string. If the pool is empty, an empty string is returned.
+            The picked message as a string. If the pool is empty, an empty string is returned.
         """
         helper = ''
         with self.__lock__:
@@ -247,6 +226,14 @@ class MessagePool:
                     if helper != '':
                         break
             return helper
+
+    def edit_message(self, original_content : str, new_content : str):
+        with self.__lock__:
+            if original_content in self.__pool__:
+                msg_index = self.__pool__.index(original_content)
+                self.__pool__[msg_index] = new_content
+            else:
+                raise ValueError('Message does not exist in pool.')
 # ----------------------------------------------------------------------------
 class MasterQueue:
     """
@@ -261,7 +248,8 @@ class MasterQueue:
     will act as if empty if there are no other types of message to return and 'chat' is on cooldown.
 
     Public Methods:
-    - add_message(message: str, message_type: str): Adds a message to the master queue.
+    - add_message(message : str, message_type : str): Adds a message to the master queue.
+    - edit_chat_message(original_content : str, new_content : str): Edit "chat" type messages by content.
     - get_next(): Retrieves the next message from the master queue based on priority.
     """
     __instance__ = None
@@ -322,6 +310,9 @@ class MasterQueue:
         else:
             raise TypeError(f"{message_type} is not a valid message type")
 
+    def edit_chat_message(self, original_content : str, new_content : str):
+        self.__chat_messages__.edit_message(original_content, new_content)
+
     def get_next(self):
         """
         Retrieves the next message from the master queue based on priority.
@@ -346,17 +337,43 @@ class MasterQueue:
             return ("chat", self.__chat_messages__.pick_message())
 
         return ('', '')
+
 # ----------------------------------------------------------------------------
 if __name__ == '__main__':
     aiko = AIko.AIko('Aiko', 'prompts\AIko.txt')
+
+    def parse_msg(message : str, character : str = ':', after = False):
+        '''
+        Returns the contents of a string positioned after a given character.
+        '''
+        if after:
+            return message[message.index(character) + 2 :]
+
+        return message[: message.index(character)]
     # ---------------------- CONTINOUSLY THREADED FUNCTIONS ------------------
     def thread_parse_chat(queue : MasterQueue, config : ConfigParser, chat : pytchat.core.PytchatCore):
+        last_author = None
+
         while chat.is_alive():
-
             for c in chat.get().sync_items():
+                
+                # merges current message with last message if the same user immediately follows up with a second message
+                if c.author.name == last_author:
+                    merged_message = f'{last_message} {c.message}'
+                    try:
+                        queue.edit_chat_message(last_message, merged_message)
+                        print(f'\nMerged current message with last message added to queue:\n{last_message} + {c.message}\n')
+                        last_message = merged_message
 
-                queue.add_message(f'{c.author.name}: {c.message}', "chat")
-                print(f'\nAdded chat message to queue:\n{c.message}\n')
+                        continue
+                    except:
+                        print('\nAttempted message merge, but exception occurred. Message has probably been read already.\n')
+
+                last_author = c.author.name
+                last_message = f'{last_author}: {c.message}'
+
+                queue.add_message(last_message, "chat")
+                print(f'\nAdded chat message to queue:\n{last_message}\n')
 
             # to keep CPU usage from maxing out
             time.sleep(0.1)
@@ -457,15 +474,6 @@ if __name__ == '__main__':
     def thread_talk(queue : MasterQueue):
         global aiko
 
-        def parse_chat_msg(message : str, character : str = ':', after = False):
-            '''
-            Returns the contents of a string positioned after a given character.
-            '''
-            if after:
-                return message[message.index(character) + 2 :]
-
-            return message[: message.index(character)]
-
         # creates/clears text file to display message author's name in OBS
         with open('message_author.txt', 'w') as txt:
             pass
@@ -484,9 +492,9 @@ if __name__ == '__main__':
                 # writes message author's name to text file to display in OBS
                 with open('message_author.txt', 'w') as txt:
                     txt.write('Now reading:\n')
-                    txt.write(f"{parse_chat_msg(message, after = False).upper()}'s message")
+                    txt.write(f"{parse_msg(message, after = False).upper()}'s message")
                     
-                say(parse_chat_msg(message, after = True)) 
+                say(parse_msg(message, after = True)) 
 
             print()
             print(f'Aiko:{output}')
@@ -499,7 +507,7 @@ if __name__ == '__main__':
 
             time.sleep(0.1)    
     # --------------------------------------------------------------------------
-    handle_ini()
+    handle_ini() 
     
     queue = MasterQueue()
     

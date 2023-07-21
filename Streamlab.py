@@ -9,6 +9,7 @@ Requirements:
 txt files:
 - AIko.txt
 - spontaneous_messages.txt
+- profile.txt
 
 Changelog:
 
@@ -20,7 +21,11 @@ the MessagePool method described above on the MasterQueue's on instance of the M
 - Interaction loop: If an user immediately follows up with a second message after sending an initial message, the first
 message is edited to also include the contents of the second message.
 - Improved MessagePool.is_empty() method reliability. Should now be infallible.
+021 :
+- Added a message when a remote side prompt is received
 """
+
+# ----------------------------- Imports -------------------------------------
 import os
 import time
 import AIko
@@ -34,8 +39,10 @@ from AikoINIhandler import handle_ini
 from threading import Thread, Lock, Event                                          
 from VoiceLink import say, start_speech_recognition, stop_speech_recognition
 # ----------------------------------------------------------------------------
+
 def is_empty_string(string : str):
-    return string == ''                                                                                                                               
+    return string == ''                                          
+                                                                                         
 # ----------------------------------------------------------------------------
 class MessageQueue: 
     """
@@ -350,6 +357,7 @@ if __name__ == '__main__':
             return message[message.index(character) + 2 :]
 
         return message[: message.index(character)]
+
     # ---------------------- CONTINOUSLY THREADED FUNCTIONS ------------------
     def thread_parse_chat(queue : MasterQueue, config : ConfigParser, chat : pytchat.core.PytchatCore):
         last_author = None
@@ -438,6 +446,10 @@ if __name__ == '__main__':
 
                 message = msg.decode()[:-1]
                 completion_option_selected = msg.decode()[-1]
+                print('==========')
+                print(r'Remote side prompt received with the option {}:'.format(completion_option_selected))
+                print(message)
+                print('==========')
 
                 if completion_option_selected == '1':
                     queue.add_message(message, "system")

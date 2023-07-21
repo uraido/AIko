@@ -3,7 +3,7 @@ Streamlabs.py
 
 Requirements:
 - AIko.py (140beta or greater) and its requirements.
-- VoiceLink.py (050 or greater) and its requirements.
+- VoiceLink.py (060 or greater) and its requirements.
 - AikoINIhandler.py (22 or greater) and its requirements.
 
 txt files:
@@ -21,8 +21,10 @@ the MessagePool method described above on the MasterQueue's on instance of the M
 - Interaction loop: If an user immediately follows up with a second message after sending an initial message, the first
 message is edited to also include the contents of the second message.
 - Improved MessagePool.is_empty() method reliability. Should now be infallible.
-021 :
+021:
 - Added a message when a remote side prompt is received
+-022:
+- Faster speech rates when reading chat messages aloud, using VoiceLink 060's new feature.
 """
 
 # ----------------------------- Imports -------------------------------------
@@ -506,7 +508,7 @@ if __name__ == '__main__':
                     txt.write('Now reading:\n')
                     txt.write(f"{parse_msg(message, after = False).upper()}'s message")
                     
-                say(parse_msg(message, after = True)) 
+                say(parse_msg(message, after = True), rate=random.uniform(1.2, 1.4)) 
 
             print()
             print(f'Aiko:{output}')

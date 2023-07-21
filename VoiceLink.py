@@ -12,16 +12,8 @@ pip install:
 
 Changelog:
 
-050:
-- Removed option to use default mic, since that caused a bug which caused AIko to 'hear' herself and be stuck in a loop
-answering herself. User must specify a microphone device to use speech_recognition.
-051:
-- Exception printout when getting microphone device is now more specific.
-- Removed leftover use_default_mic setting import that caused an error.
-052:
-- Now generates captions.txt file for displaying subtitles.
-053:
-- Removed captions. They sucked.
+060:
+- Say() function now has adjustable speech speed rate through the "rate" parameter.
 """
 import os
 import azure.cognitiveservices.speech as speechsdk
@@ -90,16 +82,19 @@ audio_config = speechsdk.audio.AudioOutputConfig(
     device_name=device_id
     )
 
-# sets the voice
-speech_config.speech_synthesis_voice_name = azure_voice #'en-AU-CarlyNeural' #'en-GB-MaisieNeural' #'en-US-AnaNeural'
-
 # builds SpeechSynthesizer class
 speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=audio_config)
 
-def say(text : str):
+def say(text : str, rate : int = 1):
     global speech_synthesizer
 
-    speech_synthesis_result = speech_synthesizer.speak_text_async(text).get()
+    ssml = f""" <speak version="1.0" xmlns="https://www.w3.org/2001/10/synthesis" xml:lang="en-US">
+                    <voice name="{azure_voice}">
+                        <prosody rate="{rate}">{text}</prosody>
+                    </voice>
+                </speak>"""
+
+    speech_synthesis_result = speech_synthesizer.speak_ssml_async(ssml).get()
 
 # get the users chosen microphone device's endpoint id and builds AudioConfig class
 try:

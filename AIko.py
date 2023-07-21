@@ -22,6 +22,8 @@ Changelog:
 - AIko.interact() method no longer prints or voices the completion. Instead, it returns it.
 - As a consequence of the above change, the read_aloud parameter has been removed.
 - Context is now built in a separate method - AIko.__build_context(), which returns the context dictionary list.
+141beta:
+- Placed profile on further indexes of the context list, to make sure the information stays relevant to the AI.
 ===================================================================
 """ 
 # PLEASE set it if making a new build. for logging purposes
@@ -362,13 +364,13 @@ class AIko:
     # Personality
     messages = [{"role":"system", "content": self.__personality__}]
 
-    # Black box simulator
-    if 'what is' in message.lower():
-      messages += [{"role":"system", "content": self.__profile__}]
-
     messages += self.__scenario__.get_items()
     messages += self.__side_prompts__.get_items()
     messages += self.__context__.get_items()
+
+    # Black box simulator
+    if 'what is' in message.lower():
+      messages += [{"role":"system", "content": self.__profile__}]
 
     if use_system_role:
 

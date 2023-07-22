@@ -24,6 +24,8 @@ Changelog:
 - Context is now built in a separate method - AIko.__build_context(), which returns the context dictionary list.
 141beta:
 - Placed profile on further indexes of the context list, to make sure the information stays relevant to the AI.
+142beta:
+- Fixed exception raised when trying to use system messages.
 ===================================================================
 """ 
 # PLEASE set it if making a new build. for logging purposes
@@ -397,7 +399,7 @@ class AIko:
     completion = generate_gpt_completion_timeout(messages)
 
     if use_system_role:
-      self.__context__.add_item(completion_data[0], "assistant")
+      self.__context__.add_item(completion[0], "assistant")
     else:
       self.__context__.add_item(message, "user")
       self.__context__.add_item(completion[0], "assistant")

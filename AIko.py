@@ -26,10 +26,12 @@ Changelog:
 - Placed profile on further indexes of the context list, to make sure the information stays relevant to the AI.
 142beta:
 - Fixed exception raised when trying to use system messages.
+142beta:
+- Updated black box simulator. Now it considers personal and preference keywords.
 ===================================================================
 """ 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko140beta').upper() 
+build_version = ('Aiko142beta').upper() 
 # -------------------------------------------
 if __name__ == '__main__':
   from AikoINIhandler import handle_ini
@@ -371,7 +373,11 @@ class AIko:
     messages += self.__context__.get_items()
 
     # Black box simulator
-    if 'what is' in message.lower():
+    personal_key_word = ['you']
+    preference_key_word = ['favorite', 'like']
+    l_msg = message.lower()
+    #if 'what is' in message.lower():
+    if any(x in l_msg for  x in personal_key_word) and any(y in l_msg for y in preference_key_word):
       messages += [{"role":"system", "content": self.__profile__}]
 
     if use_system_role:

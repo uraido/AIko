@@ -4,7 +4,7 @@ AIko.py
 Objects for interaction with custom made AI characters.
 
 Requirements:
-- VoiceLink.py and its requirements
+- VoiceLink.py (100 or greater) and its requirements
 - AikoINIhandler.py
 
 pip install:
@@ -28,17 +28,19 @@ Changelog:
 - Fixed exception raised when trying to use system messages.
 142beta:
 - Updated black box simulator. Now it considers personal and preference keywords.
+143beta:
+- Updated to work with latest VoiceLink.
 ===================================================================
 """ 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko142beta').upper() 
+build_version = ('Aiko143beta').upper() 
 # -------------------------------------------
 if __name__ == '__main__':
   from AikoINIhandler import handle_ini
   handle_ini()
 # ----------------- Imports -----------------
 import openai                          # gpt3
-from VoiceLink import say              # text to speech function
+from VoiceLink import Synthesizer      # text to speech function
 from datetime import datetime          # for logging
 from pytimedinput import timedInput    # input with timeout
 from random import choice, randint     # random
@@ -435,6 +437,8 @@ class AIko:
 
 # ------------------ Main -------------------
 if __name__ == "__main__":
+  # creates a Synthesizer object for voicing Aiko
+  synthesizer = Synthesizer()
 
   # creates an AIko object
   aiko = AIko('Aiko', 'prompts\AIko.txt')
@@ -466,4 +470,4 @@ if __name__ == "__main__":
 
     output = aiko.interact(prompt, use_system)
     print(f'Aiko:{output}')
-    say(output)
+    synthesizer.say(output)

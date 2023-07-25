@@ -12,8 +12,8 @@ pip install:
 
 Changelog:
 
-060:
-- Say() function now has adjustable speech speed rate through the "rate" parameter.
+100:
+- Organized functionality into classes.
 """
 import os
 import azure.cognitiveservices.speech as speechsdk
@@ -21,7 +21,6 @@ import subprocess
 import keyboard
 import time
 from configparser import ConfigParser
-from threading import Thread, Event
 
 if __name__ == '__main__':
     from AikoINIhandler import handle_ini
@@ -30,12 +29,6 @@ if __name__ == '__main__':
 # reads config file
 config = ConfigParser()
 config.read('AikoPrefs.ini')
-
-# sets variables according to config
-audio_device = config.get('VOICE', 'audio_device')
-mic_device = config.get('VOICE', 'mic_device')
-azure_voice = config.get('VOICE', 'azure_voice')
-azure_region = config.get('VOICE', 'azure_region')
 
 def get_device_endpoint_id(device : str):
     sd = subprocess.run(
@@ -61,104 +54,112 @@ def get_device_endpoint_id(device : str):
 
     return(virtual_cable_device_id)
 
-# builds SpeechConfig class
-speech_config = speechsdk.SpeechConfig(
-    subscription=open("keys/key_azurespeech.txt", "r").read().strip('\n'), 
-    region='brazilsouth'
-    )
+class Recognizer:
+    def __init__(self, microphone: str = config.get('VOICE', 'mic_device')):
+        self.__set_speech_config()
+        self.__set_audio_config(microphone)
+        self.__set_speech_recognizer()
+        self.__loop_started = False
 
-# get the users chosen device's endpoint id
-try:
-    device_id = get_device_endpoint_id(audio_device)
-    default_speaker = False
-except:
-    print(f"Couldn't find {audio_device} audio device. Using default speakers.")
-    device_id = ''
-    default_speaker = True
-
-# builds AudioOutputConfig class
-audio_config = speechsdk.audio.AudioOutputConfig(
-    use_default_speaker=default_speaker,
-    device_name=device_id
-    )
-
-# builds SpeechSynthesizer class
-speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=audio_config)
-
-def say(text : str, rate : int = 1):
-    global speech_synthesizer
-
-    ssml = f""" <speak version="1.0" xmlns="https://www.w3.org/2001/10/synthesis" xml:lang="en-US">
-                    <voice name="{azure_voice}">
-                        <prosody rate="{rate}">{text}</prosody>
-                    </voice>
-                </speak>"""
-
-    speech_synthesis_result = speech_synthesizer.speak_ssml_async(ssml).get()
-
-# get the users chosen microphone device's endpoint id and builds AudioConfig class
-try:
-    mic_id = get_device_endpoint_id(mic_device)
-    input_config = speechsdk.audio.AudioConfig(
-    use_default_microphone=False,
-    device_name=mic_id
+    def __set_speech_config(self):
+        # builds SpeechConfig class
+        self.__speech_config = speechsdk.SpeechConfig(
+        subscription = open("keys/key_azurespeech.txt", "r").read().strip('\n'), 
+        region = config.get('VOICE', 'azure_region')
         )
-except:
-    raise(f"Couldn't find {mic_device} input device.")
 
-# builds SpeechRecognizer class
-speech_recognizer = speechsdk.SpeechRecognizer(
-    speech_config=speech_config,
-    audio_config=input_config)
+    def __set_audio_config(self, mic_device: str):
+        # get the users chosen microphone device's endpoint id and builds AudioConfig class
+        try:
+            mic_id = get_device_endpoint_id(mic_device)
+            self.__audio_config = speechsdk.audio.AudioConfig(
+            use_default_microphone = False,
+            device_name = mic_id
+                )
+        except:
+            raise ValueError(f"Couldn't find entered microphone device's ID.")
 
-# sets variable for handling speech recognizing loop
-recognition_activated = False
+    def __set_speech_recognizer(self):
+        # builds SpeechRecognizer class
+        self.__speech_recognizer = speechsdk.SpeechRecognizer(
+        speech_config = self.__speech_config,
+        audio_config = self.__audio_config)
 
-def start_speech_recognition(parse_func, hotkey : str = 'Page Up'):
-    """
-    Starts continuous speech recognition using Azure Speech to Text.
+    def start(self, parse_func, hotkey: str = config.get('LIVESTREAM', 'toggle_listening')):
+        self.__speech_recognizer.start_continuous_recognition()
+        self.__speech_recognizer.recognized.connect(lambda evt: parse_func(evt))
 
-    Parameters:
-    - hotkey (str): The hotkey to toggle speech recognition on/off. Default is 'Page Up'.
-    - parse_func: The function to parse and handle recognized speech events.
+        self.__loop_started = True
+        is_recognizing = True
 
-    Usage:
-    - Make sure to call this function in a threaded environment for reliable control over the while loop.
-    - To stop the continuous recognition, you can call the stop_continuous_recognition() function from another thread.
-    """
-    global recognition_activated
-    global speech_recognizer
+        while self.__loop_started:
+            if keyboard.is_pressed(hotkey) and is_recognizing:
+                self.__speech_recognizer.stop_continuous_recognition()
+                is_recognizing = False
+                print('\nPaused continuous speech recognition.\n')
+            elif keyboard.is_pressed(hotkey) and not is_recognizing:
+                self.__speech_recognizer.start_continuous_recognition()
+                print('\nResumed continuous speech recognition.\n')
+                is_recognizing = True
+            time.sleep(0.1)
 
-    recognition_activated = True
+        print('\nDeactivated speech recognition.\n')
 
-    speech_recognizer.start_continuous_recognition()
-    speech_recognizer.recognized.connect(lambda evt: parse_func(evt))
+    def stop(self):
+        self.__loop_started = False
 
-    is_recognizing = True
+class Synthesizer:
+    def __init__(self, speakers: str = config.get('VOICE', 'audio_device'), voice: str = config.get('VOICE', 'azure_voice')):
+        self.__set_speech_config()
+        self.__set_audio_config(speakers)
+        self.__set_speech_synthesizer()
+        self.voice = voice
 
-    while recognition_activated:
-        if keyboard.is_pressed(hotkey) and is_recognizing:
-            speech_recognizer.stop_continuous_recognition()
-            is_recognizing = False
-            print('\nPaused continuous speech recognition.\n')
-        elif keyboard.is_pressed(hotkey) and not is_recognizing:
-            speech_recognizer.start_continuous_recognition()
-            print('\nResumed continuous speech recognition.\n')
-            is_recognizing = True
-        time.sleep(0.1)
+    def __set_speech_config(self):
+        # builds SpeechConfig class
+        self.__speech_config = speechsdk.SpeechConfig(
+        subscription = open("keys/key_azurespeech.txt", "r").read().strip('\n'), 
+        region = config.get('VOICE', 'azure_region')
+        )
 
-def stop_speech_recognition():
-    global recognition_activated
+    def __set_audio_config(self, speakers: str):
+        # get the users chosen device's endpoint id
+        try:
+            device_id = get_device_endpoint_id(speakers)
+            default_speaker = False
+        except:
+            print(f"Couldn't find {speakers} audio device. Using default speakers.")
+            device_id = ''
+            default_speaker = True
 
-    recognition_activated = False
-    print('\nDeactivated speech recognition.\n')
+        # builds AudioOutputConfig class
+        self.__audio_config = speechsdk.audio.AudioOutputConfig(
+            use_default_speaker=default_speaker,
+            device_name=device_id
+            )
+
+    def __set_speech_synthesizer(self):
+        # builds SpeechSynthesizer class
+        self.__speech_synthesizer = speechsdk.SpeechSynthesizer(
+            speech_config=self.__speech_config,
+            audio_config=self.__audio_config
+            )
+
+    def say(self, text : str, rate : int = 1):
+        ssml = f""" <speak version="1.0" xmlns="https://www.w3.org/2001/10/synthesis" xml:lang="en-US">
+                        <voice name="{self.voice}">
+                            <prosody rate="{rate}">{text}</prosody>
+                        </voice>
+                    </speak>"""
+
+        speech_synthesis_result = self.__speech_synthesizer.speak_ssml_async(ssml).get()
 
 if __name__ == '__main__':
-    from VoiceLink import start_speech_recognition, stop_speech_recognition
     from threading import Thread
 
-    # tests say function
-    say('Hello there!')
+    # tests synthesizer class
+    synthesizer = Synthesizer()
+    synthesizer.say('Hello there!')
 
     # sets up a function to be called on the speech_recognizer.recognized event
     def parse_event(evt):
@@ -173,15 +174,12 @@ if __name__ == '__main__':
         if message != '':
             print(message)
 
-    # to test speech recognition. started in a thread.
-    def speech_recognition_thread():
-        start_speech_recognition(parse_func = parse_event)
-
+    recognizer = Recognizer()
     # to handle stopping the speech recognition.
     def stop_recognition_thread():
         keyboard.wait('space')
-        stop_speech_recognition()
+        recognizer.stop()
 
     # starts threads
-    Thread(target=speech_recognition_thread).start()
-    Thread(target=stop_recognition_thread).start()
+    Thread(target = recognizer.start, kwargs = {'parse_func': parse_event}).start()
+    Thread(target = stop_recognition_thread).start()

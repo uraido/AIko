@@ -3,7 +3,7 @@ Streamlabs.py
 
 Requirements:
 - AIko.py (140beta or greater) and its requirements.
-- VoiceLink.py (060 or greater) and its requirements.
+- VoiceLink.py (100 or greater) and its requirements.
 - AikoINIhandler.py (22 or greater) and its requirements.
 
 txt files:
@@ -23,8 +23,10 @@ message is edited to also include the contents of the second message.
 - Improved MessagePool.is_empty() method reliability. Should now be infallible.
 021:
 - Added a message when a remote side prompt is received
--022:
+022:
 - Faster speech rates when reading chat messages aloud, using VoiceLink 060's new feature.
+023:
+- Interaction loop: Updated to work with latest VoiceLink.
 """
 
 # ----------------------------- Imports -------------------------------------
@@ -39,7 +41,7 @@ from pytimedinput import timedInput
 from configparser import ConfigParser
 from AikoINIhandler import handle_ini     
 from threading import Thread, Lock, Event                                          
-from VoiceLink import say, start_speech_recognition, stop_speech_recognition
+from VoiceLink import Synthesizer, Recognizer
 # ----------------------------------------------------------------------------
 
 def is_empty_string(string : str):
@@ -405,14 +407,14 @@ if __name__ == '__main__':
                 queue.add_message(f'{username}: {message}', "mic")
                 print(f'\nAdded mic message to queue:\n{message}\n')
 
+        # creates recognizer object for speech recognition
+        recognizer = Recognizer()
+
         keyboard.wait(hotkey)
         print('\nEnabled speech recognition.\n')
         time.sleep(0.1)
 
-        start_speech_recognition(
-            parse_func=parse_event,
-            hotkey=hotkey
-            )
+        recognizer.start(parse_event)
 
     def thread_spontaneus_messages(queue : MasterQueue, config : ConfigParser):
         system_prompts = AIko.txt_to_list('prompts\spontaneous_messages.txt')
@@ -488,6 +490,9 @@ if __name__ == '__main__':
     def thread_talk(queue : MasterQueue):
         global aiko
 
+        # creates synthesizer object to voice Aiko
+        synthesizer = Synthesizer()
+
         # creates/clears text file to display message author's name in OBS
         with open('message_author.txt', 'w') as txt:
             pass
@@ -508,13 +513,13 @@ if __name__ == '__main__':
                     txt.write('Now reading:\n')
                     txt.write(f"{parse_msg(message, after = False).upper()}'s message")
                     
-                say(parse_msg(message, after = True), rate=random.uniform(1.2, 1.4)) 
+                synthesizer.say(parse_msg(message, after = True), rate=random.uniform(1.2, 1.4)) 
 
             print()
             print(f'Aiko:{output}')
             print()
 
-            say(output)
+            synthesizer.say(output)
 
             with open('message_author.txt', 'w') as txt:
                 pass

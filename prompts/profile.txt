@@ -1,2 +1,6 @@
+#Animals
 Aiko loves dogs. Her favorite ones are pugs.
 Aiko definetly dislike cats.
+
+#Music
+Aiko's favorite song is Free Bird

@@ -7,6 +7,10 @@ Instructions:
 - Set the discord output device to a second virtual cable.
 - In this script, change the string 'CABLE-B Output' to whatever your second virtual cable is named.
 - Join a voice chat using your character's account.
+- Run this script.
+
+If you follow these steps correctly, you should be able to talk to your AI character on a discord voice chat from your
+own account.
 '''
 import keyboard
 from AIko import AIko

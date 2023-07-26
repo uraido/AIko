@@ -14,18 +14,21 @@ own account.
 '''
 import keyboard
 from AIko import AIko
-from threading import Thread
+from time import sleep
+from threading import Thread, Lock
+from Streamlab import MessageContainer
 from VoiceLink import Synthesizer, Recognizer
 
+charname = 'Aiko'
 # SET SECOND VIRTUAL CABLE HERE
 recognizer = Recognizer('CABLE-B Output')
 
-# --------
-Aiko = AIko('Aiko', 'prompts/Aiko.txt')
-synthesizer = Synthesizer()
+message = MessageContainer()
 
+# --------
 def parse_event(evt):
-    global Aiko, synthesizer
+    global message
+
     event = str(evt)
 
     keyword = 'text="'
@@ -35,20 +38,41 @@ def parse_event(evt):
     result = event[stt_start + len(keyword):stt_end]
 
     if result != '':
-        print(f'User: {result}\n')
-        output = Aiko.interact(f'Voice-chat: {result}')
-        print(f'Aiko: {output}\n')
-        synthesizer.say(output)
+        message.switch_message(f'Voice-chat: {result}')
 # ---------
 # threads
+running = True
+def retrieve_message():
+    global running, message, charname
+
+    Aiko = AIko(charname, f'prompts/{charname}.txt')
+    synthesizer = Synthesizer()
+    output = ''
+
+    while True:
+        if not running:
+            break
+        if message.has_message:
+            prompt = message.get_message()
+            if prompt != '':
+                print(prompt)
+
+                output = Aiko.interact(prompt)
+                print(f'{charname}: {output}')
+                synthesizer.say(output)
+
+        sleep(0.01)
+
 def wait_for_end(hotkey: str = 'del'):
-    global recognizer
+    global recognizer, running
     
     keyboard.wait(hotkey)
+    running = False
     recognizer.stop()
 
 # starts threads
 Thread(target = recognizer.start, kwargs = {'parse_func': parse_event}).start()
+Thread(target = retrieve_message).start()
 Thread(target = wait_for_end).start()
 
 print('All threads started.\n')

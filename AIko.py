@@ -30,10 +30,13 @@ Changelog:
 - Updated black box simulator. Now it considers personal and preference keywords.
 143beta:
 - Updated to work with latest VoiceLink.
+144beta:
+- Added a few more keywords to the black box, to accomodate for some specific additions to her profile.
+- Added line breaks to the printouts in the interaction loop, for better readability when running.
 ===================================================================
 """ 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko143beta').upper() 
+build_version = ('Aiko144beta').upper() 
 # -------------------------------------------
 if __name__ == '__main__':
   from AikoINIhandler import handle_ini
@@ -376,7 +379,7 @@ class AIko:
 
     # Black box simulator
     personal_key_word = ['you']
-    preference_key_word = ['favorite', 'like']
+    preference_key_word = ['favorite', 'like', 'where', 'old']
     l_msg = message.lower()
     #if 'what is' in message.lower():
     if any(x in l_msg for  x in personal_key_word) and any(y in l_msg for y in preference_key_word):
@@ -442,7 +445,6 @@ if __name__ == "__main__":
 
   # creates an AIko object
   aiko = AIko('Aiko', 'prompts\AIko.txt')
-  aiko.add_side_prompt('Aiko prefers cats over dogs. Especially siamese cats.')
 
   # enables dynamic scenario if enabled in config
   dynamic_scenarios = config.getboolean('GENERAL', 'dynamic_scenarios')
@@ -469,5 +471,5 @@ if __name__ == "__main__":
       prompt = f'{username}: {message}'
 
     output = aiko.interact(prompt, use_system)
-    print(f'Aiko:{output}')
-    synthesizer.say(output)
+    print(f'\nAiko:{output}\n')
+    #synthesizer.say(output)

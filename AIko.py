@@ -18,25 +18,15 @@ txt files:
 
 Changelog:
 
-140beta:
-- AIko.interact() method no longer prints or voices the completion. Instead, it returns it.
-- As a consequence of the above change, the read_aloud parameter has been removed.
-- Context is now built in a separate method - AIko.__build_context(), which returns the context dictionary list.
-141beta:
-- Placed profile on further indexes of the context list, to make sure the information stays relevant to the AI.
-142beta:
-- Fixed exception raised when trying to use system messages.
-142beta:
-- Updated black box simulator. Now it considers personal and preference keywords.
-143beta:
-- Updated to work with latest VoiceLink.
-144beta:
-- Added a few more keywords to the black box, to accomodate for some specific additions to her profile.
-- Added line breaks to the printouts in the interaction loop, for better readability when running.
+150beta:
+- Separated context functionality into the new Context() class.
+- Separated black box functionality (AKA "does this prompt need information from the profile?") into its own class.
+- Added append_items() method to the MessageList class, which allows the direct appending of the populated items from a
+MessageList into an existing python list object.
 ===================================================================
 """ 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko144beta').upper() 
+build_version = ('Aiko150beta').upper() 
 # -------------------------------------------
 if __name__ == '__main__':
   from AikoINIhandler import handle_ini
@@ -220,8 +210,8 @@ def gather_txts(directory : str):
 
 
 
-# ----------------- Class -------------------
-class messageList:
+# ----------------- Classes -------------------
+class MessageList:
   """
   A class that holds a limited list of messages meant for prompting GPT.
 
@@ -271,9 +261,70 @@ class messageList:
         populated_items.append(item)
     return populated_items
 
+  def append_items(self, existing_list: list):
+    """
+      Appends the populated items of the lists to an existing list.
+      USE WITH CAUTION: This method will MODIFY the list you give it as a parameter. It has no return value
+    """
+    for item in self.__message_list__:
+      if item != '':
+        existing_list.append(item)
+
   def is_empty(self) -> bool:
     return self.__message_list__[-1] == ''
 
+class BlackBox:
+
+  def __init__(self):
+    self.personal_key_word = ['you']
+    self.preference_key_word = ['favorite', 'like', 'where', 'old']
+
+  def message_meets_criteria(self, message: str):
+    l_msg = message.lower()
+    #if 'what is' in message.lower():
+    if any(x in l_msg for  x in self.personal_key_word) and any(y in l_msg for y in self.preference_key_word):
+      return True
+    
+    return False
+
+class Context:
+
+  def __init__(self, personality: str, scenario : str):
+    self.__personality = personality
+
+    self.__context = MessageList(10)
+    self.__side_prompts = MessageList(5)
+    self.__scenario = MessageList(1)
+
+    self.__scenario.add_item(scenario, "system")
+    self.__profile = txt_to_string('prompts\profile.txt')
+
+  def add_side_prompt(self, message: str):
+    self.__side_prompts.add_item(message, "system")
+
+  def add_to_context(self, message: str, role: str):
+    self.__context.add_item(message, role)
+
+  def change_scenario(self, scenario: str):
+    self.__scenario.add_item(scenario, "system")
+
+  def __append_message_lists(self, list_to_append: list):
+    self.__scenario.append_items(list_to_append)
+    self.__side_prompts.append_items(list_to_append)
+    self.__context.append_items(list_to_append)
+
+  def build_context(self, message : str, use_profile : bool = False):
+    """
+      Builds context dictionary list with the currently relevant information.
+    """
+    messages = [{"role":"system", "content": self.__personality}]
+    self.__append_message_lists(messages)
+
+    if use_profile:
+      messages.append({"role":"system", "content": self.__profile})
+
+    return messages
+  
 class AIko:
   """
     A class that can be used for interacting with custom made AI characters.
@@ -295,22 +346,15 @@ class AIko:
   """
   def __init__(self, character_name : str, personality_filename : str, scenario : str = ''):
     self.character_name = character_name
-    self.personality_file = personality_filename
 
-    self.__personality__ = txt_to_string(personality_filename)
-    self.__log__ = self.__create_log__()
+    self.__personality_file = personality_filename
+    self.__black_box = BlackBox()
+    self.__context = Context(txt_to_string(personality_filename), scenario)
 
-    self.__context__ = messageList(10)
-    self.__side_prompts__ = messageList(5)
+    self.__log = self.__create_log()
+    self.__keywords = gather_txts('prompts\keywords')
 
-    self.__scenario__ = messageList(1)
-    self.__scenario__.add_item(scenario, "system")
-
-    self.__profile__ = txt_to_string('prompts\profile.txt')
-
-    self.__keywords__ = gather_txts('prompts\keywords')
-
-  def __create_log__(self):
+  def __create_log(self):
     """
       Creates a log file and reports initial information.
 
@@ -332,18 +376,30 @@ class AIko:
       log.write(f'{hour}\n')
       log.write('\n')
       log.write(f'AIKO.PY BUILD VERSION: {build_version} \n')
-      log.write(f'{self.personality_file}: \n')
-      with open(self.personality_file, 'r') as aiko_txt:
+      log.write(f'{self.__personality_file}: \n')
+      with open(self.__personality_file, 'r') as aiko_txt:
         for line in aiko_txt:
           log.write(line)
       log.write('\n')
       log.write('\n')
-      log.write(f'---------------END OF "{self.personality_file}"---------------\n')
+      log.write(f'---------------END OF "{self.__personality_file}"---------------\n')
       log.write('\n')
 
     return log_filename
 
-  def __update_log__(self, user_string : str, completion_data : tuple):
+  def add_side_prompt(self, side_prompt : str):
+    """
+      Injects a side prompt into the character's memory.
+    """
+    self.__context.add_side_prompt(side_prompt)
+
+  def change_scenario(self, scenario : str):
+    """
+      Changes the current scenario.
+    """
+    self.__context.change_scenario(scenario)
+
+  def __update_log(self, user_string : str, completion_data : tuple):
     """
       Updates the log file with the user's input and the generated output.
 
@@ -356,7 +412,7 @@ class AIko:
 
     self.__session_token_usage__ += completion_data[1][2]
 
-    with open(self.__log__, 'a') as log:
+    with open(self.__log, 'a') as log:
       log.write(f'{hour}\n')
       log.write('\n')
       log.write(f'Prompt: {user_string} --TOKENS USED: {completion_data[1][0]}\n')
@@ -365,75 +421,45 @@ class AIko:
       log.write('\n')
       log.write(f'Tokens used this session: {self.__session_token_usage__}\n')
       log.write('\n')
-
-  def __build_context(self, message : str, use_system_role : bool = False):
-    """
-      Builds context dictionary list with the currently relevant information.
-    """
-    # Personality
-    messages = [{"role":"system", "content": self.__personality__}]
-
-    messages += self.__scenario__.get_items()
-    messages += self.__side_prompts__.get_items()
-    messages += self.__context__.get_items()
-
-    # Black box simulator
-    personal_key_word = ['you']
-    preference_key_word = ['favorite', 'like', 'where', 'old']
-    l_msg = message.lower()
-    #if 'what is' in message.lower():
-    if any(x in l_msg for  x in personal_key_word) and any(y in l_msg for y in preference_key_word):
-      messages += [{"role":"system", "content": self.__profile__}]
-
-    if use_system_role:
-
-      # injects keyword instructions into context if keyword is present in the system prompt
-      for keyword in self.__keywords__:
-        if message.startswith(keyword):
-          messages += [{"role":"system", "content": self.__keywords__[keyword]}]
-          print('(Generating completion with keyword instructions...)')
-          break
-
-      # prompts message under system role
-      messages.append({"role":"system", "content": message})
-
-    else:
-      messages.append({"role":"user", "content": message})
-
-    return messages
   
-  def interact(self, message : str, use_system_role : bool = False):
+  def has_keyword(self, message: str):
+    for keyword in self.__keywords:
+      if message.startswith(keyword):
+          return (True, {"role":"system", "content": self.__keywords[keyword]})
+
+    return (False, None)
+
+  def interact(self, message: str, use_system_role: bool = False):
     """
       Interacts with the AI character by providing a message.
     """
-    messages = self.__build_context(message, use_system_role)
+    use_profile = self.__black_box.message_meets_criteria(message)
+    messages = self.__context.build_context(message, use_profile)
+
+    if use_system_role:
+      has_keyword, keyword_instructions = self.has_keyword(message)
+      if has_keyword:
+        messages.append(keyword_instructions)
+      
+      messages.append({"role": "system", "content": message})
+    else:
+      messages.append({"role": "user", "content": message})
+
     completion = generate_gpt_completion_timeout(messages)
 
     if use_system_role:
-      self.__context__.add_item(completion[0], "assistant")
+      self.__context.add_to_context(completion[0], "assistant")
     else:
-      self.__context__.add_item(message, "user")
-      self.__context__.add_item(completion[0], "assistant")
+      self.__context.add_to_context(message, "user")
+      self.__context.add_to_context(completion[0], "assistant")
 
-    self.__update_log__(message, completion)
+    self.__update_log(message, completion)
 
     # parses completion before returning it if character's name (E.G, "Aiko: bla bla") happens to be included
     if f'{self.character_name}:' in completion[0][:len(self.character_name) + 2]:
       return(completion[0][len(self.character_name) + 1:])
 
     return(completion[0])
-
-  def add_side_prompt(self, side_prompt : str):
-    """
-      Injects a side prompt into the character's memory.
-    """
-    self.__side_prompts__.add_item(side_prompt, "system")
-
-  def change_scenario(self, scenario : str):
-    """
-      Changes the current scenario.
-    """
-    self.__scenario__.add_item(scenario, "system")
 # -------------------------------------------
 
 
@@ -472,4 +498,4 @@ if __name__ == "__main__":
 
     output = aiko.interact(prompt, use_system)
     print(f'\nAiko:{output}\n')
-    #synthesizer.say(output)
+    synthesizer.say(output)

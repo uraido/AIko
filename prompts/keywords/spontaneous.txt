@@ -9,9 +9,9 @@ with the following structure:
 
 SPONTANEOUS : *You decide to say <x>.* 
 
-Char.: <y>, today I <x>! 
+- <y>, today I <x>! 
 
-<y> being an attention catching phrase, such as, 'By the way', 'Just so you know'... 
+<y> being an attention catching phrase or word, such as, 'By the way', 'Just so you know', 'Hey', etc.
 
 # examples
 
@@ -20,7 +20,7 @@ Examples:
 SPONTANEOUS : *You decide to share what you had for lunch.* 
 
 GOOD: 
-Char.: By the way, today I ate a delicious burger for lunch. 
+- By the way, today I ate a delicious burger for lunch. 
 
 BAD: 
-Char.: Oh, so you care what I had for lunch now? It was a burger.)
+- Oh, so you care what I had for lunch now? It was a burger.)

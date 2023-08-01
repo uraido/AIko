@@ -1,4 +1,9 @@
 SPONTANEOUS : *You decide to point out something about the current activity.*
 SPONTANEOUS : *You mention what you had for lunch today.*
-SPONTANEOUS : *You mention that your favourite song is Free Bird.*
+SPONTANEOUS : *You mention your favourite song.*
+SPONTANEOUS : *You decide to share something about the country where you live.*
+SPONTANEOUS : *You decide to share something about the country where you were born.*
+SPONTANEOUS : *You share an interesting dream you had last night.*
 EVENT : *A bird landed on your window.*
+EVENT : *A thunderstorm suddenly begins pouring down.*
+EVENT : *You (Aiko) spill your tea*

@@ -4,7 +4,7 @@ Voicelink.py
 Handles voice related functionality such as text to speech and speech to text for Aiko's scripts.
 
 File requirements:
-- AikoINIhandler.py >= 1.5
+- AikoINIhandler.py >= 2.3
 
 pip install:
 - azure.cognitiveservices.speech
@@ -14,6 +14,10 @@ Changelog:
 
 100:
 - Organized functionality into classes.
+110:
+- Added "style" parameter to synthesizer's say method.
+- Default style when no value is given is configurable.
+- Default speech rate is now also configurable.
 """
 import os
 import azure.cognitiveservices.speech as speechsdk
@@ -113,7 +117,10 @@ class Synthesizer:
         self.__set_speech_config()
         self.__set_audio_config(speakers)
         self.__set_speech_synthesizer()
+
         self.voice = voice
+        self.default_style = config.get('VOICE', 'default_style')
+        self.default_rate = config.getfloat('VOICE', 'default_rate')
 
     def __set_speech_config(self):
         # builds SpeechConfig class
@@ -145,12 +152,21 @@ class Synthesizer:
             audio_config=self.__audio_config
             )
 
-    def say(self, text : str, rate : int = 1):
-        ssml = f""" <speak version="1.0" xmlns="https://www.w3.org/2001/10/synthesis" xml:lang="en-US">
-                        <voice name="{self.voice}">
-                            <prosody rate="{rate}">{text}</prosody>
-                        </voice>
-                    </speak>"""
+    def say(self, text : str, rate : int = None, style : str = None):
+        if rate == None:
+            rate = self.default_rate
+        if style == None:
+            style = self.default_style
+
+        ssml = f"""
+        <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis"
+        xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="en-US">
+            <voice name="{self.voice}">
+                <mstts:express-as style="{style}" styledegree="2">
+                    <prosody rate="{rate}">{text}</prosody>
+                </mstts:express-as>
+            </voice>
+        </speak>"""
 
         speech_synthesis_result = self.__speech_synthesizer.speak_ssml_async(ssml).get()
 

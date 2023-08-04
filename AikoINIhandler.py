@@ -1,7 +1,7 @@
 '''
 AikoINIhandler.py
 
-Version 2.2
+Version 2.3
 
 Parses Aikos INI configuration file and adds any missing values to avoid raising any missing value exceptions.
 
@@ -13,6 +13,8 @@ Changelog:
 - Fixed typo in azure_voice default value.
 22:
 - Added REMOTE_SIDE_PROMPTING section with server_ip and port options.
+23:
+- Added default_style and default_rate options to VOICE section.
 '''
 
 from configparser import ConfigParser
@@ -45,6 +47,8 @@ def handle_ini(ini : str = 'AikoPrefs.ini'):
         ('azure_region', 'brazilsouth'),
         ('audio_device', 'Cable Input'),
         ('mic_device', 'Cable-B Output'),
+        ('default_style', 'neutral'),
+        ('default_rate', '1.0'),
     ]
 
     SPONTANEOUS_TALKING = [

@@ -4,7 +4,7 @@ Streamlabs.py
 Requirements:
 - AIko.py (140beta or greater) and its requirements.
 - VoiceLink.py (100 or greater) and its requirements.
-- AikoINIhandler.py (22 or greater) and its requirements.
+- AikoINIhandler.py (23 or greater) and its requirements.
 
 txt files:
 - AIko.txt
@@ -27,6 +27,8 @@ message is edited to also include the contents of the second message.
 - Faster speech rates when reading chat messages aloud, using VoiceLink 060's new feature.
 023:
 - Interaction loop: Updated to work with latest VoiceLink.
+024:
+- Interaction loop: Now specifies a neutral speech style when reading chat messages.
 """
 
 # ----------------------------- Imports -------------------------------------
@@ -513,7 +515,7 @@ if __name__ == '__main__':
                     txt.write('Now reading:\n')
                     txt.write(f"{parse_msg(message, after = False).upper()}'s message")
                     
-                synthesizer.say(parse_msg(message, after = True), rate=random.uniform(1.2, 1.4)) 
+                synthesizer.say(parse_msg(message, after = True), rate=random.uniform(1.2, 1.4), style="neutral") 
 
             print()
             print(f'Aiko:{output}')

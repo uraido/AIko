@@ -29,6 +29,9 @@ message is edited to also include the contents of the second message.
 - Interaction loop: Updated to work with latest VoiceLink.
 024:
 - Interaction loop: Now specifies a neutral speech style when reading chat messages.
+025:
+- Interaction loop: try/except block now only catches ValueError exceptions, to make sure an exception is actually
+raised if an actual error appears.
 """
 
 # ----------------------------- Imports -------------------------------------
@@ -380,7 +383,7 @@ if __name__ == '__main__':
                         last_message = merged_message
 
                         continue
-                    except:
+                    except ValueError:
                         print('\nAttempted message merge, but exception occurred. Message has probably been read already.\n')
 
                 last_author = c.author.name

@@ -423,17 +423,27 @@ if __name__ == '__main__':
 
     def thread_spontaneus_messages(queue : MasterQueue, config : ConfigParser):
         system_prompts = AIko.txt_to_list('prompts\spontaneous_messages.txt')
+        generic_messages = AIko.txt_to_list('prompts\generic_messages.txt')
 
         min_time = config.getint('SPONTANEOUS_TALKING', 'min_time')
         max_time = config.getint('SPONTANEOUS_TALKING', 'max_time')
 
         while True:
-            try:
-                message = system_prompts.pop(random.randint(0, len(system_prompts) - 1))
-            except:
-                break
+            dice = random.randint(0, 1)
+            if dice == 0:
+                try:
+                    message = system_prompts.pop(random.randint(0, len(system_prompts) - 1))
+                    queue.add_message(message, "system")
+                    time.sleep(random.randint(min_time, max_time))
+                    continue
+                except:
+                    pass
+
+            #if dice == 1
+            queue.add_message(random.choice(generic_messages), "system")
             time.sleep(random.randint(min_time, max_time))
-            queue.add_message(message, "system")
+
+
 
     def thread_remote_side_prompt_receiver(queue : MasterQueue, config : ConfigParser):
         # ------------ Set Up ----------------

@@ -25,10 +25,12 @@ Changelog:
 MessageList into an existing python list object.
 151beta:
 - When using keywords, the keyword will be parsed out of the char's output, if it happens to be included.
+152beta:
+- Fixed exception when using context introduced in 151
 ===================================================================
 """ 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko150beta').upper() 
+build_version = ('Aiko152beta').upper()
 # -------------------------------------------
 if __name__ == '__main__':
   from AikoINIhandler import handle_ini
@@ -452,10 +454,10 @@ class AIko:
     output = completion[0]
 
     if use_system_role:
-      self.__context.add_to_context(completion, "assistant")
+      self.__context.add_to_context(output, "assistant")
     else:
       self.__context.add_to_context(message, "user")
-      self.__context.add_to_context(completion, "assistant")
+      self.__context.add_to_context(output, "assistant")
 
     self.__update_log(message, completion)
 

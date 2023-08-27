@@ -23,6 +23,8 @@ Changelog:
 - Separated black box functionality (AKA "does this prompt need information from the profile?") into its own class.
 - Added append_items() method to the MessageList class, which allows the direct appending of the populated items from a
 MessageList into an existing python list object.
+151beta:
+- When using keywords, the keyword will be parsed out of the char's output, if it happens to be included.
 ===================================================================
 """ 
 # PLEASE set it if making a new build. for logging purposes
@@ -425,9 +427,9 @@ class AIko:
   def has_keyword(self, message: str):
     for keyword in self.__keywords:
       if message.startswith(keyword):
-          return (True, {"role":"system", "content": self.__keywords[keyword]})
+          return (True, {"role":"system", "content": self.__keywords[keyword]}, keyword)
 
-    return (False, None)
+    return (False, None, None)
 
   def interact(self, message: str, use_system_role: bool = False):
     """
@@ -436,8 +438,9 @@ class AIko:
     use_profile = self.__black_box.message_meets_criteria(message)
     messages = self.__context.build_context(message, use_profile)
 
+    has_keyword = False
     if use_system_role:
-      has_keyword, keyword_instructions = self.has_keyword(message)
+      has_keyword, keyword_instructions, keyword = self.has_keyword(message)
       if has_keyword:
         messages.append(keyword_instructions)
       
@@ -446,20 +449,24 @@ class AIko:
       messages.append({"role": "user", "content": message})
 
     completion = generate_gpt_completion_timeout(messages)
+    output = completion[0]
 
     if use_system_role:
-      self.__context.add_to_context(completion[0], "assistant")
+      self.__context.add_to_context(completion, "assistant")
     else:
       self.__context.add_to_context(message, "user")
-      self.__context.add_to_context(completion[0], "assistant")
+      self.__context.add_to_context(completion, "assistant")
 
     self.__update_log(message, completion)
 
+    # parses completion before returning it if a keyword is included, when using keywords
+    if has_keyword and f'{keyword.lower()}:' in output.lower()[:len(keyword) + 2]:
+      output = output[len(keyword) + 1:]
     # parses completion before returning it if character's name (E.G, "Aiko: bla bla") happens to be included
-    if f'{self.character_name}:' in completion[0][:len(self.character_name) + 2]:
-      return(completion[0][len(self.character_name) + 1:])
+    if f'{self.character_name}:' in output[:len(self.character_name) + 2]:
+      output = output[len(self.character_name) + 1:]
 
-    return(completion[0])
+    return output
 # -------------------------------------------
 
 
@@ -485,7 +492,9 @@ if __name__ == "__main__":
 
   # interaction loop
   while True:
-    message, timeout = timedInput(f'{username}: ', randint(60, 300))
+    #message, timeout = timedInput(f'{username}: ', randint(60, 300))
+    timeout = False
+    message = input(f'{username}: ')
     use_system = False
 
     if timeout:

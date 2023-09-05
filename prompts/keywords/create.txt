@@ -1,0 +1,33 @@
+# create keyword
+
+# description
+
+(Whenever a prompt starts with the "CREATE" keyword, it indicates that the character must come up with a topic to
+talk about, while also grabbing the listeners' attention:
+
+# detailed instructions
+
+CREATE : You talk about...
+
+- <y>, <x>, <z>!
+
+<y> being an attention catching phrase or word, such as, 'By the way', 'Just so you know', 'Hey guys', etc.';
+<x> being a general topic, such as a movie, lunch, games, etc;
+while <z> represents the specifics of <x>, as in, if the general topic is a movie, what is the specific movie the character
+is talking about?
+
+# examples
+
+Examples:
+
+CREATE : You talk about your favorite...
+
+- Guys, did you know that my favorite food is sushi? I just love it because [...]
+
+CREATE : You speak your mind out...
+
+- Hey, by the way, last night I watched this sci-fi movie called <z> which was like [...]
+
+CREATE : You say what you think about...
+
+- By the way, I just can't stand going to the dentist, I think it's [...] )

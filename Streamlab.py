@@ -1,5 +1,5 @@
 """
-Streamlabs.py
+Streamlab.py
 
 Requirements:
 - AIko.py (140beta or greater) and its requirements.
@@ -32,6 +32,9 @@ message is edited to also include the contents of the second message.
 025:
 - Interaction loop: try/except block now only catches ValueError exceptions, to make sure an exception is actually
 raised if an actual error appears.
+026:
+- Changed some lines to fit PEP8 guidelines.
+- Added get_pool_reference method to MessagePool class.
 """
 
 # ----------------------------- Imports -------------------------------------
@@ -49,10 +52,13 @@ from threading import Thread, Lock, Event
 from VoiceLink import Synthesizer, Recognizer
 # ----------------------------------------------------------------------------
 
-def is_empty_string(string : str):
+
+def is_empty_string(string: str):
     return string == ''                                          
                                                                                          
 # ----------------------------------------------------------------------------
+
+
 class MessageQueue: 
     """
     A class representing a thread-safe message queue.
@@ -97,7 +103,8 @@ class MessageQueue:
             if not self.is_empty():
                 return self.__queue__.pop(0)
             return ''
-  
+
+
 class MessageContainer:
     """
     A singleton class that provides thread-safe storage for a temporary message. 
@@ -124,7 +131,7 @@ class MessageContainer:
         return cls.__instance__
 
     def __init__(self):
-        if (self.__initialized__):
+        if self.__initialized__:
             return
         self.__initialized__ = True
 
@@ -156,7 +163,7 @@ class MessageContainer:
                 
             time.sleep(0.1)
 
-    def switch_message(self, message : str):
+    def switch_message(self, message: str):
         """
         Sets the message to the given value. The message will expire after a set amount of seconds.
 
@@ -188,6 +195,7 @@ class MessageContainer:
             self.__msg__ = ''
             return helper
 
+
 class MessagePool:
     """
     A thread-safe class representing a message pool with limited capacity.
@@ -202,26 +210,26 @@ class MessagePool:
             is removed from the pool. If the pool is empty, an empty string is returned.
     """ 
     def __init__(self):
-        self.__pool__ = AIko.create_limited_list(10)
-        self.__lock__ = Lock()
+        self.__pool = AIko.create_limited_list(10)
+        self.__lock = Lock()
 
     def is_empty(self):
-        for item in self.__pool__:
+        for item in self.__pool:
             if item != '':
                 return False
         return True
 
-    def add_message(self, message : str):
+    def add_message(self, message: str):
         """
         Adds a message to the message pool. If the pool is already at maximum capacity,
         the oldest message is removed to make room for the new message.
 
         Args:
-            item (str): The message to be added.
+            message (str): The message to be added.
         """
-        with self.__lock__:
-            self.__pool__.pop(0)
-            self.__pool__.append(message)
+        with self.__lock:
+            self.__pool.pop(0)
+            self.__pool.append(message)
 
     def pick_message(self):
         """
@@ -232,25 +240,30 @@ class MessagePool:
             The picked message as a string. If the pool is empty, an empty string is returned.
         """
         helper = ''
-        with self.__lock__:
+        with self.__lock:
             if not self.is_empty():
                 while True:
-                    index = random.randint(0, len(self.__pool__) - 1)
-                    helper = self.__pool__[index]
-                    self.__pool__[index] = ''
+                    index = random.randint(0, len(self.__pool) - 1)
+                    helper = self.__pool[index]
+                    self.__pool[index] = ''
 
                     if helper != '':
                         break
             return helper
 
     def edit_message(self, original_content : str, new_content : str):
-        with self.__lock__:
-            if original_content in self.__pool__:
-                msg_index = self.__pool__.index(original_content)
-                self.__pool__[msg_index] = new_content
+        with self.__lock:
+            if original_content in self.__pool:
+                msg_index = self.__pool.index(original_content)
+                self.__pool[msg_index] = new_content
             else:
                 raise ValueError('Message does not exist in pool.')
+
+    def get_pool_reference(self):
+        return self.__pool
 # ----------------------------------------------------------------------------
+
+
 class MasterQueue:
     """
     A singleton class which acts as a priority queue to control and return specific types of messages.

@@ -9,6 +9,8 @@ Changelog:
 
 001:
 - Initial upload
+002:
+- Now uses MessagePool class delete_message method instead of own deletion method when deleting chat messages.
 """
 from tkinter import *
 from tkinter import ttk
@@ -100,8 +102,8 @@ class LiveGUI:
         self.__chat_listbox.bind("<ButtonRelease-1>", self.__delete_chat_message)
 
     def __delete_chat_message(self, anything):
-        self.__queue.get_pool_reference()[self.__chat_listbox.curselection()[0]] = ''
-        self.__chat_var.set(self.__queue.get_pool_reference())
+        self.__queue.delete_message(self.__chat_listbox.curselection()[0])
+        self.update_chat_widget()
 
     def update_chat_widget(self):
         """

@@ -37,6 +37,8 @@ raised if an actual error appears.
 - Added get_pool_reference method to MessagePool class.
 027:
 - Added pause method to MessagePool class.
+028:
+- Added delete_message (by index) to MessagePool class.
 """
 
 # ----------------------------- Imports -------------------------------------
@@ -261,6 +263,12 @@ class MessagePool:
                 self.__pool[msg_index] = new_content
             else:
                 raise ValueError('Message does not exist in pool.')
+
+    def delete_message(self, index: int):
+        if index > 10:
+            raise ValueError("Index can't be higher than 10.")
+
+        self.__pool[index] = ''
 
     def get_pool_reference(self):
         return self.__pool

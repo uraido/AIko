@@ -35,6 +35,8 @@ raised if an actual error appears.
 026:
 - Changed some lines to fit PEP8 guidelines.
 - Added get_pool_reference method to MessagePool class.
+027:
+- Added pause method to MessagePool class.
 """
 
 # ----------------------------- Imports -------------------------------------
@@ -212,6 +214,7 @@ class MessagePool:
     def __init__(self):
         self.__pool = AIko.create_limited_list(10)
         self.__lock = Lock()
+        self.__paused = False
 
     def is_empty(self):
         for item in self.__pool:
@@ -251,7 +254,7 @@ class MessagePool:
                         break
             return helper
 
-    def edit_message(self, original_content : str, new_content : str):
+    def edit_message(self, original_content: str, new_content: str):
         with self.__lock:
             if original_content in self.__pool:
                 msg_index = self.__pool.index(original_content)
@@ -261,6 +264,19 @@ class MessagePool:
 
     def get_pool_reference(self):
         return self.__pool
+
+    def pause(self):
+        """
+        Pauses/unpauses the pool. When paused, the pool will maintain it's current state, without adding or returning
+        any messages. If the add_message method is called during the pause state, the message will be added after the
+        pool is un-paused.
+        """
+        if self.__paused:
+            self.__paused = False
+            self.__lock.release()
+        else:
+            self.__paused = True
+            self.__lock.acquire()
 # ----------------------------------------------------------------------------
 
 

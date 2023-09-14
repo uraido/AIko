@@ -11,6 +11,9 @@ Changelog:
 - Initial upload
 002:
 - Now uses MessagePool class delete_message method instead of own deletion method when deleting chat messages.
+003:
+- Chat messages are now deleted through the new delete button/pressing enter with the chat listbox focused. Chat must
+be locked for deletions to happen.
 """
 from tkinter import *
 from tkinter import ttk
@@ -74,6 +77,11 @@ class LiveGUI:
 
     def __pause_chat(self):
         self.__queue.pause()
+        self.__chat_locked = not self.__chat_locked
+        if self.__chat_locked:
+            self.__chat_button_delete.state(['!disabled'])
+        else:
+            self.__chat_button_delete.state(['disabled'])
 
     def __create_chat_widgets(self):
         # creates and configures objects
@@ -88,7 +96,14 @@ class LiveGUI:
             command=self.__pause_chat
             )
 
-        # bool to control button icon
+        # delete message button widget
+        self.__x_icon = PhotoImage(file='uiassets/x.png')
+        self.__chat_button_delete = ttk.Button(
+            self.__chat_frame, image=self.__x_icon, command=self.__delete_chat_message
+            )
+        self.__chat_button_delete.state(['disabled'])
+
+        # bool to monitor chat state
         self.__chat_locked = False
 
         # grids frame to mainframe
@@ -97,13 +112,15 @@ class LiveGUI:
         # grids widgets to chat frame
         self.__chat_listbox.grid(column=0, row=0)
         self.__chat_button_pause.grid(column=1, row=0, sticky=(N, W))
+        self.__chat_button_delete.grid(column=2, row=0, sticky=(N, W))
 
         # binds event
-        self.__chat_listbox.bind("<ButtonRelease-1>", self.__delete_chat_message)
+        self.__chat_listbox.bind("<Return>", lambda e: self.__chat_button_delete.invoke())
 
-    def __delete_chat_message(self, anything):
-        self.__queue.delete_message(self.__chat_listbox.curselection()[0])
-        self.update_chat_widget()
+    def __delete_chat_message(self, anything=None):
+        if self.__chat_locked:
+            self.__queue.delete_message(self.__chat_listbox.curselection()[0])
+            self.update_chat_widget()
 
     def update_chat_widget(self):
         """

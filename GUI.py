@@ -29,6 +29,8 @@ as a parameter when instantiating the class, or by using the add_command method.
 - Added set_close_protocol method to GUI class.
 - Can now select and delete multiple items from chat/sp list boxes.
 - Chat listbox will switch between disabled/enabled states when locking/unlocking.
+009:
+- CommandLine class now supports commands with (single) arguments.
 """
 from tkinter import *
 from tkinter import ttk
@@ -73,10 +75,24 @@ class CommandLine:
         self.__commands[command] = function
 
     def input(self, command: str):
-        if command in self.__commands:
-            self.__commands[command]()
+        # splits command and argument
+        command = command.split(maxsplit=1)
+
+        # if command includes an argument
+        if len(command) > 1:
+            if command[0] in self.__commands:
+                try:
+                    self.__commands[command[0]](command[1])
+                    return True
+                except TypeError as e:
+                    print(e)
+        # if command doesn't include an argument
+        elif command[0] in self.__commands:
+            self.__commands[command[0]]()
             return True
+
         return False
+
 
 
 class LiveGUI:

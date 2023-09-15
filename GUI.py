@@ -16,10 +16,24 @@ Changelog:
 be locked for deletions to happen.
 004:
 - Added side prompts section.
+005:
+- GUI class now takes AIko.MessageList class as a parameter instead of a simple list.
 """
 from tkinter import *
 from tkinter import ttk
 from Streamlab import MessagePool
+from AIko import MessageList
+
+
+def return_message_content(item):
+    if item != '':
+        return item['content']
+    else:
+        return ''
+
+
+def parse_message_list(message_list: MessageList):
+    return list(map(return_message_content, message_list.get_reference()))
 
 
 class ImageButton(ttk.Button):
@@ -41,8 +55,8 @@ class ImageButton(ttk.Button):
 
 
 class LiveGUI:
-    def __init__(self, pool: MessagePool, side_prompts: list):
-        if len(side_prompts) > 5:
+    def __init__(self, pool: MessagePool, side_prompts: MessageList):
+        if len(side_prompts.get_reference()) > 5:
             raise ValueError('side_prompts list must be at most 5 items long')
 
         self.__root = Tk()
@@ -127,7 +141,7 @@ class LiveGUI:
     def __create_side_prompt_widgets(self):
         # creates and configures objects
         self.__sp_frame = ttk.Frame(self.__mainframe)
-        self.__sp_var = StringVar(value=self.__side_prompts)
+        self.__sp_var = StringVar(value=parse_message_list(self.__side_prompts))
 
         self.__sp_listbox = Listbox(self.__sp_frame, listvariable=self.__sp_var, height=5, width=50)
 
@@ -163,10 +177,10 @@ class LiveGUI:
         Must be called each time the MessagePool parameter is modified, so the widget can display the messages
         properly.
         """
-        self.__sp_var.set(self.__side_prompts)
+        self.__sp_var.set(value=parse_message_list(self.__side_prompts))
 
     def __delete_side_prompt(self, anything=None):
-        self.__side_prompts.pop(self.__sp_listbox.curselection()[0])
+        self.__side_prompts.delete_item(self.__sp_listbox.curselection()[0])
         self.update_side_prompts_widget()
 
     def print(self, text):

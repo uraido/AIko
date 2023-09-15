@@ -18,6 +18,8 @@ be locked for deletions to happen.
 - Added side prompts section.
 005:
 - GUI class now takes AIko.MessageList class as a parameter instead of a simple list.
+006
+- Added CommandLine class and the command line section to the GUI class.
 """
 from tkinter import *
 from tkinter import ttk
@@ -54,13 +56,28 @@ class ImageButton(ttk.Button):
                 self.config(image=self.off_image)
 
 
+class CommandLine:
+    def __init__(self):
+        self.__commands = {
+            'print_banana': self.print_banana
+        }
+        pass
+
+    def input(self, command: str):
+        if command in self.__commands:
+            self.__commands[command]()
+
+    def print_banana(self):
+        print('banana')
+
 class LiveGUI:
     def __init__(self, pool: MessagePool, side_prompts: MessageList):
         if len(side_prompts.get_reference()) > 5:
             raise ValueError('side_prompts list must be at most 5 items long')
 
         self.__root = Tk()
-        self.__scrolling = False
+        self.__scrolling_log = False
+        self.__scrolling_cmd = False
 
         self.__mainframe = ttk.Frame(self.__root)
         self.__mainframe.grid()
@@ -69,15 +86,19 @@ class LiveGUI:
         self.__side_prompts = side_prompts
 
         self.__create_log_widgets()
+        self.__create_command_line_widgets()
         self.__create_chat_widgets()
         self.__create_side_prompt_widgets()
 
-    def __invert_scrolling_variable(self, anything):
-        self.__scrolling = not self.__scrolling
+    def __invert_log_scrolling_variable(self, anything):
+        self.__scrolling_log = not self.__scrolling_log
+
+    def __invert_cmd_scrolling_variable(self, anything):
+        self.__scrolling_cmd = not self.__scrolling_cmd
 
     def __create_log_widgets(self):
         # creates and configures widget objects
-        self.__log_frame = ttk.Frame(self.__mainframe)
+        self.__log_frame = ttk.Frame(self.__mainframe, padding=5)
 
         self.__log_terminal = Text(self.__log_frame)
         self.__log_scrollbar = ttk.Scrollbar(self.__log_frame, orient=VERTICAL, command=self.__log_terminal.yview)
@@ -93,8 +114,49 @@ class LiveGUI:
         self.__log_scrollbar.grid(column=1, row=0, sticky=(N, S, W))
 
         # binds events
-        self.__log_frame.bind('<Enter>', self.__invert_scrolling_variable)
-        self.__log_frame.bind('<Leave>', self.__invert_scrolling_variable)
+        self.__log_terminal.bind('<Enter>', self.__invert_log_scrolling_variable)
+        self.__log_terminal.bind('<Leave>', self.__invert_log_scrolling_variable)
+
+    def __create_command_line_widgets(self):
+        # creates and configures widget objects
+        self.__cmd_frame = ttk.Frame(self.__mainframe, padding=5)
+
+        self.__cmd_terminal = Text(self.__cmd_frame, height=10)
+        self.__cmd_scrollbar = ttk.Scrollbar(self.__cmd_frame, orient=VERTICAL, command=self.__cmd_terminal.yview)
+
+        self.__cmd_entry = ttk.Entry(self.__cmd_frame)
+
+        self.__send_icon = PhotoImage(file='uiassets/send.png')
+        self.__cmd_button_send = ttk.Button(self.__cmd_frame, image=self.__send_icon, command=self.__execute_command)
+
+        self.__cmd_terminal.configure(yscrollcommand=self.__cmd_scrollbar.set)
+        self.__cmd_terminal['state'] = 'disabled'
+
+        # grids frame to mainframe
+        self.__cmd_frame.grid(column=0, row=2, sticky=S)
+
+        # grids widgets to cmd frame
+        self.__cmd_terminal.grid(column=0, row=0)
+        self.__cmd_scrollbar.grid(column=1, row=0, sticky=(N, S, W))
+        self.__cmd_entry.grid(column=0, row=1, sticky=(N, W, E))
+        self.__cmd_button_send.grid(column=1, row=1, sticky=(N, W))
+
+        # binds events
+        self.__cmd_terminal.bind('<Enter>', self.__invert_cmd_scrolling_variable)
+        self.__cmd_terminal.bind('<Leave>', self.__invert_cmd_scrolling_variable)
+        self.__cmd_frame.bind('<Return>', self.__cmd_button_send.invoke())
+
+    def print_cmd(self, text: str):
+        self.__cmd_terminal['state'] = 'normal'
+        self.__cmd_terminal.insert(END, f'{text}\n')
+        self.__cmd_terminal['state'] = 'disabled'
+
+        if not self.__scrolling_cmd:
+            self.__cmd_terminal.see(END)
+
+    def __execute_command(self, anything=None):
+        self.print_cmd(self.__cmd_entry.get())
+        self.__cmd_entry.delete(0, 'end')
 
     def __pause_chat(self):
         self.__pool.pause()
@@ -106,7 +168,7 @@ class LiveGUI:
 
     def __create_chat_widgets(self):
         # creates and configures objects
-        self.__chat_frame = ttk.Frame(self.__mainframe)
+        self.__chat_frame = ttk.Frame(self.__mainframe, padding=5)
         self.__chat_var = StringVar(value=self.__pool.get_pool_reference())
 
         self.__chat_listbox = Listbox(self.__chat_frame, listvariable=self.__chat_var, height=10, width=50)
@@ -140,7 +202,7 @@ class LiveGUI:
 
     def __create_side_prompt_widgets(self):
         # creates and configures objects
-        self.__sp_frame = ttk.Frame(self.__mainframe)
+        self.__sp_frame = ttk.Frame(self.__mainframe, padding=5)
         self.__sp_var = StringVar(value=parse_message_list(self.__side_prompts))
 
         self.__sp_listbox = Listbox(self.__sp_frame, listvariable=self.__sp_var, height=5, width=50)
@@ -188,7 +250,7 @@ class LiveGUI:
         self.__log_terminal.insert(END, f'{text}\n')
         self.__log_terminal['state'] = 'disabled'
 
-        if not self.__scrolling:
+        if not self.__scrolling_log:
             self.__log_terminal.see(END)
 
     def run(self):

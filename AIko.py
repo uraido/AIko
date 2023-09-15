@@ -27,10 +27,14 @@ MessageList into an existing python list object.
 - When using keywords, the keyword will be parsed out of the char's output, if it happens to be included.
 152beta:
 - Fixed exception when using context introduced in 151
+153beta:
+- Encapsulation hell: Added get_side_prompt_reference method to AIko class, to allow the GUI app to display it. Also
+added delete_side_prompt method, and helper methods in all classes between AIko and the MessageList, to allow for those
+methods to work.
 ===================================================================
 """ 
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko152beta').upper()
+build_version = ('Aiko153beta').upper()
 # -------------------------------------------
 if __name__ == '__main__':
   from AikoINIhandler import handle_ini
@@ -254,6 +258,9 @@ class MessageList:
     self.__message_list__.pop(0)
     self.__message_list__.append({"role": role, "content": item})
 
+  def delete_item(self, index: int):
+    self.__message_list__[index] = ''
+
   def get_items(self) -> list:
     """
       Returns the populated items of the list.
@@ -277,6 +284,13 @@ class MessageList:
   def is_empty(self) -> bool:
     return self.__message_list__[-1] == ''
 
+  def get_reference(self):
+    """
+    Returns a reference to this class' private list object. Useful for display/consulting needs - if you want to
+    modify the list, use the class' built in methods.
+    """
+    return self.__message_list__
+
 class BlackBox:
 
   def __init__(self):
@@ -285,7 +299,7 @@ class BlackBox:
 
   def message_meets_criteria(self, message: str):
     l_msg = message.lower()
-    #if 'what is' in message.lower():
+    # if 'what is' in message.lower():
     if any(x in l_msg for  x in self.personal_key_word) and any(y in l_msg for y in self.preference_key_word):
       return True
     
@@ -305,6 +319,9 @@ class Context:
 
   def add_side_prompt(self, message: str):
     self.__side_prompts.add_item(message, "system")
+
+  def delete_side_prompt(self, index: str):
+    self.__side_prompts.delete_item(index)
 
   def add_to_context(self, message: str, role: str):
     self.__context.add_item(message, role)
@@ -328,6 +345,13 @@ class Context:
       messages.append({"role":"system", "content": self.__profile})
 
     return messages
+
+  def get_side_prompt_reference(self):
+    """
+    Returns a reference to this class' private side prompt list object. Useful for display/consulting needs - if you want to
+    modify the list, use the class' built in methods.
+    """
+    return self.__side_prompts.get_reference()
   
 class AIko:
   """
@@ -396,6 +420,16 @@ class AIko:
       Injects a side prompt into the character's memory.
     """
     self.__context.add_side_prompt(side_prompt)
+
+  def delete_side_prompt(self, index: int):
+    self.__context.delete_side_prompt(index)
+
+  def get_side_prompt_reference(self):
+    """
+    Returns a reference to this class' private side prompt list object. Useful for display/consulting needs - if you want to
+    modify the list, use the class' built in methods.
+    """
+    return self.__context.get_side_prompt_reference()
 
   def change_scenario(self, scenario : str):
     """

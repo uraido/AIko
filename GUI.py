@@ -18,8 +18,13 @@ be locked for deletions to happen.
 - Added side prompts section.
 005:
 - GUI class now takes AIko.MessageList class as a parameter instead of a simple list.
-006
+006:
 - Added CommandLine class and the command line section to the GUI class.
+007:
+- CommandLine class now takes dict with commands: functions as parameter.
+- Added add_command to CommandLine class.
+- Command line section of GUI class is now functional - commands can be added by giving a CommandLine format dictionary
+as a parameter when instantiating the class, or by using the add_command method.
 """
 from tkinter import *
 from tkinter import ttk
@@ -57,23 +62,27 @@ class ImageButton(ttk.Button):
 
 
 class CommandLine:
-    def __init__(self):
-        self.__commands = {
-            'print_banana': self.print_banana
-        }
-        pass
+    def __init__(self, commands: dict):
+        self.__commands = commands
+
+    def add_command(self, command: str, function: callable):
+        self.__commands[command] = function
 
     def input(self, command: str):
         if command in self.__commands:
             self.__commands[command]()
+            return True
+        return False
 
-    def print_banana(self):
-        print('banana')
 
 class LiveGUI:
-    def __init__(self, pool: MessagePool, side_prompts: MessageList):
+    def __init__(self, pool: MessagePool, side_prompts: MessageList, commands: dict = None):
         if len(side_prompts.get_reference()) > 5:
             raise ValueError('side_prompts list must be at most 5 items long')
+        if commands is None:
+            commands = {}
+
+        self.__interpreter = CommandLine(commands)
 
         self.__root = Tk()
         self.__scrolling_log = False
@@ -146,6 +155,9 @@ class LiveGUI:
         self.__cmd_terminal.bind('<Leave>', self.__invert_cmd_scrolling_variable)
         self.__cmd_frame.bind('<Return>', self.__cmd_button_send.invoke())
 
+    def add_command(self, command: str, func: callable):
+        self.__interpreter.add_command(command, func)
+
     def print_cmd(self, text: str):
         self.__cmd_terminal['state'] = 'normal'
         self.__cmd_terminal.insert(END, f'{text}\n')
@@ -155,7 +167,10 @@ class LiveGUI:
             self.__cmd_terminal.see(END)
 
     def __execute_command(self, anything=None):
-        self.print_cmd(self.__cmd_entry.get())
+        if self.__interpreter.input(self.__cmd_entry.get()):
+            self.print_cmd('Success!')
+        else:
+            self.print_cmd('Invalid command.')
         self.__cmd_entry.delete(0, 'end')
 
     def __pause_chat(self):

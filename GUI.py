@@ -25,6 +25,10 @@ be locked for deletions to happen.
 - Added add_command to CommandLine class.
 - Command line section of GUI class is now functional - commands can be added by giving a CommandLine format dictionary
 as a parameter when instantiating the class, or by using the add_command method.
+008:
+- Added set_close_protocol method to GUI class.
+- Can now select and delete multiple items from chat/sp list boxes.
+- Chat listbox will switch between disabled/enabled states when locking/unlocking.
 """
 from tkinter import *
 from tkinter import ttk
@@ -153,7 +157,7 @@ class LiveGUI:
         # binds events
         self.__cmd_terminal.bind('<Enter>', self.__invert_cmd_scrolling_variable)
         self.__cmd_terminal.bind('<Leave>', self.__invert_cmd_scrolling_variable)
-        self.__cmd_frame.bind('<Return>', self.__cmd_button_send.invoke())
+        # self.__cmd_frame.bind('<Return>', self.__cmd_button_send.invoke())
 
     def add_command(self, command: str, func: callable):
         self.__interpreter.add_command(command, func)
@@ -176,17 +180,32 @@ class LiveGUI:
     def __pause_chat(self):
         self.__pool.pause()
         self.__chat_locked = not self.__chat_locked
+
+        # updates widget states
         if self.__chat_locked:
             self.__chat_button_delete.state(['!disabled'])
+            self.__chat_listbox['state'] = 'normal'
         else:
             self.__chat_button_delete.state(['disabled'])
+            self.__chat_listbox['state'] = 'disabled'
+
+        # clears selected items in listbox
+        try:
+            selection = self.__chat_listbox.curselection()
+            self.__chat_listbox.selection_clear(selection[0], selection[-1])
+        except Exception as e:
+            print(e)
+
 
     def __create_chat_widgets(self):
         # creates and configures objects
         self.__chat_frame = ttk.Frame(self.__mainframe, padding=5)
         self.__chat_var = StringVar(value=self.__pool.get_pool_reference())
 
-        self.__chat_listbox = Listbox(self.__chat_frame, listvariable=self.__chat_var, height=10, width=50)
+        self.__chat_listbox = Listbox(
+            self.__chat_frame, listvariable=self.__chat_var, height=10, width=50, selectmode='extended'
+            )
+        self.__chat_listbox['state'] = 'disabled'
 
         # pause button widget
         self.__chat_button_pause = ImageButton(
@@ -217,29 +236,31 @@ class LiveGUI:
 
     def __create_side_prompt_widgets(self):
         # creates and configures objects
-        self.__sp_frame = ttk.Frame(self.__mainframe, padding=5)
         self.__sp_var = StringVar(value=parse_message_list(self.__side_prompts))
 
-        self.__sp_listbox = Listbox(self.__sp_frame, listvariable=self.__sp_var, height=5, width=50)
+        self.__sp_listbox = Listbox(
+            self.__chat_frame, listvariable=self.__sp_var, height=5, width=50, selectmode='extended'
+            )
 
         # delete message button widget
         self.__sp_button_delete = ttk.Button(
-            self.__sp_frame, image=self.__x_icon, command=self.__delete_side_prompt
+            self.__chat_frame, image=self.__x_icon, command=self.__delete_side_prompt
             )
 
-        # grids frame to mainframe
-        self.__sp_frame.grid(column=1, row=1, sticky=(N, W))
-
-        # grids widgets to sp frame
-        self.__sp_listbox.grid(column=0, row=0, sticky=(N, W))
-        self.__sp_button_delete.grid(column=1, row=0, sticky=(N, W))
+        # grids widgets to chat frame
+        self.__sp_listbox.grid(column=0, row=1, sticky=(N, W))
+        self.__sp_button_delete.grid(column=1, row=1, sticky=(N, W))
 
         # binds event
         self.__sp_listbox.bind("<Return>", lambda e: self.__sp_button_delete.invoke())
 
     def __delete_chat_message(self, anything=None):
         if self.__chat_locked:
-            self.__pool.delete_message(self.__chat_listbox.curselection()[0])
+            selection = self.__chat_listbox.curselection()
+            for i in selection:
+                self.__pool.delete_message(i)
+            self.__chat_listbox.selection_clear(selection[0], selection[-1])
+
             self.update_chat_widget()
 
     def update_chat_widget(self):
@@ -257,8 +278,10 @@ class LiveGUI:
         self.__sp_var.set(value=parse_message_list(self.__side_prompts))
 
     def __delete_side_prompt(self, anything=None):
-        self.__side_prompts.delete_item(self.__sp_listbox.curselection()[0])
+        for i in self.__sp_listbox.curselection():
+            self.__side_prompts.delete_item(i)
         self.update_side_prompts_widget()
+        self.__sp_listbox.selection_clear(0, -1)
 
     def print(self, text):
         self.__log_terminal['state'] = 'normal'
@@ -273,6 +296,9 @@ class LiveGUI:
 
     def close_app(self):
         self.__root.destroy()
+
+    def set_close_protocol(self, protocol: callable):
+        self.__root.protocol("WM_DELETE_WINDOW", protocol)
 
 
 if __name__ == '__main__':

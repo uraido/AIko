@@ -14,6 +14,8 @@ Changelog:
 003:
 - Chat messages are now deleted through the new delete button/pressing enter with the chat listbox focused. Chat must
 be locked for deletions to happen.
+004:
+- Added side prompts section.
 """
 from tkinter import *
 from tkinter import ttk
@@ -39,17 +41,22 @@ class ImageButton(ttk.Button):
 
 
 class LiveGUI:
-    def __init__(self, pool: MessagePool):
+    def __init__(self, pool: MessagePool, side_prompts: list):
+        if len(side_prompts) > 5:
+            raise ValueError('side_prompts list must be at most 5 items long')
+
         self.__root = Tk()
         self.__scrolling = False
 
         self.__mainframe = ttk.Frame(self.__root)
         self.__mainframe.grid()
 
-        self.__queue = pool
+        self.__pool = pool
+        self.__side_prompts = side_prompts
 
         self.__create_log_widgets()
         self.__create_chat_widgets()
+        self.__create_side_prompt_widgets()
 
     def __invert_scrolling_variable(self, anything):
         self.__scrolling = not self.__scrolling
@@ -65,7 +72,7 @@ class LiveGUI:
         self.__log_terminal['state'] = 'disabled'
 
         # grids frame to mainframe
-        self.__log_frame.grid(column=0, row=0)
+        self.__log_frame.grid(column=0, row=0, rowspan=2)
 
         # grids widgets to logging frame
         self.__log_terminal.grid(column=0, row=0)
@@ -76,7 +83,7 @@ class LiveGUI:
         self.__log_frame.bind('<Leave>', self.__invert_scrolling_variable)
 
     def __pause_chat(self):
-        self.__queue.pause()
+        self.__pool.pause()
         self.__chat_locked = not self.__chat_locked
         if self.__chat_locked:
             self.__chat_button_delete.state(['!disabled'])
@@ -86,7 +93,7 @@ class LiveGUI:
     def __create_chat_widgets(self):
         # creates and configures objects
         self.__chat_frame = ttk.Frame(self.__mainframe)
-        self.__chat_var = StringVar(value=self.__queue.get_pool_reference())
+        self.__chat_var = StringVar(value=self.__pool.get_pool_reference())
 
         self.__chat_listbox = Listbox(self.__chat_frame, listvariable=self.__chat_var, height=10, width=50)
 
@@ -117,9 +124,31 @@ class LiveGUI:
         # binds event
         self.__chat_listbox.bind("<Return>", lambda e: self.__chat_button_delete.invoke())
 
+    def __create_side_prompt_widgets(self):
+        # creates and configures objects
+        self.__sp_frame = ttk.Frame(self.__mainframe)
+        self.__sp_var = StringVar(value=self.__side_prompts)
+
+        self.__sp_listbox = Listbox(self.__sp_frame, listvariable=self.__sp_var, height=5, width=50)
+
+        # delete message button widget
+        self.__sp_button_delete = ttk.Button(
+            self.__sp_frame, image=self.__x_icon, command=self.__delete_side_prompt
+            )
+
+        # grids frame to mainframe
+        self.__sp_frame.grid(column=1, row=1, sticky=(N, W))
+
+        # grids widgets to sp frame
+        self.__sp_listbox.grid(column=0, row=0, sticky=(N, W))
+        self.__sp_button_delete.grid(column=1, row=0, sticky=(N, W))
+
+        # binds event
+        self.__sp_listbox.bind("<Return>", lambda e: self.__sp_button_delete.invoke())
+
     def __delete_chat_message(self, anything=None):
         if self.__chat_locked:
-            self.__queue.delete_message(self.__chat_listbox.curselection()[0])
+            self.__pool.delete_message(self.__chat_listbox.curselection()[0])
             self.update_chat_widget()
 
     def update_chat_widget(self):
@@ -127,7 +156,18 @@ class LiveGUI:
         Must be called each time the MessagePool parameter is modified, so the widget can display the messages
         properly.
         """
-        self.__chat_var.set(self.__queue.get_pool_reference())
+        self.__chat_var.set(self.__pool.get_pool_reference())
+
+    def update_side_prompts_widget(self):
+        """
+        Must be called each time the MessagePool parameter is modified, so the widget can display the messages
+        properly.
+        """
+        self.__sp_var.set(self.__side_prompts)
+
+    def __delete_side_prompt(self, anything=None):
+        self.__side_prompts.pop(self.__sp_listbox.curselection()[0])
+        self.update_side_prompts_widget()
 
     def print(self, text):
         self.__log_terminal['state'] = 'normal'

@@ -38,18 +38,21 @@ as a parameter when instantiating the class, or by using the add_command method.
 - Fixed side prompt listbox selection not clearing after deleting messages.
 - Inputting commands no longer prints them to command line text widget.
 - Successful commands no longer print 'Success!'. Positive output should be handled by added commands instead.
+012:
+- Added time (hh:mm:ss) to printouts.
+- Documented CommandLine class, added comments to GUI class.
 """
 from tkinter import *
 from tkinter import ttk
 from Streamlab import MessagePool
 from AIko import MessageList
+from datetime import datetime
 
 
 def return_message_content(item):
     if item != '':
         return item['content']
-    else:
-        return ''
+    return item
 
 
 def parse_message_list(message_list: MessageList):
@@ -75,26 +78,67 @@ class ImageButton(ttk.Button):
 
 
 class CommandLine:
+    """
+    A simple command line interface class that associates commands with functions and allows
+    you to execute functions based on user input.
+
+    Args:
+        commands (dict): A dictionary containing command-function mappings.
+
+    Attributes:
+        __commands (dict): A private dictionary to store the command-function mappings.
+
+    Methods:
+        add_command(command, function):
+            Add a new command and its associated function to the internal command dictionary.
+
+        input(command):
+            Parse the user input, execute the associated function, and handle arguments when provided.
+
+    Example usage:
+        cmd = CommandLine({"print_hello": print_hello})
+        cmd.input("print_hello")
+        Hello, world!
+    """
     def __init__(self, commands: dict):
+        # command dictionary {"command": function, [...]}
         self.__commands = commands
 
     def add_command(self, command: str, function: callable):
+        """
+        Add a new command and its associated function to the internal command dictionary.
+
+        Args:
+            command (str): The name of the command.
+            function (callable): The function to be executed when the command is called.
+        """
         self.__commands[command] = function
 
     def input(self, command: str):
-        # splits command and argument
+        """
+        Parse the user input, execute the associated function, and handle arguments when provided.
+
+        Args:
+            command (str): The user input, which may include a command and an optional argument.
+
+        Returns:
+            bool: True if the command was recognized and executed, False otherwise.
+        """
+        # splits command and argument (when included)
         command = command.split(maxsplit=1)
 
         # if command includes an argument
         if len(command) > 1:
             if command[0] in self.__commands:
                 try:
+                    # calls recognized function from command dictionary
                     self.__commands[command[0]](command[1])
                     return True
                 except TypeError as e:
                     print(e)
         # if command doesn't include an argument
         elif command[0] in self.__commands:
+            # calls recognized function from command dictionary
             self.__commands[command[0]]()
             return True
 
@@ -108,23 +152,31 @@ class LiveGUI:
         if commands is None:
             commands = {}
 
+        # CommandLine object for reading terminal commands
         self.__interpreter = CommandLine(commands)
 
+        # instantiates tkinter
         self.__root = Tk()
+
+        # bools to monitor whether the user is scrolling text widgets
         self.__scrolling_log = False
         self.__scrolling_cmd = False
 
+        # creates mainframe
         self.__mainframe = ttk.Frame(self.__root)
         self.__mainframe.grid()
 
+        # attributes necessary for displaying chat and side_prompts
         self.__pool = pool
         self.__side_prompts = side_prompts
 
+        # creates widgets
         self.__create_log_widgets()
         self.__create_command_line_widgets()
         self.__create_chat_widgets()
         self.__create_side_prompt_widgets()
 
+    # bools to monitor whether the user is scrolling text widgets
     def __invert_log_scrolling_variable(self, anything):
         self.__scrolling_log = not self.__scrolling_log
 
@@ -185,8 +237,11 @@ class LiveGUI:
         self.__interpreter.add_command(command, func)
 
     def print_to_cmdl(self, text: str):
+        time = datetime.now()
+        hour = f'[{time.hour}:{time.minute}:{time.second:02d}]'
+
         self.__cmd_terminal['state'] = 'normal'
-        self.__cmd_terminal.insert(END, f'{text}\n')
+        self.__cmd_terminal.insert(END, f'{hour} {text}\n')
         self.__cmd_terminal['state'] = 'disabled'
 
         if not self.__scrolling_cmd:
@@ -195,6 +250,7 @@ class LiveGUI:
     def __execute_command(self, anything=None):
         command = self.__cmd_entry.get()
 
+        # if interpreter doesn't recognize command
         if not self.__interpreter.input(command):
             self.print_to_cmdl('Invalid command.')
         self.__cmd_entry.delete(0, 'end')
@@ -290,6 +346,7 @@ class LiveGUI:
             selection = self.__chat_listbox.curselection()
             for i in selection:
                 self.__pool.delete_message(i)
+            # clears selection
             self.__chat_listbox.selection_clear(selection[0], selection[-1])
 
             self.update_chat_widget()
@@ -312,13 +369,17 @@ class LiveGUI:
         selection = self.__sp_listbox.curselection()
         for i in selection:
             self.__side_prompts.delete_item(i)
+        # clears selection
         self.__sp_listbox.selection_clear(selection[0], selection[-1])
 
         self.update_side_prompts_widget()
 
     def print(self, text):
+        time = datetime.now()
+        hour = f'[{time.hour}:{time.minute}:{time.second:02d}]'
+
         self.__log_terminal['state'] = 'normal'
-        self.__log_terminal.insert(END, f'{text}\n')
+        self.__log_terminal.insert(END, f'{hour} {text}\n')
         self.__log_terminal['state'] = 'disabled'
 
         if not self.__scrolling_log:

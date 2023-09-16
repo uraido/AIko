@@ -34,6 +34,8 @@ as a parameter when instantiating the class, or by using the add_command method.
 010:
 - Added scrollbars to chat and sp listboxes.
 - Commands are now printed in the command line section when sent.
+011:
+- Fixed side prompt listbox selection not clearing after deleting messages.
 """
 from tkinter import *
 from tkinter import ttk
@@ -308,10 +310,12 @@ class LiveGUI:
         self.__sp_var.set(value=parse_message_list(self.__side_prompts))
 
     def __delete_side_prompt(self, anything=None):
-        for i in self.__sp_listbox.curselection():
+        selection = self.__sp_listbox.curselection()
+        for i in selection:
             self.__side_prompts.delete_item(i)
+        self.__sp_listbox.selection_clear(selection[0], selection[-1])
+
         self.update_side_prompts_widget()
-        self.__sp_listbox.selection_clear(0, -1)
 
     def print(self, text):
         self.__log_terminal['state'] = 'normal'

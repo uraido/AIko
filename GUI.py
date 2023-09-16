@@ -36,6 +36,8 @@ as a parameter when instantiating the class, or by using the add_command method.
 - Commands are now printed in the command line section when sent.
 011:
 - Fixed side prompt listbox selection not clearing after deleting messages.
+- Inputting commands no longer prints them to command line text widget.
+- Successful commands no longer print 'Success!'. Positive output should be handled by added commands instead.
 """
 from tkinter import *
 from tkinter import ttk
@@ -193,10 +195,7 @@ class LiveGUI:
     def __execute_command(self, anything=None):
         command = self.__cmd_entry.get()
 
-        self.print_to_cmdl(command)
-        if self.__interpreter.input(command):
-            self.print_to_cmdl('Success!')
-        else:
+        if not self.__interpreter.input(command):
             self.print_to_cmdl('Invalid command.')
         self.__cmd_entry.delete(0, 'end')
 

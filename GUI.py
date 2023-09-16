@@ -31,6 +31,8 @@ as a parameter when instantiating the class, or by using the add_command method.
 - Chat listbox will switch between disabled/enabled states when locking/unlocking.
 009:
 - CommandLine class now supports commands with (single) arguments.
+010:
+- Added scrollbars to chat and sp listboxes.
 """
 from tkinter import *
 from tkinter import ttk
@@ -212,7 +214,6 @@ class LiveGUI:
         except Exception as e:
             print(e)
 
-
     def __create_chat_widgets(self):
         # creates and configures objects
         self.__chat_frame = ttk.Frame(self.__mainframe, padding=5)
@@ -222,6 +223,10 @@ class LiveGUI:
             self.__chat_frame, listvariable=self.__chat_var, height=10, width=50, selectmode='extended'
             )
         self.__chat_listbox['state'] = 'disabled'
+
+        # scrollbar
+        self.__chat_scrollbar = ttk.Scrollbar(self.__chat_frame, orient=HORIZONTAL, command=self.__chat_listbox.xview)
+        self.__chat_listbox.configure(xscrollcommand=self.__chat_scrollbar.set)
 
         # pause button widget
         self.__chat_button_pause = ImageButton(
@@ -246,6 +251,7 @@ class LiveGUI:
         self.__chat_listbox.grid(column=0, row=0)
         self.__chat_button_pause.grid(column=1, row=0, sticky=(N, W))
         self.__chat_button_delete.grid(column=2, row=0, sticky=(N, W))
+        self.__chat_scrollbar.grid(column=0, row=1, sticky=(N, W, E))
 
         # binds event
         self.__chat_listbox.bind("<Return>", lambda e: self.__chat_button_delete.invoke())
@@ -263,9 +269,14 @@ class LiveGUI:
             self.__chat_frame, image=self.__x_icon, command=self.__delete_side_prompt
             )
 
+        # scrollbar
+        self.__sp_scrollbar = ttk.Scrollbar(self.__chat_frame, orient=HORIZONTAL, command=self.__sp_listbox.xview)
+        self.__sp_listbox.configure(xscrollcommand=self.__sp_scrollbar.set)
+
         # grids widgets to chat frame
-        self.__sp_listbox.grid(column=0, row=1, sticky=(N, W))
-        self.__sp_button_delete.grid(column=1, row=1, sticky=(N, W))
+        self.__sp_listbox.grid(column=0, row=2, sticky=(N, W))
+        self.__sp_button_delete.grid(column=1, row=2, sticky=(N, W))
+        self.__sp_scrollbar.grid(column=0, row=3, sticky=(N, W, E))
 
         # binds event
         self.__sp_listbox.bind("<Return>", lambda e: self.__sp_button_delete.invoke())

@@ -33,6 +33,7 @@ as a parameter when instantiating the class, or by using the add_command method.
 - CommandLine class now supports commands with (single) arguments.
 010:
 - Added scrollbars to chat and sp listboxes.
+- Commands are now printed in the command line section when sent.
 """
 from tkinter import *
 from tkinter import ttk
@@ -94,7 +95,6 @@ class CommandLine:
             return True
 
         return False
-
 
 
 class LiveGUI:
@@ -180,7 +180,7 @@ class LiveGUI:
     def add_command(self, command: str, func: callable):
         self.__interpreter.add_command(command, func)
 
-    def print_cmd(self, text: str):
+    def print_to_cmdl(self, text: str):
         self.__cmd_terminal['state'] = 'normal'
         self.__cmd_terminal.insert(END, f'{text}\n')
         self.__cmd_terminal['state'] = 'disabled'
@@ -189,10 +189,13 @@ class LiveGUI:
             self.__cmd_terminal.see(END)
 
     def __execute_command(self, anything=None):
-        if self.__interpreter.input(self.__cmd_entry.get()):
-            self.print_cmd('Success!')
+        command = self.__cmd_entry.get()
+
+        self.print_to_cmdl(command)
+        if self.__interpreter.input(command):
+            self.print_to_cmdl('Success!')
         else:
-            self.print_cmd('Invalid command.')
+            self.print_to_cmdl('Invalid command.')
         self.__cmd_entry.delete(0, 'end')
 
     def __pause_chat(self):

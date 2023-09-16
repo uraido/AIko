@@ -34,10 +34,12 @@ methods to work.
 154beta:
 - Added get_side_prompt_object method to Context class and intermediate method with the same name to AIko class
 in order to allow the GUI app to access it.
+155beta:
+- Added get_scenario method to Context class.
 ===================================================================
 """
 # PLEASE set it if making a new build. for logging purposes
-build_version = 'Aiko153beta'.upper()
+build_version = 'Aiko155beta'.upper()
 # -------------------------------------------
 if __name__ == '__main__':
   from AikoINIhandler import handle_ini
@@ -331,6 +333,9 @@ class Context:
 
   def change_scenario(self, scenario: str):
     self.__scenario.add_item(scenario, "system")
+
+  def get_scenario(self):
+    return self.__scenario.get_reference()[0]['content']
 
   def __append_message_lists(self, list_to_append: list):
     self.__scenario.append_items(list_to_append)

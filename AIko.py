@@ -31,10 +31,13 @@ MessageList into an existing python list object.
 - Encapsulation hell: Added get_side_prompt_reference method to AIko class, to allow the GUI app to display it. Also
 added delete_side_prompt method, and helper methods in all classes between AIko and the MessageList, to allow for those
 methods to work.
+154beta:
+- Added get_side_prompt_object method to Context class and intermediate method with the same name to AIko class
+in order to allow the GUI app to access it.
 ===================================================================
-""" 
+"""
 # PLEASE set it if making a new build. for logging purposes
-build_version = ('Aiko153beta').upper()
+build_version = 'Aiko153beta'.upper()
 # -------------------------------------------
 if __name__ == '__main__':
   from AikoINIhandler import handle_ini
@@ -151,7 +154,7 @@ def generate_gpt_completion_timeout(messages : list, timeout : int = completion_
     completion_request = func_timeout(timeout, generate_gpt_completion, kwargs = {'messages': messages})
   except FunctionTimedOut:
     completion_request = generate_gpt_completion(messages)
-    
+
   return (completion_request)
 
 def txt_to_list(txt_filename : str):
@@ -170,7 +173,7 @@ def txt_to_list(txt_filename : str):
     for line in txt_file:
       line = line.strip()
       lines_list.append(line)
-  
+
   return lines_list
 
 def gather_txts(directory : str):
@@ -302,7 +305,7 @@ class BlackBox:
     # if 'what is' in message.lower():
     if any(x in l_msg for  x in self.personal_key_word) and any(y in l_msg for y in self.preference_key_word):
       return True
-    
+
     return False
 
 class Context:
@@ -348,11 +351,18 @@ class Context:
 
   def get_side_prompt_reference(self):
     """
-    Returns a reference to this class' private side prompt list object. Useful for display/consulting needs - if you want to
-    modify the list, use the class' built in methods.
+    Returns a reference to the MessageList class' private side prompt list object. Useful for display/consulting needs -
+    if you want to modify the list, use this class' built in methods.
     """
     return self.__side_prompts.get_reference()
-  
+
+  def get_side_prompt_object(self):
+    """
+    Returns a reference to the MessageList object itself. Useful for display/consulting needs -
+    if you want to modify the object's data, use this class' built in methods.
+    """
+    return self.__side_prompts
+
 class AIko:
   """
     A class that can be used for interacting with custom made AI characters.
@@ -426,10 +436,17 @@ class AIko:
 
   def get_side_prompt_reference(self):
     """
-    Returns a reference to this class' private side prompt list object. Useful for display/consulting needs - if you want to
-    modify the list, use the class' built in methods.
+    Returns a reference to the MessageList class' private side prompt list object. Useful for display/consulting needs -
+    if you want to modify the list, use this class' built in methods.
     """
     return self.__context.get_side_prompt_reference()
+
+  def get_side_prompt_object(self):
+    """
+    Returns a reference to the MessageList object itself. Useful for display/consulting needs -
+    if you want to modify the object's data, use this class' built in methods.
+    """
+    return self.__context.get_side_prompt_object()
 
   def change_scenario(self, scenario : str):
     """
@@ -459,7 +476,7 @@ class AIko:
       log.write('\n')
       log.write(f'Tokens used this session: {self.__session_token_usage__}\n')
       log.write('\n')
-  
+
   def has_keyword(self, message: str):
     for keyword in self.__keywords:
       if message.startswith(keyword):
@@ -479,7 +496,7 @@ class AIko:
       has_keyword, keyword_instructions, keyword = self.has_keyword(message)
       if has_keyword:
         messages.append(keyword_instructions)
-      
+
       messages.append({"role": "system", "content": message})
     else:
       messages.append({"role": "user", "content": message})

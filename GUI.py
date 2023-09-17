@@ -7,33 +7,6 @@ Requirements:
 
 Changelog:
 
-001:
-- Initial upload
-002:
-- Now uses MessagePool class delete_message method instead of own deletion method when deleting chat messages.
-003:
-- Chat messages are now deleted through the new delete button/pressing enter with the chat listbox focused. Chat must
-be locked for deletions to happen.
-004:
-- Added side prompts section.
-005:
-- GUI class now takes AIko.MessageList class as a parameter instead of a simple list.
-006:
-- Added CommandLine class and the command line section to the GUI class.
-007:
-- CommandLine class now takes dict with commands: functions as parameter.
-- Added add_command to CommandLine class.
-- Command line section of GUI class is now functional - commands can be added by giving a CommandLine format dictionary
-as a parameter when instantiating the class, or by using the add_command method.
-008:
-- Added set_close_protocol method to GUI class.
-- Can now select and delete multiple items from chat/sp list boxes.
-- Chat listbox will switch between disabled/enabled states when locking/unlocking.
-009:
-- CommandLine class now supports commands with (single) arguments.
-010:
-- Added scrollbars to chat and sp listboxes.
-- Commands are now printed in the command line section when sent.
 011:
 - Fixed side prompt listbox selection not clearing after deleting messages.
 - Inputting commands no longer prints them to command line text widget.
@@ -41,6 +14,8 @@ as a parameter when instantiating the class, or by using the add_command method.
 012:
 - Added time (hh:mm:ss) to printouts.
 - Documented CommandLine class, added comments to GUI class.
+013:
+- Added button panel section.
 """
 from tkinter import *
 from tkinter import ttk
@@ -175,6 +150,7 @@ class LiveGUI:
         self.__create_command_line_widgets()
         self.__create_chat_widgets()
         self.__create_side_prompt_widgets()
+        self.__create_button_panel_widgets()
 
     # bools to monitor whether the user is scrolling text widgets
     def __invert_log_scrolling_variable(self, anything):
@@ -238,7 +214,7 @@ class LiveGUI:
 
     def print_to_cmdl(self, text: str):
         time = datetime.now()
-        hour = f'[{time.hour}:{time.minute}:{time.second:02d}]'
+        hour = f'[{time.hour:02d}:{time.minute:02d}:{time.second:02d}]'
 
         self.__cmd_terminal['state'] = 'normal'
         self.__cmd_terminal.insert(END, f'{hour} {text}\n')
@@ -341,6 +317,43 @@ class LiveGUI:
         # binds event
         self.__sp_listbox.bind("<Return>", lambda e: self.__sp_button_delete.invoke())
 
+    def __create_button_panel_widgets(self):
+        # creates and configures objects
+        self.__bp_frame = ttk.Frame(self.__mainframe, padding=5)
+
+        # mute button widget
+        self.__bp_button_mute = ImageButton(
+            self.__bp_frame, on_image='uiassets/muted.png', off_image='uiassets/unmuted.png',
+            # command=None
+        )
+
+        # command line buttons
+        self.__sp_icon = PhotoImage(file='uiassets/sp.png')
+        self.__bp_button_side_prompt = ttk.Button(
+            self.__bp_frame, image=self.__sp_icon, command=lambda: self.__insert_cmd('add_sp ')
+        )
+        self.__sm_icon = PhotoImage(file='uiassets/sm.png')
+        self.__bp_button_sys_msg = ttk.Button(
+            self.__bp_frame, image=self.__sm_icon, command=lambda: self.__insert_cmd('send_sys_msg ')
+        )
+        self.__bp_button_clear_cmd = ttk.Button(
+            self.__bp_frame, image=self.__x_icon, command=lambda: self.__cmd_entry.delete(0, 'end')
+        )
+
+        # grids frame to mainframe
+        self.__bp_frame.grid(column=1, row=2, sticky=(S, W))
+
+        # grids widgets to button panel frame
+        self.__bp_button_clear_cmd.grid(column=0, row=0, sticky=(S, W))
+        self.__bp_button_sys_msg.grid(column=1, row=0, sticky=(S, W))
+        self.__bp_button_side_prompt.grid(column=2, row=0, sticky=(S, W))
+        self.__bp_button_mute.grid(column=3, row=0, sticky=(S, W))
+
+    def __insert_cmd(self, command: str):
+        self.__cmd_entry.delete(0, 'end')
+        self.__cmd_entry.insert(0, command)
+        self.__cmd_entry.focus()
+
     def __delete_chat_message(self, anything=None):
         if self.__chat_locked:
             selection = self.__chat_listbox.curselection()
@@ -376,7 +389,7 @@ class LiveGUI:
 
     def print(self, text):
         time = datetime.now()
-        hour = f'[{time.hour}:{time.minute}:{time.second:02d}]'
+        hour = f'[{time.hour:02d}:{time.minute:02d}:{time.second:02d}]'
 
         self.__log_terminal['state'] = 'normal'
         self.__log_terminal.insert(END, f'{hour} {text}\n')
@@ -390,6 +403,9 @@ class LiveGUI:
 
     def close_app(self):
         self.__root.destroy()
+
+    def bind_mute_button(self, func: callable):
+        self.__bp_button_mute.configure(command=func)
 
     def set_close_protocol(self, protocol: callable):
         self.__root.protocol("WM_DELETE_WINDOW", protocol)

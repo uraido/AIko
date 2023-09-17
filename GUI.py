@@ -16,6 +16,9 @@ Changelog:
 - Documented CommandLine class, added comments to GUI class.
 013:
 - Added button panel section.
+014:
+- Enter key now sends commands when the cmd entry is focused.
+- Configured weights for each one of the section frames. GUI now has barebones resizability.
 """
 from tkinter import *
 from tkinter import ttk
@@ -133,6 +136,11 @@ class LiveGUI:
         # instantiates tkinter
         self.__root = Tk()
 
+        # customizes window
+        self.__root.title('AILiveGUI')
+        self.__set_icon('uiassets/main_icon.png')
+        self.__root.resizable(True, True)
+
         # bools to monitor whether the user is scrolling text widgets
         self.__scrolling_log = False
         self.__scrolling_cmd = False
@@ -151,6 +159,23 @@ class LiveGUI:
         self.__create_chat_widgets()
         self.__create_side_prompt_widgets()
         self.__create_button_panel_widgets()
+
+        self.__set_frame_weights()
+
+    def __set_frame_weights(self):
+        self.__root.columnconfigure(0, weight=1)
+        self.__root.rowconfigure(0, weight=1)
+
+        # set left side as priority
+        self.__mainframe.columnconfigure(0, weight=1)
+        self.__mainframe.columnconfigure(1, weight=3)
+
+        # set lower side as priority
+        self.__mainframe.rowconfigure(0, weight=1)
+        self.__mainframe.rowconfigure(1, weight=3)
+    def __set_icon(self, icon_file: str):
+        icon = PhotoImage(file=icon_file)
+        self.__root.iconphoto(False, icon)
 
     # bools to monitor whether the user is scrolling text widgets
     def __invert_log_scrolling_variable(self, anything):
@@ -207,7 +232,7 @@ class LiveGUI:
         # binds events
         self.__cmd_terminal.bind('<Enter>', self.__invert_cmd_scrolling_variable)
         self.__cmd_terminal.bind('<Leave>', self.__invert_cmd_scrolling_variable)
-        # self.__cmd_frame.bind('<Return>', self.__cmd_button_send.invoke())
+        self.__cmd_entry.bind('<Return>', self.__execute_command)
 
     def add_command(self, command: str, func: callable):
         self.__interpreter.add_command(command, func)

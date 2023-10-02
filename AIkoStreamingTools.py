@@ -1,10 +1,10 @@
 """
-Streamlab.py
+AIkoStreamingTools.py
 
 Requirements:
 - AIko.py (140beta or greater) and its requirements.
-- VoiceLink.py (100 or greater) and its requirements.
-- AikoINIhandler.py (23 or greater) and its requirements.
+- AIkoVoice.py (100 or greater) and its requirements.
+- AIkoINIhandler.py (23 or greater) and its requirements.
 
 txt files:
 - AIko.txt
@@ -39,21 +39,19 @@ raised if an actual error appears.
 - Added pause method to MessagePool class.
 028:
 - Added delete_message (by index) to MessagePool class.
+029:
+- Moved interaction loop into a separate script.
+- Added PyTwitch class for handling twitch chat.
 """
 
 # ----------------------------- Imports -------------------------------------
-import os
 import time
 import AIko
 import random
-import socket
-import pytchat       
-import keyboard
-from pytimedinput import timedInput      
 from configparser import ConfigParser
-from AikoINIhandler import handle_ini     
-from threading import Thread, Lock, Event                                          
-from VoiceLink import Synthesizer, Recognizer
+from threading import Thread, Lock, Event
+import socket
+import re
 # ----------------------------------------------------------------------------
 
 
@@ -73,8 +71,8 @@ class MessageQueue:
     - get_next(): Retrieves and removes the next message from the queue.
     """
     def __init__(self):
-        self.__queue__ = []
-        self.__lock__ = Lock()
+        self.__queue = []
+        self.__lock = Lock()
 
     def is_empty(self):
         """
@@ -83,17 +81,17 @@ class MessageQueue:
         Returns:
         - True if the queue is empty, False otherwise.
         """
-        return len(self.__queue__) == 0
+        return len(self.__queue) == 0
 
-    def add_message(self, message : str):
+    def add_message(self, message: str):
         """
         Adds a message to the queue.
 
         Args:
         - message: A string representing the message to be added.
         """
-        with self.__lock__:
-            self.__queue__.append(message)
+        with self.__lock:
+            self.__queue.append(message)
 
     def get_next(self):
         """
@@ -103,9 +101,9 @@ class MessageQueue:
         - The next message from the queue as a string.
         - An empty string if the queue is empty.
         """
-        with self.__lock__:
+        with self.__lock:
             if not self.is_empty():
-                return self.__queue__.pop(0)
+                return self.__queue.pop(0)
             return ''
 
 
@@ -145,7 +143,7 @@ class MessageContainer:
 
         # gets message expiration time from config
         config = ConfigParser()
-        config.read('AikoPrefs.ini')
+        config.read('AIkoPrefs.ini')
 
         self.__expiration_time__ = config.getfloat('LIVESTREAM', 'voice_message_expiration_time')
 
@@ -333,7 +331,7 @@ class MasterQueue:
 
         # gets chat cooldown times from config
         config = ConfigParser()
-        config.read('AikoPrefs.ini')
+        config.read('AIkoPrefs.ini')
 
         self.__chat_min_cooldown__ = config.getint('LIVESTREAM', 'chat_min_cooldown')
         self.__chat_max_cooldown__ = config.getint('LIVESTREAM', 'chat_max_cooldown')
@@ -391,206 +389,84 @@ class MasterQueue:
 
         return ('', '')
 
-# ----------------------------------------------------------------------------
+class Pytwitch:
+    def __init__(self, token: str, channel: str):
+        """
+        Basic class for acquiring twitch chat messages.
+
+        Args:
+        token: OAuth token. Can be acquired at https://twitchapps.com/tmi/.
+        channel: Target channel's name.
+        """
+
+        self.__sock = socket.socket()
+        self.__CHAT_MSG = re.compile(r"^:\w+!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :")
+
+        # Connect socket to Twitch
+        self.__sock.connect(("irc.twitch.tv", 6667))
+
+        # Authenticate and connect to channel over socket
+        self.__sock.send("PASS {}\r\n".format(token).encode("utf-8"))
+        self.__sock.send("NICK {}\r\n".format(channel).encode("utf-8"))
+        self.__sock.send("JOIN {}\r\n".format(f'#{channel}').encode("utf-8"))
+
+        # Avoids returning initial debug text
+        self.get_message()
+        self.get_message()
+
+    def __check_connection(self, msg):
+        # Respond to Twitch checking if the bot is still active
+        if msg == "PING :tmi.twitch.tv\r\n":
+            self.__sock.send("PONG :tmi.twitch.tv\r\n".encode("utf-8"))
+            return True
+        return False
+
+    def get_message(self) -> str:
+        """
+        Returns the next chat message. Blocks until a message is received.
+        """
+        try:
+            # Hangs until something is received
+            message = self.__sock.recv(2048).decode("utf-8")
+
+        except socket.error:
+            self.get_message()
+
+        if self.__check_connection(message):
+            self.get_message()
+
+        # Avoid AttributeError and TypeError
+        if message:
+            # Use regex to separate string
+            username = re.search(r"\w+", message).group(0)
+            message = self.__CHAT_MSG.sub("", message)
+
+            # Force lowercase for fewer comparisons
+            message = message.lower()
+
+            # Remove invisible characters that mess with string comparison
+            mapping = dict.fromkeys(range(32))
+            clean_message = message.translate(mapping)
+
+            return f'{username}: {clean_message}'
+
+    def close_socket(self):
+        """
+        Closes connection with the Twitch API.
+        """
+        self.__sock.close()
+
+
 if __name__ == '__main__':
-    aiko = AIko.AIko('Aiko', 'prompts\AIko.txt')
+    chat = Pytwitch(open('keys/key_twitch.txt', 'r').read().strip(), 'aikochannel')
 
-    def parse_msg(message : str, character : str = ':', after = False):
-        '''
-        Returns the contents of a string positioned after a given character.
-        '''
-        if after:
-            return message[message.index(character) + 2 :]
+    while True:
+        comment = chat.get_message()
+        print('Got comment!')
+        print(comment)
 
-        return message[: message.index(character)]
+        if 'code red' in comment.lower():
+            chat.close_socket()
+            break
 
-    # ---------------------- CONTINOUSLY THREADED FUNCTIONS ------------------
-    def thread_parse_chat(queue : MasterQueue, config : ConfigParser, chat : pytchat.core.PytchatCore):
-        last_author = None
-
-        while chat.is_alive():
-            for c in chat.get().sync_items():
-                
-                # merges current message with last message if the same user immediately follows up with a second message
-                if c.author.name == last_author:
-                    merged_message = f'{last_message} {c.message}'
-                    try:
-                        queue.edit_chat_message(last_message, merged_message)
-                        print(f'\nMerged current message with last message added to queue:\n{last_message} + {c.message}\n')
-                        last_message = merged_message
-
-                        continue
-                    except ValueError:
-                        print('\nAttempted message merge, but exception occurred. Message has probably been read already.\n')
-
-                last_author = c.author.name
-                last_message = f'{last_author}: {c.message}'
-
-                queue.add_message(last_message, "chat")
-                print(f'\nAdded chat message to queue:\n{last_message}\n')
-
-            # to keep CPU usage from maxing out
-            time.sleep(0.1)
-            
-    def thread_speech_recognition(queue : MasterQueue, config : ConfigParser):
-        username = config.get('GENERAL', 'username')
-        hotkey = config.get('LIVESTREAM', 'toggle_listening')
-
-        def parse_event(evt):
-            event = str(evt)
-
-            keyword = 'text="'
-            stt_start = event.index(keyword)
-            stt_end = event.index('",')
-            
-            message = event[stt_start + len(keyword):stt_end]
-
-            if message != '':
-                queue.add_message(f'{username}: {message}', "mic")
-                print(f'\nAdded mic message to queue:\n{message}\n')
-
-        # creates recognizer object for speech recognition
-        recognizer = Recognizer()
-
-        keyboard.wait(hotkey)
-        print('\nEnabled speech recognition.\n')
-        time.sleep(0.1)
-
-        recognizer.start(parse_event)
-
-    def thread_spontaneus_messages(queue : MasterQueue, config : ConfigParser):
-        system_prompts = AIko.txt_to_list('prompts\spontaneous_messages.txt')
-        generic_messages = AIko.txt_to_list('prompts\generic_messages.txt')
-
-        min_time = config.getint('SPONTANEOUS_TALKING', 'min_time')
-        max_time = config.getint('SPONTANEOUS_TALKING', 'max_time')
-
-        while True:
-            dice = random.randint(0, 1)
-            if dice == 0:
-                try:
-                    message = system_prompts.pop(random.randint(0, len(system_prompts) - 1))
-                    queue.add_message(message, "system")
-                    time.sleep(random.randint(min_time, max_time))
-                    continue
-                except:
-                    pass
-
-            #if dice == 1
-            queue.add_message(random.choice(generic_messages), "system")
-            time.sleep(random.randint(min_time, max_time))
-
-
-
-    def thread_remote_side_prompt_receiver(queue : MasterQueue, config : ConfigParser):
-        # ------------ Set Up ----------------
-        #server_ip = '26.124.79.180'    # Ulaidh's ID (FOR RCHART TO USE)
-        #server_ip = '26.246.74.120'    # Rchart's ID (FOR ULAIDH TO USE)
-        #port = 5004
-        server_ip = config.get('REMOTE_SIDE_PROMPTING', 'server_ip')
-        port = config.getint('REMOTE_SIDE_PROMPTING', 'port')
-        # ------------------------------------
-
-        while True:
-
-            try:
-                # ------- TCP IP protocol -------
-                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                s.connect((server_ip, port))
-                msg = s.recv(1024)
-                # -------------------------------
-
-                message = msg.decode()[:-1]
-                completion_option_selected = msg.decode()[-1]
-                print('==========')
-                print(r'Remote side prompt received with the option {}:'.format(completion_option_selected))
-                print(message)
-                print('==========')
-
-                if completion_option_selected == '1':
-                    queue.add_message(message, "system")
-
-                elif completion_option_selected == '2':
-                    aiko.add_side_prompt(message)
-
-                else:
-                    print('Remote side prompt received but something went wrong. Side prompt ABORTED!')
-
-                # disconnect the client
-                s.close()
-            except:
-                pass
-            time.sleep(0.1)
-
-    def thread_local_side_prompting(queue : MasterQueue, config : ConfigParser):
-        global aiko
-
-        breaker = config.get('GENERAL', 'breaker_phrase').lower()
-        hotkey = config.get('LIVESTREAM', 'side_prompt')
-
-        while True:
-            keyboard.wait(hotkey)
-            message, unused = timedInput(f"\nWrite a side prompt, or {breaker.upper()} to exit the script:\n - ", 9999)
-            if breaker in message.lower():
-                os._exit(0)
-            option, unused = timedInput(f"\nPlease select an option to send the side prompt under:\n1 - Generate completion immediately\n2 - Inject information into Aiko's memory\n3 - Abort message.\n\nOption: ", 9999)
-            if option == '1':
-                queue.add_message(message, "system")
-            elif option == '2':
-                aiko.add_side_prompt(message)  
-
-    def thread_talk(queue : MasterQueue):
-        global aiko
-
-        # creates synthesizer object to voice Aiko
-        synthesizer = Synthesizer()
-
-        # creates/clears text file to display message author's name in OBS
-        with open('message_author.txt', 'w') as txt:
-            pass
-
-        while True:
-            msg_type, message = queue.get_next()
-
-            if is_empty_string(message):
-                continue 
-
-            output = aiko.interact(message, use_system_role = msg_type == "system")
-
-            # reads message before answering, if message is a chat message.
-            if msg_type == 'chat':
-                
-                # writes message author's name to text file to display in OBS
-                with open('message_author.txt', 'w') as txt:
-                    txt.write('Now reading:\n')
-                    txt.write(f"{parse_msg(message, after = False).upper()}'s message")
-                    
-                synthesizer.say(parse_msg(message, after = True), rate=random.uniform(1.2, 1.4), style="neutral") 
-
-            print()
-            print(f'Aiko:{output}')
-            print()
-
-            synthesizer.say(output)
-
-            with open('message_author.txt', 'w') as txt:
-                pass
-
-            time.sleep(0.1)    
-    # --------------------------------------------------------------------------
-    handle_ini() 
-    
-    queue = MasterQueue()
-    
-    config = ConfigParser()
-    config.read('AikoPrefs.ini')
-
-    Thread(target = thread_remote_side_prompt_receiver, kwargs = {'queue': queue, 'config': config}).start()
-    Thread(target = thread_local_side_prompting, kwargs = {'queue': queue, 'config': config}).start()
-
-    Thread(target = thread_parse_chat, kwargs = {'queue': queue, 'config': config, 'chat': pytchat.create(video_id=config.get('LIVESTREAM', 'liveid'))}).start()
-    Thread(target = thread_speech_recognition, kwargs = {'queue': queue, 'config': config}).start()
-    Thread(target = thread_spontaneus_messages, kwargs = {'queue': queue, 'config': config}).start()
-    Thread(target = thread_talk, kwargs = {'queue': queue}).start()
-
-    print('All threads started.')
+# ----------------------------------------------------------------------------

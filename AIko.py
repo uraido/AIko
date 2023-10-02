@@ -1,11 +1,11 @@
 """ ==============================================================
 AIko.py
 
-Objects for interaction with custom made AI characters.
+Objects for interaction with custom-made AI characters.
 
 Requirements:
-- VoiceLink.py (100 or greater) and its requirements
-- AikoINIhandler.py
+- AIkoVoice.py (100 or greater) and its requirements
+- AIkoINIhandler.py
 
 pip install:
 - openai
@@ -36,35 +36,28 @@ methods to work.
 in order to allow the GUI app to access it.
 155beta:
 - Added get_scenario method to Context class.
+156beta:
+- Moved interaction loop into a separate file.
 ===================================================================
 """
-# PLEASE set it if making a new build. for logging purposes
-build_version = 'Aiko155beta'.upper()
-# -------------------------------------------
-if __name__ == '__main__':
-  from AikoINIhandler import handle_ini
-  handle_ini()
 # ----------------- Imports -----------------
 import openai                          # gpt3
-from VoiceLink import Synthesizer      # text to speech function
 from datetime import datetime          # for logging
-from pytimedinput import timedInput    # input with timeout
-from random import choice, randint     # random
 from configparser import ConfigParser  # ini file config
 from func_timeout import func_timeout, FunctionTimedOut # for handling openAI ratelimit errors
 import os                              # gathering files from folder
 # -------------------------------------------
-
-
+# PLEASE set it if making a new build. for logging purposes
+build_version = 'Aiko156beta'.upper()
 
 # ------------- Set variables ---------------
 # reads config file
 config = ConfigParser()
-config.read('AikoPrefs.ini')
+config.read('AIkoPrefs.ini')
 # Sets variable according to config
 completion_timeout = config.getint('GENERAL', 'completion_timeout')
-# Set OpenAPI key here
-openai.api_key = open("keys/key_openai.txt", "r").read().strip('\n')
+
+openai.api_key = open('keys/key_openai.txt', 'r').read().strip()
 # -------------------------------------------
 
 
@@ -320,7 +313,7 @@ class Context:
     self.__scenario = MessageList(1)
 
     self.__scenario.add_item(scenario, "system")
-    self.__profile = txt_to_string('prompts\profile.txt')
+    self.__profile = txt_to_string('prompts/profile.txt')
 
   def add_side_prompt(self, message: str):
     self.__side_prompts.add_item(message, "system")
@@ -375,6 +368,7 @@ class AIko:
     Attributes:
         character_name (str): The name of the AI character.
         personality_file (str): The filename of the personality file.
+        key (str): Your OpenAI API key.
 
     Parameters:
         scenario (str): The scenario in which the character currently finds itself in.  
@@ -526,43 +520,3 @@ class AIko:
 
     return output
 # -------------------------------------------
-
-
-
-# ------------------ Main -------------------
-if __name__ == "__main__":
-  # creates a Synthesizer object for voicing Aiko
-  synthesizer = Synthesizer()
-
-  # creates an AIko object
-  aiko = AIko('Aiko', 'prompts\AIko.txt')
-
-  # enables dynamic scenario if enabled in config
-  dynamic_scenarios = config.getboolean('GENERAL', 'dynamic_scenarios')
-  if dynamic_scenarios:
-    scenarios = txt_to_list('prompts\scenarios.txt')
-    aiko.change_scenario(choice(scenarios))
-
-  username = config.get('GENERAL', 'username')
-  breaker = config.get('GENERAL', 'breaker_phrase')
-
-  spontaneous_messages = txt_to_list('prompts\spontaneous_messages.txt')
-
-  # interaction loop
-  while True:
-    #message, timeout = timedInput(f'{username}: ', randint(60, 300))
-    timeout = False
-    message = input(f'{username}: ')
-    use_system = False
-
-    if timeout:
-      prompt = choice(spontaneous_messages)
-      use_system = True
-    elif breaker.lower() in message.lower():
-      break
-    else:
-      prompt = f'{username}: {message}'
-
-    output = aiko.interact(prompt, use_system)
-    print(f'\nAiko:{output}\n')
-    synthesizer.say(output)

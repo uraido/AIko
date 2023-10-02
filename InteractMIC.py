@@ -1,4 +1,4 @@
-'''
+"""
 Instructions:
 
 - Make a discord account for your AI character.
@@ -11,13 +11,16 @@ Instructions:
 
 If you follow these steps correctly, you should be able to talk to your AI character on a discord voice chat from your
 own account.
-'''
+"""
 import keyboard
 from AIko import AIko
 from time import sleep
-from threading import Thread, Lock
-from Streamlab import MessageContainer
-from VoiceLink import Synthesizer, Recognizer
+from threading import Thread
+from AIkoStreamingTools import MessageContainer
+from AIkoVoice import Synthesizer, Recognizer
+from AIkoINIhandler import handle_ini
+
+handle_ini()
 
 charname = 'Aiko'
 # SET SECOND VIRTUAL CABLE HERE

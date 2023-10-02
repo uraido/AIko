@@ -1,8 +1,8 @@
 """
-GUI.py
+AIkoStreamingGUI.py
 
 Requirements:
-- Streamlab.py (027 or greater)
+- AIkoStreamingTools.py (027 or greater)
 - uiassets folder
 
 Changelog:
@@ -22,8 +22,8 @@ Changelog:
 """
 from tkinter import *
 from tkinter import ttk
-from Streamlab import MessagePool
-from AIko import MessageList
+from AIkoStreamingTools import MessagePool
+from AIko.AIko import MessageList
 from datetime import datetime
 
 

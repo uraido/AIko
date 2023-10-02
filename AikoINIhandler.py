@@ -1,5 +1,5 @@
 '''
-AikoINIhandler.py
+AIkoINIhandler.py
 
 Version 2.3
 
@@ -20,9 +20,9 @@ Changelog:
 from configparser import ConfigParser
 import os
 
-def handle_ini(ini : str = 'AikoPrefs.ini'):
+def handle_ini(ini : str = 'AIkoPrefs.ini'):
 
-    print(f'AikoINIhandler.py: Parsing {ini}...')
+    print(f'AIkoINIhandler.py: Parsing {ini}...')
     print()
 
     # sections the ini file should contain

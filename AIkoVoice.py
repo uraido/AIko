@@ -4,7 +4,7 @@ Voicelink.py
 Handles voice related functionality such as text to speech and speech to text for Aiko's scripts.
 
 File requirements:
-- AikoINIhandler.py >= 2.3
+- AIkoINIhandler.py >= 2.3
 
 pip install:
 - azure.cognitiveservices.speech
@@ -19,20 +19,16 @@ Changelog:
 - Default style when no value is given is configurable.
 - Default speech rate is now also configurable.
 """
-import os
 import azure.cognitiveservices.speech as speechsdk
 import subprocess
 import keyboard
 import time
 from configparser import ConfigParser
 
-if __name__ == '__main__':
-    from AikoINIhandler import handle_ini
-    handle_ini()
-
 # reads config file
 config = ConfigParser()
-config.read('AikoPrefs.ini')
+config.read('AIkoPrefs.ini')
+
 
 def get_device_endpoint_id(device : str):
     sd = subprocess.run(
@@ -58,6 +54,7 @@ def get_device_endpoint_id(device : str):
 
     return(virtual_cable_device_id)
 
+
 class Recognizer:
     def __init__(self, microphone: str = config.get('VOICE', 'mic_device')):
         self.__set_speech_config()
@@ -68,9 +65,9 @@ class Recognizer:
     def __set_speech_config(self):
         # builds SpeechConfig class
         self.__speech_config = speechsdk.SpeechConfig(
-        subscription = open("keys/key_azurespeech.txt", "r").read().strip('\n'), 
+        subscription = open('keys/key_azurespeech.txt', 'r').read().strip(),
         region = config.get('VOICE', 'azure_region')
-        )
+            )
 
     def __set_audio_config(self, mic_device: str):
         # get the users chosen microphone device's endpoint id and builds AudioConfig class
@@ -125,7 +122,7 @@ class Synthesizer:
     def __set_speech_config(self):
         # builds SpeechConfig class
         self.__speech_config = speechsdk.SpeechConfig(
-        subscription = open("keys/key_azurespeech.txt", "r").read().strip('\n'), 
+        subscription = open('keys/key_azurespeech.txt', 'r').read().strip(),
         region = config.get('VOICE', 'azure_region')
         )
 

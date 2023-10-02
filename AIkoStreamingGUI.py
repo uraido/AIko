@@ -23,7 +23,7 @@ Changelog:
 from tkinter import *
 from tkinter import ttk
 from AIkoStreamingTools import MessagePool
-from AIko.AIko import MessageList
+from AIko import MessageList
 from datetime import datetime
 
 

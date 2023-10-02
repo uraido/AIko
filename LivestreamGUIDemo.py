@@ -1,6 +1,6 @@
-from AIko.AIkoStreamingGUI import LiveGUI
-from AIko.AIkoStreamingTools import MessagePool
-from AIko.AIko import Context
+from AIkoStreamingGUI import LiveGUI
+from AIkoStreamingTools import MessagePool
+from AIko import Context
 
 from threading import Thread
 from random import choice, uniform

@@ -2,11 +2,11 @@
 RemoteSP.py
 
 
-Script that allows to send side prompts remotely to the person who is runnig the main script.
-This one works as a sever in the TCP IP conecction
+Script that allows to send side prompts remotely to the person who is running the main script.
+This one works as a sever in the TCP IP connection
 
 requirements:
-	- Radmin VPN (It is necesary to do the TCP IP connection with an emulated LAN) 
+	- Radmin VPN (It is necessary to do the TCP IP connection with an emulated LAN)
 
 '''
 
@@ -28,13 +28,13 @@ port = 5004
 
 while True:
 	print()
-	sideprompt = input('Write a sidepromt to send: ') 
+	sideprompt = input('Write a side prompt to send: ')
 
 	print()
 	print('Please select one option to send the prompt:')
-	print('1 -Generate completion inmediately')
-	print('2 -Add the message as extra information to the next user message')
-	print('3 -Abort message')
+	print('1 - Generate completion immediately')
+	print('2 - Add the message as extra information to the next user message')
+	print('3 - Abort message')
 
 	user_option = input('option: ')
 	while True:

@@ -23,6 +23,7 @@ Changelog:
 - LiveGUI class now takes AIko and MasterQueue objects as parameters instead of MessageList and MessagePool.
 16:
 - Added descriptions feature to CommandLine commands.
+- Updated SP button to use renamed command.
 """
 from tkinter import *
 from tkinter import ttk
@@ -371,7 +372,7 @@ class LiveGUI:
         # command line buttons
         self.__sp_icon = PhotoImage(file='uiassets/sp.png')
         self.__bp_button_side_prompt = ttk.Button(
-            self.__bp_frame, image=self.__sp_icon, command=lambda: self.__insert_cmd('add_sp ')
+            self.__bp_frame, image=self.__sp_icon, command=lambda: self.__insert_cmd('sp_add ')
         )
         self.__sm_icon = PhotoImage(file='uiassets/sm.png')
         self.__bp_button_sys_msg = ttk.Button(

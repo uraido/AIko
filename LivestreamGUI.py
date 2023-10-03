@@ -17,6 +17,8 @@ Changelog:
 
 001:
 - Initial release.
+002:
+- Renamed some commands and added descriptions for better clarity.
 """
 import os
 import socket
@@ -32,6 +34,7 @@ from AIkoStreamingGUI import LiveGUI
 from AIkoINIhandler import handle_ini
 from AIkoVoice import Synthesizer, Recognizer
 from AIkoStreamingTools import MasterQueue, Pytwitch
+build = '002'
 
 handle_ini()
 
@@ -61,20 +64,24 @@ def cmd_toggle_mic():
 app.bind_mute_button(cmd_toggle_mic)
 
 
+def cmd_help():
+    app.print_to_cmdl()
+
+
 def cmd_unpause_spontaneous():
     allow_spontaneous.set()
     app.print_to_cmdl('Resumed spontaneous messages.')
 
 
-app.add_command('unpause_spon', cmd_unpause_spontaneous)
+app.add_command('spon_unpause', cmd_unpause_spontaneous, 'Resumes spontaneous messages.')
 
 
 def cmd_pause_spontaneous():
     allow_spontaneous.clear()
-    app.print_to_cmdl('Spontaneous messages will be paused after next message.')
+    app.print_to_cmdl('Spontaneous messages will be paused after next spon. message.')
 
 
-app.add_command('pause_spon', cmd_pause_spontaneous)
+app.add_command('spon_pause', cmd_pause_spontaneous, 'Pauses spontaneous messages.')
 
 
 def cmd_check_spontaneous():
@@ -84,7 +91,7 @@ def cmd_check_spontaneous():
         app.print_to_cmdl('Spontaneous messages are currently: PAUSED.')
 
 
-app.add_command('check_spon', cmd_check_spontaneous)
+app.add_command('spon_check', cmd_check_spontaneous, 'Checks spontaneous messages status.')
 
 
 def cmd_switch_scenario(scenario: str):
@@ -92,14 +99,17 @@ def cmd_switch_scenario(scenario: str):
     app.print_to_cmdl('Changed scenario.')
 
 
-app.add_command('switch_scenario', cmd_switch_scenario)
+app.add_command('scenario_change', cmd_switch_scenario, 'Changes the current scenario.')
 
 
 def cmd_check_scenario():
-    app.print_to_cmdl(f'Current scenario: {aiko.check_scenario()}')
+    scenario = aiko.check_scenario()
+    if scenario == '':
+        scenario = 'NO SCENARIO'
+    app.print_to_cmdl(f'Current scenario: "{scenario}"')
 
 
-app.add_command('check_scenario', cmd_check_scenario)
+app.add_command('scenario_check', cmd_check_scenario, 'Prints the current scenario.')
 
 
 def add_side_prompt(side_prompt: str):
@@ -109,7 +119,7 @@ def add_side_prompt(side_prompt: str):
     app.print_to_cmdl(f'Added local SP: "{side_prompt}"')
 
 
-app.add_command('add_sp', add_side_prompt)
+app.add_command('sp_add', add_side_prompt, "Injects a side-prompt into the character's memory.")
 
 
 def cmd_clear_side_prompts():
@@ -120,7 +130,7 @@ def cmd_clear_side_prompts():
     app.print_to_cmdl('Cleared all side prompts.')
 
 
-app.add_command('clear_sp', cmd_clear_side_prompts)
+app.add_command('sp_clear', cmd_clear_side_prompts, 'Deletes all side-prompts.')
 
 
 def cmd_send_sys_message(message: str):
@@ -128,7 +138,7 @@ def cmd_send_sys_message(message: str):
     app.print_to_cmdl(f'Added SM to queue: "{message}"')
 
 
-app.add_command('send_sys_msg', cmd_send_sys_message)
+app.add_command('send_sys_msg', cmd_send_sys_message, 'Sends a system message to be immediately answered by the char.')
 
 
 def cmd_close_protocol():
@@ -139,7 +149,7 @@ def cmd_close_protocol():
     os._exit(0)
 
 
-app.add_command('exit', cmd_close_protocol)
+app.add_command('exit', cmd_close_protocol, 'Closes the app.')
 # also sets this function to run when the app is closed
 app.set_close_protocol(cmd_close_protocol)
 
@@ -372,4 +382,6 @@ Thread(target=thread_remote_receiver).start()
 Thread(target=thread_speech_recognition).start()
 Thread(target=thread_spontaneous_messages).start()
 Thread(target=thread_talk).start()
+app.print_to_cmdl('All threads started.')
+app.print_to_cmdl(f'Running AILiveGUI build {build}. Type "help" to see commands.')
 app.run()

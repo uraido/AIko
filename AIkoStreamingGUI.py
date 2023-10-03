@@ -21,6 +21,8 @@ Changelog:
 - Configured weights for each one of the section frames. GUI now has barebones resizability.
 15:
 - LiveGUI class now takes AIko and MasterQueue objects as parameters instead of MessageList and MessagePool.
+16:
+- Added descriptions feature to CommandLine commands.
 """
 from tkinter import *
 from tkinter import ttk
@@ -84,15 +86,16 @@ class CommandLine:
         # command dictionary {"command": function, [...]}
         self.__commands = commands
 
-    def add_command(self, command: str, function: callable):
+    def add_command(self, command: str, function: callable, description: str = ''):
         """
         Add a new command and its associated function to the internal command dictionary.
 
         Args:
             command (str): The name of the command.
             function (callable): The function to be executed when the command is called.
+            description (str), optional: A short description which will be included when the help command is called.
         """
-        self.__commands[command] = function
+        self.__commands[command] = (function, description)
 
     def input(self, command: str):
         """
@@ -112,17 +115,26 @@ class CommandLine:
             if command[0] in self.__commands:
                 try:
                     # calls recognized function from command dictionary
-                    self.__commands[command[0]](command[1])
+                    self.__commands[command[0]][0](command[1])
                     return True
                 except TypeError as e:
                     print(e)
         # if command doesn't include an argument
         elif command[0] in self.__commands:
             # calls recognized function from command dictionary
-            self.__commands[command[0]]()
+            self.__commands[command[0]][0]()
             return True
 
         return False
+
+    def help(self):
+        help_string = ''
+        for key, value in sorted(self.__commands.items()):
+            if value[1] == '':
+                help_string += f'{key}: No description provided.\n\n'
+            else:
+                help_string += f'{key}: {value[1]}\n\n'
+        return help_string[:-1]
 
 
 class LiveGUI:
@@ -161,6 +173,9 @@ class LiveGUI:
         self.__create_button_panel_widgets()
 
         self.__set_frame_weights()
+
+        # adds help command to interpreter
+        self.__interpreter.add_command('help', self.help, 'Prints all commands.')
 
     def __set_frame_weights(self):
         self.__root.columnconfigure(0, weight=1)
@@ -235,8 +250,8 @@ class LiveGUI:
         self.__cmd_terminal.bind('<Leave>', self.__invert_cmd_scrolling_variable)
         self.__cmd_entry.bind('<Return>', self.__execute_command)
 
-    def add_command(self, command: str, func: callable):
-        self.__interpreter.add_command(command, func)
+    def add_command(self, command: str, func: callable, desc: str):
+        self.__interpreter.add_command(command, func, desc)
 
     def print_to_cmdl(self, text: str):
         time = datetime.now()
@@ -435,6 +450,9 @@ class LiveGUI:
 
     def set_close_protocol(self, protocol: callable):
         self.__root.protocol("WM_DELETE_WINDOW", protocol)
+
+    def help(self):
+        self.print_to_cmdl(f'\n\n{self.__interpreter.help()}')
 
 
 if __name__ == '__main__':

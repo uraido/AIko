@@ -13,7 +13,6 @@ from AIkoVoice import Synthesizer, Recognizer
 import os
 
 handle_ini()
-
 aiko = AIko.AIko('Aiko', 'prompts\AIko.txt')
 
 

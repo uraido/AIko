@@ -18,12 +18,16 @@ Changelog:
 - Added "style" parameter to synthesizer's say method.
 - Default style when no value is given is configurable.
 - Default speech rate is now also configurable.
+111:
+- Recognizer class now uses event toggle instead of hotkey.
 """
 import azure.cognitiveservices.speech as speechsdk
 import subprocess
 import keyboard
 import time
 from configparser import ConfigParser
+from threading import Event
+
 
 # reads config file
 config = ConfigParser()
@@ -86,7 +90,7 @@ class Recognizer:
         speech_config = self.__speech_config,
         audio_config = self.__audio_config)
 
-    def start(self, parse_func, hotkey: str = config.get('LIVESTREAM', 'toggle_listening')):
+    def start(self, parse_func, event: Event):  # hotkey: str = config.get('LIVESTREAM', 'toggle_listening')
         self.__speech_recognizer.start_continuous_recognition()
         self.__speech_recognizer.recognized.connect(lambda evt: parse_func(evt))
 
@@ -94,20 +98,23 @@ class Recognizer:
         is_recognizing = True
 
         while self.__loop_started:
-            if keyboard.is_pressed(hotkey) and is_recognizing:
+            if event.is_set() and is_recognizing:  # keyboard.is_pressed(hotkey) and is_recognizing:
                 self.__speech_recognizer.stop_continuous_recognition()
                 is_recognizing = False
                 print('\nPaused continuous speech recognition.\n')
-            elif keyboard.is_pressed(hotkey) and not is_recognizing:
+                event.clear()
+            elif event.is_set() and not is_recognizing:
                 self.__speech_recognizer.start_continuous_recognition()
                 print('\nResumed continuous speech recognition.\n')
                 is_recognizing = True
+                event.clear()
             time.sleep(0.1)
 
         print('\nDeactivated speech recognition.\n')
 
     def stop(self):
         self.__loop_started = False
+
 
 class Synthesizer:
     def __init__(self, speakers: str = config.get('VOICE', 'audio_device'), voice: str = config.get('VOICE', 'azure_voice')):
@@ -167,8 +174,11 @@ class Synthesizer:
 
         speech_synthesis_result = self.__speech_synthesizer.speak_ssml_async(ssml).get()
 
+
 if __name__ == '__main__':
     from threading import Thread
+
+    event = Event()
 
     # tests synthesizer class
     synthesizer = Synthesizer()
@@ -190,9 +200,11 @@ if __name__ == '__main__':
     recognizer = Recognizer()
     # to handle stopping the speech recognition.
     def stop_recognition_thread():
-        keyboard.wait('space')
-        recognizer.stop()
+        while True:
+            if keyboard.is_pressed('space'):
+                event.set()
+
 
     # starts threads
-    Thread(target = recognizer.start, kwargs = {'parse_func': parse_event}).start()
-    Thread(target = stop_recognition_thread).start()
+    Thread(target=recognizer.start, kwargs={'parse_func': parse_event, 'event': event}).start()
+    Thread(target=stop_recognition_thread).start()

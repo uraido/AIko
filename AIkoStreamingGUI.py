@@ -19,11 +19,13 @@ Changelog:
 014:
 - Enter key now sends commands when the cmd entry is focused.
 - Configured weights for each one of the section frames. GUI now has barebones resizability.
+15:
+- LiveGUI class now takes AIko and MasterQueue objects as parameters instead of MessageList and MessagePool.
 """
 from tkinter import *
 from tkinter import ttk
-from AIkoStreamingTools import MessagePool
-from AIko import MessageList
+from AIkoStreamingTools import MasterQueue
+from AIko import AIko, MessageList
 from datetime import datetime
 
 
@@ -124,9 +126,7 @@ class CommandLine:
 
 
 class LiveGUI:
-    def __init__(self, pool: MessagePool, side_prompts: MessageList, commands: dict = None):
-        if len(side_prompts.get_reference()) > 5:
-            raise ValueError('side_prompts list must be at most 5 items long')
+    def __init__(self, queue: MasterQueue, char: AIko, commands: dict = None):
         if commands is None:
             commands = {}
 
@@ -150,8 +150,8 @@ class LiveGUI:
         self.__mainframe.grid()
 
         # attributes necessary for displaying chat and side_prompts
-        self.__pool = pool
-        self.__side_prompts = side_prompts
+        self.__pool = queue.get_chat_messages()
+        self.__side_prompts = char.get_side_prompt_object()
 
         # creates widgets
         self.__create_log_widgets()
@@ -173,6 +173,7 @@ class LiveGUI:
         # set lower side as priority
         self.__mainframe.rowconfigure(0, weight=1)
         self.__mainframe.rowconfigure(1, weight=3)
+
     def __set_icon(self, icon_file: str):
         icon = PhotoImage(file=icon_file)
         self.__root.iconphoto(False, icon)
@@ -348,7 +349,7 @@ class LiveGUI:
 
         # mute button widget
         self.__bp_button_mute = ImageButton(
-            self.__bp_frame, on_image='uiassets/muted.png', off_image='uiassets/unmuted.png',
+            self.__bp_frame, on_image='uiassets/unmuted.png', off_image='uiassets/muted.png',
             # command=None
         )
 

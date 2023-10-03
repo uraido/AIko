@@ -15,6 +15,8 @@ Changelog:
 - Added REMOTE_SIDE_PROMPTING section with server_ip and port options.
 23:
 - Added default_style and default_rate options to VOICE section.
+24:
+- Added platform option to LIVESTREAM section.
 '''
 
 from configparser import ConfigParser
@@ -57,6 +59,7 @@ def handle_ini(ini : str = 'AIkoPrefs.ini'):
     ]
 
     LIVESTREAM = [
+        ('platform', 'Twitch'),
         ('liveid', ''),
         ('toggle_listening', 'Page Down'),
         ('side_prompt', 'Page Up'),

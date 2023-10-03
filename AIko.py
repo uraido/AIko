@@ -38,6 +38,7 @@ in order to allow the GUI app to access it.
 - Added get_scenario method to Context class.
 156beta:
 - Moved interaction loop into a separate file.
+- Added check scenario method to AIko class.
 ===================================================================
 """
 # ----------------- Imports -----------------
@@ -452,6 +453,9 @@ class AIko:
       Changes the current scenario.
     """
     self.__context.change_scenario(scenario)
+
+  def check_scenario(self):
+    return self.__context.get_scenario()
 
   def __update_log(self, user_string : str, completion_data : tuple):
     """

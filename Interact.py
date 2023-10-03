@@ -1,4 +1,3 @@
-from configparser import ConfigParser
 from AIko import *
 from AIkoINIhandler import handle_ini
 from AIkoVoice import Synthesizer

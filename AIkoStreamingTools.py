@@ -6,11 +6,6 @@ Requirements:
 - AIkoVoice.py (100 or greater) and its requirements.
 - AIkoINIhandler.py (23 or greater) and its requirements.
 
-txt files:
-- AIko.txt
-- spontaneous_messages.txt
-- profile.txt
-
 Changelog:
 
 020:
@@ -361,8 +356,17 @@ class MasterQueue:
         else:
             raise TypeError(f"{message_type} is not a valid message type")
 
+    def get_chat_messages(self):
+        """
+        Useful for display/check needs. If you want to modify the object, use the MasterQueue's own methods.
+        """
+        return self.__chat_messages__
+
     def edit_chat_message(self, original_content : str, new_content : str):
         self.__chat_messages__.edit_message(original_content, new_content)
+
+    def delete_chat_message(self, index: int):
+        self.__chat_messages__.delete_message(index)
 
     def get_next(self):
         """
@@ -388,6 +392,7 @@ class MasterQueue:
             return ("chat", self.__chat_messages__.pick_message())
 
         return ('', '')
+
 
 class Pytwitch:
     def __init__(self, token: str, channel: str):
@@ -448,7 +453,7 @@ class Pytwitch:
             mapping = dict.fromkeys(range(32))
             clean_message = message.translate(mapping)
 
-            return f'{username}: {clean_message}'
+            return username, clean_message
 
     def close_socket(self):
         """

@@ -37,6 +37,8 @@ raised if an actual error appears.
 029:
 - Moved interaction loop into a separate script.
 - Added PyTwitch class for handling twitch chat.
+030:
+- Parsed twitch API ping messages out of outputs Pytwitch returned values.
 """
 
 # ----------------------------- Imports -------------------------------------
@@ -418,6 +420,7 @@ class Pytwitch:
         # Avoids returning initial debug text
         self.get_message()
         self.get_message()
+        self.get_message()
 
     def __check_connection(self, msg):
         # Respond to Twitch checking if the bot is still active
@@ -435,10 +438,10 @@ class Pytwitch:
             message = self.__sock.recv(2048).decode("utf-8")
 
         except socket.error:
-            self.get_message()
+            return self.get_message()
 
         if self.__check_connection(message):
-            self.get_message()
+            return self.get_message()
 
         # Avoid AttributeError and TypeError
         if message:

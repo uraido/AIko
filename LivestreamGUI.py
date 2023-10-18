@@ -19,6 +19,8 @@ Changelog:
 - Initial release.
 002:
 - Renamed some commands and added descriptions for better clarity.
+003:
+- Added follower alerts through parsing StreamElements chat alerts.
 """
 import os
 import socket
@@ -34,7 +36,7 @@ from AIkoStreamingGUI import LiveGUI
 from AIkoINIhandler import handle_ini
 from AIkoVoice import Synthesizer, Recognizer
 from AIkoStreamingTools import MasterQueue, Pytwitch
-build = '002'
+build = '003'
 
 handle_ini()
 
@@ -168,6 +170,19 @@ def thread_chat_twitch():
     while running:
         # blocks until a message is received
         author, message = chat.get_message()
+        # skips chat commands
+        if message[0] == '!':
+            continue
+        # parses follow alerts and sends them as system messages
+        if author.lower() == 'streamelements' and 'just followed!' in message.lower():
+            follower = message.split(" ", 1)[0][1:]
+            master_queue.add_message(
+                f'EVENT: {follower} just followed you on Twitch. Thank them! Read their name!', "system")
+            app.print_to_cmdl(f'{follower} just followed. Letting the character know...')
+            continue
+        # parses bot replies
+        if author.lower() == 'streamelements':
+            continue
         # merges current message with last message if the same user immediately follows up with a second message
         if author == last_author:
             merged_message = f'{last_message} {message}'

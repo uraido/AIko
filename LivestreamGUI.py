@@ -21,10 +21,13 @@ Changelog:
 - Renamed some commands and added descriptions for better clarity.
 003:
 - Added follower alerts through parsing StreamElements chat alerts.
+004:
+- Renamed spontaneous messages feature to silence breaker.
+- Silence breaker only triggers after a random amount of silence.
 """
 import os
 import socket
-from time import sleep
+from time import sleep, time
 from threading import Thread, Event
 from configparser import ConfigParser
 from random import choice, uniform, randint
@@ -36,7 +39,7 @@ from AIkoStreamingGUI import LiveGUI
 from AIkoINIhandler import handle_ini
 from AIkoVoice import Synthesizer, Recognizer
 from AIkoStreamingTools import MasterQueue, Pytwitch
-build = '003'
+build = '004'
 
 handle_ini()
 
@@ -54,7 +57,11 @@ running = True
 
 # threading events
 mute_event = Event()
-allow_spontaneous = Event()
+allow_silence_breaker = Event()
+speaking = Event()
+
+# time tracker (to track silence time)
+last_time_spoken = time()
 # ---------------------------------------- COMMAND LINE COMMAND FUNCTIONS ----------------------------------------------
 
 
@@ -70,30 +77,33 @@ def cmd_help():
     app.print_to_cmdl()
 
 
-def cmd_unpause_spontaneous():
-    allow_spontaneous.set()
-    app.print_to_cmdl('Resumed spontaneous messages.')
+def cmd_start_silence_breaker():
+    global last_time_spoken
+
+    last_time_spoken = time()
+    allow_silence_breaker.set()
+    app.print_to_cmdl('Started the silence breaker.')
 
 
-app.add_command('spon_unpause', cmd_unpause_spontaneous, 'Resumes spontaneous messages.')
+app.add_command('sb_start', cmd_start_silence_breaker, 'Starts the silence breaker.')
 
 
-def cmd_pause_spontaneous():
-    allow_spontaneous.clear()
-    app.print_to_cmdl('Spontaneous messages will be paused after next spon. message.')
+def cmd_stop_silence_breaker():
+    allow_silence_breaker.clear()
+    app.print_to_cmdl('Stopped the silence breaker.')
 
 
-app.add_command('spon_pause', cmd_pause_spontaneous, 'Pauses spontaneous messages.')
+app.add_command('sb_stop', cmd_stop_silence_breaker, 'Stops the silence breaker.')
 
 
 def cmd_check_spontaneous():
-    if allow_spontaneous.is_set():
-        app.print_to_cmdl('Spontaneous messages are currently: UNPAUSED.')
+    if allow_silence_breaker.is_set():
+        app.print_to_cmdl('Silence breaker is currently: UNPAUSED.')
     else:
-        app.print_to_cmdl('Spontaneous messages are currently: PAUSED.')
+        app.print_to_cmdl('Silence breaker is currently: PAUSED.')
 
 
-app.add_command('spon_check', cmd_check_spontaneous, 'Checks spontaneous messages status.')
+app.add_command('sb_check', cmd_check_spontaneous, 'Checks silence breaker status.')
 
 
 def cmd_switch_scenario(scenario: str):
@@ -308,20 +318,33 @@ def thread_speech_recognition():
     recognizer.start(parse_event, mute_event)
 
 
-def thread_spontaneous_messages():
+def thread_silence_breaker():
+    global last_time_spoken
     system_prompts = txt_to_list('prompts\spontaneous_messages.txt')
     generic_messages = txt_to_list('prompts\generic_messages.txt')
 
     min_time = config.getint('SPONTANEOUS_TALKING', 'min_time')
     max_time = config.getint('SPONTANEOUS_TALKING', 'max_time')
-    allow_spontaneous.set()
+
+    # rolls initial max silence time
+    max_silence_time = randint(min_time, max_time)
 
     while running:
-        # executes if spontaneous messages arent paused
-        allow_spontaneous.wait()
+        # to save on CPU usage during loop execution
+        sleep(0.1)
+        # executes if spontaneous messages arent paused (paused by default)
+        if not allow_silence_breaker.is_set():
+            continue
+        # also checks if the character is currently speaking before continuing
+        if speaking.is_set():
+            continue
 
-        # waits for random amount of time
-        sleep(randint(min_time, max_time))
+        # checks if time threshold has been reached
+        now = time()
+        if not now - last_time_spoken >= max_silence_time:
+            continue
+        # re-rolls max silence time
+        max_silence_time = randint(min_time, max_time)
         # decides between spontaneous or generic message
         dice = randint(0, 1)
         if dice == 0:
@@ -338,6 +361,8 @@ def thread_spontaneous_messages():
 
 
 def thread_talk():
+    global last_time_spoken
+
     # to parse messages before voicing
     def parse_msg(msg: str, character: str = ':', after=False):
 
@@ -375,7 +400,11 @@ def thread_talk():
         app.print(f'({msg_type.upper()}) {message}')
         app.print(f'Aiko: {output}\n')
 
+        speaking.set()
         synthesizer.say(output)
+        speaking.clear()
+        # resets timer
+        last_time_spoken = time()
 
         with open('message_author.txt', 'w') as txt:
             pass
@@ -395,7 +424,7 @@ elif platform == 'youtube':
 
 Thread(target=thread_remote_receiver).start()
 Thread(target=thread_speech_recognition).start()
-Thread(target=thread_spontaneous_messages).start()
+Thread(target=thread_silence_breaker).start()
 Thread(target=thread_talk).start()
 app.print_to_cmdl('All threads started.')
 app.print_to_cmdl(f'Running AILiveGUI build {build}. Type "help" to see commands.')

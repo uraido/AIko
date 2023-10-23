@@ -1,64 +1,298 @@
-from AIkoStreamingTools import MasterQueue, is_empty_string
-import time
-import AIko
-import random
-import socket
-import pytchat
-import keyboard
-from pytimedinput import timedInput
-from configparser import ConfigParser
-from AIkoINIhandler import handle_ini
-from threading import Thread
-from AIkoVoice import Synthesizer, Recognizer
+"""
+GUI interaction loop for livestreaming.
+
+Requirements:
+
+.py:
+- AIko.py (156beta or greater) and its requirements.
+- AIkoINIHandler.py (24 or greater).
+- AIkoStreamingGUI.py (015 or greater).
+- AIkoStreamingTools.py (029 or greater).
+- AIkoVoice.py (115 or greater) and its requirements.
+
+packages:
+- pip install pytchat
+
+Changelog:
+
+001:
+- Initial release.
+002:
+- Renamed some commands and added descriptions for better clarity.
+003:
+- Added follower alerts through parsing StreamElements chat alerts.
+004:
+- Renamed spontaneous messages feature to silence breaker.
+- Silence breaker only triggers after a random amount of silence.
+"""
 import os
+import socket
+from time import sleep, time
+from threading import Thread, Event
+from configparser import ConfigParser
+from random import choice, uniform, randint
+
+import pytchat
+
+from AIko import AIko, txt_to_list
+from AIkoStreamingGUI import LiveGUI
+from AIkoINIhandler import handle_ini
+from AIkoVoice import Synthesizer, Recognizer
+from AIkoStreamingTools import MasterQueue, Pytwitch
+build = '004'
 
 handle_ini()
-aiko = AIko.AIko('Aiko', 'prompts\AIko.txt')
+
+# main objects
+aiko = AIko('Aiko', 'prompts/AIko.txt')
+master_queue = MasterQueue()
+app = LiveGUI(master_queue, aiko)
+
+# config
+config = ConfigParser()
+config.read('AikoPrefs.ini')
+
+# loop controller
+running = True
+
+# threading events
+mute_event = Event()
+allow_silence_breaker = Event()
+speaking = Event()
+
+# time tracker (to track silence time)
+last_time_spoken = time()
+# ---------------------------------------- COMMAND LINE COMMAND FUNCTIONS ----------------------------------------------
 
 
-def parse_msg(message: str, character: str = ':', after=False):
-    '''
-    Returns the contents of a string positioned after a given character.
-    '''
-    if after:
-        return message[message.index(character) + 2:]
-
-    return message[: message.index(character)]
+def cmd_toggle_mic():
+    mute_event.set()
 
 
-# ---------------------- CONTINOUSLY THREADED FUNCTIONS ------------------
-def thread_parse_chat(queue: MasterQueue, chat: pytchat.core.PytchatCore):
+# not a cmdl command, sets the function to be called when the mute button is pressed
+app.bind_mute_button(cmd_toggle_mic)
+
+
+def cmd_help():
+    app.print_to_cmdl()
+
+
+def cmd_start_silence_breaker():
+    global last_time_spoken
+
+    last_time_spoken = time()
+    allow_silence_breaker.set()
+    app.print_to_cmdl('Started the silence breaker.')
+
+
+app.add_command('sb_start', cmd_start_silence_breaker, 'Starts the silence breaker.')
+
+
+def cmd_stop_silence_breaker():
+    allow_silence_breaker.clear()
+    app.print_to_cmdl('Stopped the silence breaker.')
+
+
+app.add_command('sb_stop', cmd_stop_silence_breaker, 'Stops the silence breaker.')
+
+
+def cmd_check_spontaneous():
+    if allow_silence_breaker.is_set():
+        app.print_to_cmdl('Silence breaker is currently: UNPAUSED.')
+    else:
+        app.print_to_cmdl('Silence breaker is currently: PAUSED.')
+
+
+app.add_command('sb_check', cmd_check_spontaneous, 'Checks silence breaker status.')
+
+
+def cmd_switch_scenario(scenario: str):
+    aiko.change_scenario(scenario)
+    app.print_to_cmdl('Changed scenario.')
+
+
+app.add_command('scenario_change', cmd_switch_scenario, 'Changes the current scenario.')
+
+
+def cmd_check_scenario():
+    scenario = aiko.check_scenario()
+    if scenario == '':
+        scenario = 'NO SCENARIO'
+    app.print_to_cmdl(f'Current scenario: "{scenario}"')
+
+
+app.add_command('scenario_check', cmd_check_scenario, 'Prints the current scenario.')
+
+
+def add_side_prompt(side_prompt: str):
+    aiko.add_side_prompt(side_prompt)
+    app.update_side_prompts_widget()
+
+    app.print_to_cmdl(f'Added local SP: "{side_prompt}"')
+
+
+app.add_command('sp_add', add_side_prompt, "Injects a side-prompt into the character's memory.")
+
+
+def cmd_clear_side_prompts():
+    for i in range(0, 5):
+        aiko.delete_side_prompt(i)
+
+    app.update_side_prompts_widget()
+    app.print_to_cmdl('Cleared all side prompts.')
+
+
+app.add_command('sp_clear', cmd_clear_side_prompts, 'Deletes all side-prompts.')
+
+
+def cmd_send_sys_message(message: str):
+    master_queue.add_message(message, "system")
+    app.print_to_cmdl(f'Added SM to queue: "{message}"')
+
+
+app.add_command('send_sys_msg', cmd_send_sys_message, 'Sends a system message to be immediately answered by the char.')
+
+
+def cmd_close_protocol():
+    global running
+
+    running = False
+    app.close_app()
+    os._exit(0)
+
+
+app.add_command('exit', cmd_close_protocol, 'Closes the app.')
+# also sets this function to run when the app is closed
+app.set_close_protocol(cmd_close_protocol)
+
+
+# ---------------------------------------- CONTINUOUSLY THREADED FUNCTIONS ---------------------------------------------
+
+
+def thread_chat_twitch():
+    global running
+
+    # starts pytwitch object
+    chat = Pytwitch(open('keys/key_twitch.txt').read().strip(), "aikochannel")
+    # last author variable for merging messages
+    last_author = None
+
+    while running:
+        # blocks until a message is received
+        author, message = chat.get_message()
+        # skips chat commands
+        if message[0] == '!':
+            continue
+        # parses follow alerts and sends them as system messages
+        if author.lower() == 'streamelements' and 'just followed!' in message.lower():
+            follower = message.split(" ", 1)[0][1:]
+            master_queue.add_message(
+                f'EVENT: {follower} just followed you on Twitch. Thank them! Read their name!', "system")
+            app.print_to_cmdl(f'{follower} just followed. Letting the character know...')
+            continue
+        # parses bot replies
+        if author.lower() == 'streamelements':
+            continue
+        # merges current message with last message if the same user immediately follows up with a second message
+        if author == last_author:
+            merged_message = f'{last_message} {message}'
+            try:
+                master_queue.edit_chat_message(last_message, merged_message)
+                app.print_to_cmdl(f'Merge triggered: {last_message} + {message}')
+                last_message = merged_message
+
+                app.update_chat_widget()
+                continue
+            except ValueError:
+                app.print_to_cmdl('Attempted merge, but exception occurred.')
+
+        last_author = author
+        last_message = f'{last_author}: {message}'
+
+        # adds message to queue
+        master_queue.add_message(last_message, "chat")
+
+        app.update_chat_widget()
+        # print_to_cmdl(f'\nAdded chat message to queue:\n{last_message}\n')
+
+        # to keep CPU usage from maxing out
+        sleep(0.1)
+
+
+def thread_chat_youtube(chat: pytchat.core.PytchatCore):
+    global running
     last_author = None
 
     while chat.is_alive():
         for c in chat.get().sync_items():
-
             # merges current message with last message if the same user immediately follows up with a second message
             if c.author.name == last_author:
                 merged_message = f'{last_message} {c.message}'
                 try:
-                    queue.edit_chat_message(last_message, merged_message)
-                    print(f'\nMerged current message with last message added to queue:\n{last_message} + {c.message}\n')
+                    master_queue.edit_chat_message(last_message, merged_message)
+                    app.print_to_cmdl(f'Merge triggered: {last_message} + {c.message}')
                     last_message = merged_message
 
                     continue
                 except ValueError:
-                    print(
-                        '\nAttempted message merge, but exception occurred. Message has probably been read already.\n')
+                    app.print_to_cmdl('Attempted merge, but exception occurred.')
 
             last_author = c.author.name
             last_message = f'{last_author}: {c.message}'
 
-            queue.add_message(last_message, "chat")
-            print(f'\nAdded chat message to queue:\n{last_message}\n')
+            # adds message to queue
+            master_queue.add_message(last_message, "chat")
+
+            app.update_chat_widget()
 
         # to keep CPU usage from maxing out
-        time.sleep(0.1)
+        sleep(0.1)
 
 
-def thread_speech_recognition(queue: MasterQueue, config: ConfigParser):
+def thread_remote_receiver():
+    global running
+    # ------------ Set Up ----------------
+    # server_ip = '26.124.79.180'    # Ulaidh's ID (FOR RCHART TO USE)
+    # server_ip = '26.246.74.120'    # Rchart's ID (FOR ULAIDH TO USE)
+    # port = 5004
+    server_ip = config.get('REMOTE_SIDE_PROMPTING', 'server_ip')
+    port = config.getint('REMOTE_SIDE_PROMPTING', 'port')
+    # ------------------------------------
+
+    while running:
+
+        try:
+            # ------- TCP IP protocol -------
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect((server_ip, port))
+            msg = s.recv(1024)
+            # -------------------------------
+
+            message = msg.decode()[:-1]
+            completion_option_selected = msg.decode()[-1]
+            app.print_to_cmdl(
+                f'Remote side prompt received with the option {completion_option_selected}: {message}'
+                )
+
+            if completion_option_selected == '1':
+                master_queue.add_message(message, "system")
+
+            elif completion_option_selected == '2':
+                aiko.add_side_prompt(message)
+                app.update_side_prompts_widget()
+
+            else:
+                app.print_to_cmdl('Remote side prompt received but something went wrong. Side prompt ABORTED!')
+
+            # disconnect the client
+            s.close()
+        except:
+            pass
+        sleep(0.1)
+
+
+def thread_speech_recognition():
     username = config.get('GENERAL', 'username')
-    hotkey = config.get('LIVESTREAM', 'toggle_listening')
 
     def parse_event(evt):
         event = str(evt)
@@ -70,106 +304,72 @@ def thread_speech_recognition(queue: MasterQueue, config: ConfigParser):
         message = event[stt_start + len(keyword):stt_end]
 
         if message != '':
-            queue.add_message(f'{username}: {message}', "mic")
-            print(f'\nAdded mic message to queue:\n{message}\n')
+            master_queue.add_message(f'{username}: {message}', "mic")
+            app.print_to_cmdl(f'Added mic message to queue: {message}')
 
     # creates recognizer object for speech recognition
     recognizer = Recognizer()
 
-    keyboard.wait(hotkey)
-    print('\nEnabled speech recognition.\n')
-    time.sleep(0.1)
+    mute_event.wait()
+    mute_event.clear()
+    # print('\nEnabled speech recognition.\n')
+    sleep(0.1)
 
-    recognizer.start(parse_event)
+    recognizer.start(parse_event, mute_event)
 
 
-def thread_spontaneus_messages(queue: MasterQueue, config: ConfigParser):
-    system_prompts = AIko.txt_to_list('prompts\spontaneous_messages.txt')
-    generic_messages = AIko.txt_to_list('prompts\generic_messages.txt')
+def thread_silence_breaker():
+    global last_time_spoken
+    system_prompts = txt_to_list('prompts\spontaneous_messages.txt')
+    generic_messages = txt_to_list('prompts\generic_messages.txt')
 
     min_time = config.getint('SPONTANEOUS_TALKING', 'min_time')
     max_time = config.getint('SPONTANEOUS_TALKING', 'max_time')
 
-    while True:
-        time.sleep(random.randint(min_time, max_time))
+    # rolls initial max silence time
+    max_silence_time = randint(min_time, max_time)
 
-        dice = random.randint(0, 1)
+    while running:
+        # to save on CPU usage during loop execution
+        sleep(0.1)
+        # executes if spontaneous messages arent paused (paused by default)
+        if not allow_silence_breaker.is_set():
+            continue
+        # also checks if the character is currently speaking before continuing
+        if speaking.is_set():
+            continue
+
+        # checks if time threshold has been reached
+        now = time()
+        if not now - last_time_spoken >= max_silence_time:
+            continue
+        # re-rolls max silence time
+        max_silence_time = randint(min_time, max_time)
+        # decides between spontaneous or generic message
+        dice = randint(0, 1)
         if dice == 0:
             try:
-                message = system_prompts.pop(random.randint(0, len(system_prompts) - 1))
-                queue.add_message(message, "system")
-                time.sleep(random.randint(min_time, max_time))
+                message = system_prompts.pop(randint(0, len(system_prompts) - 1))
+                master_queue.add_message(message, "system")
+                sleep(randint(min_time, max_time))
                 continue
             except:
                 pass
 
         # if dice == 1
-        queue.add_message(random.choice(generic_messages), "system")
+        master_queue.add_message(choice(generic_messages), "system")
 
 
-def thread_remote_side_prompt_receiver(queue: MasterQueue, config: ConfigParser):
-    # ------------ Set Up ----------------
-    # server_ip = '26.124.79.180'    # Ulaidh's ID (FOR RCHART TO USE)
-    # server_ip = '26.246.74.120'    # Rchart's ID (FOR ULAIDH TO USE)
-    # port = 5004
-    server_ip = config.get('REMOTE_SIDE_PROMPTING', 'server_ip')
-    port = config.getint('REMOTE_SIDE_PROMPTING', 'port')
-    # ------------------------------------
+def thread_talk():
+    global last_time_spoken
 
-    while True:
+    # to parse messages before voicing
+    def parse_msg(msg: str, character: str = ':', after=False):
 
-        try:
-            # ------- TCP IP protocol -------
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.connect((server_ip, port))
-            msg = s.recv(1024)
-            # -------------------------------
+        if after:
+            return msg[msg.index(character) + 2:]
 
-            message = msg.decode()[:-1]
-            completion_option_selected = msg.decode()[-1]
-            print('==========')
-            print(r'Remote side prompt received with the option {}:'.format(completion_option_selected))
-            print(message)
-            print('==========')
-
-            if completion_option_selected == '1':
-                queue.add_message(message, "system")
-
-            elif completion_option_selected == '2':
-                aiko.add_side_prompt(message)
-
-            else:
-                print('Remote side prompt received but something went wrong. Side prompt ABORTED!')
-
-            # disconnect the client
-            s.close()
-        except:
-            pass
-        time.sleep(0.1)
-
-
-def thread_local_side_prompting(queue: MasterQueue, config: ConfigParser):
-    global aiko
-
-    breaker = config.get('GENERAL', 'breaker_phrase').lower()
-    hotkey = config.get('LIVESTREAM', 'side_prompt')
-
-    while True:
-        keyboard.wait(hotkey)
-        message, unused = timedInput(f"\nWrite a side prompt, or {breaker.upper()} to exit the script:\n - ", 9999)
-        if breaker in message.lower():
-            os._exit(0)
-        option, unused = timedInput(
-            f"\nPlease select an option to send the side prompt under:\n1 - Generate completion immediately\n2 - Inject information into Aiko's memory\n3 - Abort message.\n\nOption: ",
-            9999)
-        if option == '1':
-            queue.add_message(message, "system")
-        elif option == '2':
-            aiko.add_side_prompt(message)
-
-
-def thread_talk(queue: MasterQueue):
-    global aiko
+        return msg[: msg.index(character)]
 
     # creates synthesizer object to voice Aiko
     synthesizer = Synthesizer()
@@ -179,9 +379,11 @@ def thread_talk(queue: MasterQueue):
         pass
 
     while True:
-        msg_type, message = queue.get_next()
+        msg_type, message = master_queue.get_next()
+        if msg_type == 'chat':
+            app.update_chat_widget()
 
-        if is_empty_string(message):
+        if message == '':
             continue
 
         output = aiko.interact(message, use_system_role=msg_type == "system")
@@ -193,37 +395,37 @@ def thread_talk(queue: MasterQueue):
                 txt.write('Now reading:\n')
                 txt.write(f"{parse_msg(message, after=False).upper()}'s message")
 
-            synthesizer.say(parse_msg(message, after=True), rate=random.uniform(1.2, 1.4), style="neutral")
+            synthesizer.say(parse_msg(message, after=True), rate=uniform(1.2, 1.4), style="neutral")
 
-        print()
-        print(f'Aiko:{output}')
-        print()
+        app.print(f'({msg_type.upper()}) {message}')
+        app.print(f'Aiko: {output}\n')
 
+        speaking.set()
         synthesizer.say(output)
+        speaking.clear()
+        # resets timer
+        last_time_spoken = time()
 
         with open('message_author.txt', 'w') as txt:
             pass
 
-        time.sleep(0.1)
+        sleep(0.1)
+
+# ----------------------------------------------------------------------------------------------------------------------
 
 
-# --------------------------------------------------------------------------
+platform = config.get('LIVESTREAM', 'platform').lower()
 
-msg_queue = MasterQueue()
+if platform == 'twitch':
+    Thread(target=thread_chat_twitch).start()
+elif platform == 'youtube':
+    yt_chat = pytchat.create(video_id=config.get('LIVESTREAM', 'liveid'))
+    Thread(target=thread_chat_youtube, kwargs={'chat': yt_chat}).start()
 
-my_config = ConfigParser()
-my_config.read('AIkoPrefs.ini')
-
-Thread(target=thread_remote_side_prompt_receiver, kwargs={'queue': msg_queue, 'config': my_config}).start()
-Thread(target=thread_local_side_prompting, kwargs={'queue': msg_queue, 'config': my_config}).start()
-
-Thread(
-    target=thread_parse_chat,
-    kwargs={'queue': msg_queue, 'chat': pytchat.create(video_id=my_config.get('LIVESTREAM', 'liveid'))}
-        ).start()
-
-Thread(target=thread_speech_recognition, kwargs={'queue': msg_queue, 'config': my_config}).start()
-Thread(target=thread_spontaneus_messages, kwargs={'queue': msg_queue, 'config': my_config}).start()
-Thread(target=thread_talk, kwargs={'queue': msg_queue}).start()
-
-print('All threads started.')
+Thread(target=thread_remote_receiver).start()
+Thread(target=thread_speech_recognition).start()
+Thread(target=thread_silence_breaker).start()
+Thread(target=thread_talk).start()
+app.print_to_cmdl('All threads started.')
+app.print_to_cmdl(f'Running AILiveGUI build {build}. Type "help" to see commands.')
+app.run()

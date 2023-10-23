@@ -30,4 +30,4 @@ language different than english.)
 
 # length rule
 
-(The replies should be 1 to 5 sentences long.)
+(The replies should be 1 to 2 sentences long, 3 at most, depending on what's appropriate for the input.)

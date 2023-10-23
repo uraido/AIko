@@ -1,4 +1,5 @@
 log/
 keys/
+__pycache__/
 AIkoPrefs.ini
 message_author.txt

@@ -24,6 +24,9 @@ Changelog:
 004:
 - Renamed spontaneous messages feature to silence breaker.
 - Silence breaker only triggers after a random amount of silence.
+005:
+- Reorganized thread_twitch_chat function into a class.
+- Reorganized thread_chat_youtube function into a class.
 """
 import os
 import socket
@@ -39,7 +42,7 @@ from AIkoStreamingGUI import LiveGUI
 from AIkoINIhandler import handle_ini
 from AIkoVoice import Synthesizer, Recognizer
 from AIkoStreamingTools import MasterQueue, Pytwitch
-build = '004'
+build = '005'
 
 handle_ini()
 
@@ -166,61 +169,139 @@ app.add_command('exit', cmd_close_protocol, 'Closes the app.')
 app.set_close_protocol(cmd_close_protocol)
 
 
-# ---------------------------------------- CONTINUOUSLY THREADED FUNCTIONS ---------------------------------------------
+# ------------------------------------- THREADED LOOP CLASSES / FUNCTIONS ----------------------------------------------
 
+class TwitchChatThread:
+    def __init__(self, queue: MasterQueue, ui_app: LiveGUI):
+        self.__queue = queue
+        self.__app = ui_app
 
-def thread_chat_twitch():
-    global running
+        self.__running = False
 
-    # starts pytwitch object
-    chat = Pytwitch(open('keys/key_twitch.txt').read().strip(), "aikochannel")
-    # last author variable for merging messages
-    last_author = None
+    def start(self):
+        self.__running = True
+        Thread(target=self.__thread).start()
 
-    while running:
-        # blocks until a message is received
-        author, message = chat.get_message()
+    def stop(self):
+        self.__running = False
+
+    def __skip_message(self, message, author):
         # skips chat commands
         if message[0] == '!':
-            continue
+            return True
+
         # parses follow alerts and sends them as system messages
         if author.lower() == 'streamelements' and 'just followed!' in message.lower():
             follower = message.split(" ", 1)[0][1:]
-            master_queue.add_message(
+            self.__queue.add_message(
                 f'EVENT: {follower} just followed you on Twitch. Thank them! Read their name!', "system")
-            app.print_to_cmdl(f'{follower} just followed. Letting the character know...')
-            continue
-        # parses bot replies
+            self.__app.print_to_cmdl(f'{follower} just followed. Letting the character know...')
+            return True
+
+        # skips bot replies
         if author.lower() == 'streamelements':
-            continue
-        # merges current message with last message if the same user immediately follows up with a second message
-        if author == last_author:
-            merged_message = f'{last_message} {message}'
+            return True
+
+        return False
+
+    def __attempt_merge(self, message, author):
+        if author == self.__last_author:
+            merged_message = f'{self.__last_message} {message}'
             try:
-                master_queue.edit_chat_message(last_message, merged_message)
-                app.print_to_cmdl(f'Merge triggered: {last_message} + {message}')
-                last_message = merged_message
+                self.__queue.edit_chat_message(self.__last_message, merged_message)
+                self.__app.print_to_cmdl(f'Merge triggered: {self.__last_message} + {message}')
+                self.__last_message = merged_message
 
-                app.update_chat_widget()
-                continue
+                self.__app.update_chat_widget()
+                return True
             except ValueError:
-                app.print_to_cmdl('Attempted merge, but exception occurred.')
+                self.__app.print_to_cmdl('Attempted a message merge, but exception occurred.')
+                return False
 
-        last_author = author
-        last_message = f'{last_author}: {message}'
+    def __thread(self):
+        # starts pytwitch object
+        chat = Pytwitch(open('keys/key_twitch.txt').read().strip(), "aikochannel")
+        # last author variable for merging messages
+        self.__last_author = None
 
-        # adds message to queue
-        master_queue.add_message(last_message, "chat")
+        while running:
+            # blocks until a message is received
+            author, message = chat.get_message()
+            # checks whether message should be skipped (bot commands, etc)
+            if self.__skip_message(message, author):
+                continue
+            # merges current message with last message if the same user immediately follows up with a second message
+            if self.__attempt_merge(message, author):
+                continue
 
-        app.update_chat_widget()
-        # print_to_cmdl(f'\nAdded chat message to queue:\n{last_message}\n')
+            self.__last_author = author
+            self.__last_message = f'{self.__last_author}: {message}'
 
-        # to keep CPU usage from maxing out
-        sleep(0.1)
+            # adds message to queue
+            self.__queue.add_message(self.__last_message, "chat")
+
+            self.__app.update_chat_widget()
+
+            # to keep CPU usage from maxing out
+            sleep(0.1)
 
 
+class YoutubeChatThread:
+    def __init__(self, queue: MasterQueue, ui_app: LiveGUI, chat: pytchat.core.PytchatCore):
+        self.__queue = queue
+        self.__app = app
+        self.__chat = chat
+
+        self.__running = False
+
+    def start(self):
+        self.__running = True
+        Thread(target = self.__thread).start()
+
+    def stop(self):
+        self.__running = False
+
+    def __attempt_merge(self, message, author):
+        if author == self.__last_author:
+            merged_message = f'{self.__last_message} {message}'
+            try:
+                self.__queue.edit_chat_message(self.__last_message, merged_message)
+                self.__app.print_to_cmdl(f'Merge triggered: {self.__last_message} + {message}')
+                self.__last_message = merged_message
+
+                self.__app.update_chat_widget()
+                return True
+            except ValueError:
+                self.__app.print_to_cmdl('Attempted a message merge, but exception occurred.')
+                return False
+
+    def __thread(self):
+        self.__last_author = None
+
+        while self.__chat.is_alive():
+            if not running:
+                break
+            for c in self.__chat.get().sync_items():
+                if not running:
+                    break
+                # merges current message with last message if the same user immediately follows up with a second message
+                if self.__attempt_merge(c.message, c.author.name):
+                    continue
+
+                self.__last_author = c.author.name
+                self.__last_message = f'{self.__last_author}: {c.message}'
+
+                # adds message to queue
+                self.__queue.add_message(self.__last_message, "chat")
+
+                self.__app.update_chat_widget()
+
+            # to keep CPU usage from maxing out
+            sleep(0.1)
+
+
+# unused, kept in case YoutubeChatThread doesnt work
 def thread_chat_youtube(chat: pytchat.core.PytchatCore):
-    global running
     last_author = None
 
     while chat.is_alive():
@@ -417,10 +498,14 @@ def thread_talk():
 platform = config.get('LIVESTREAM', 'platform').lower()
 
 if platform == 'twitch':
-    Thread(target=thread_chat_twitch).start()
+    twitch_thread = TwitchChatThread(master_queue, app)
+    twitch_thread.start()
+    # Thread(target=thread_chat_twitch).start()
 elif platform == 'youtube':
     yt_chat = pytchat.create(video_id=config.get('LIVESTREAM', 'liveid'))
-    Thread(target=thread_chat_youtube, kwargs={'chat': yt_chat}).start()
+    youtube_thread = YoutubeChatThread(master_queue, app, yt_chat)
+    youtube_thread.start()
+    # Thread(target=thread_chat_youtube, kwargs={'chat': yt_chat}).start()
 
 Thread(target=thread_remote_receiver).start()
 Thread(target=thread_speech_recognition).start()

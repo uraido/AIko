@@ -6,7 +6,7 @@ Requirements:
 .py:
 - AIko.py (156beta or greater) and its requirements.
 - AIkoINIHandler.py (24 or greater).
-- AIkoStreamingGUI.py (015 or greater).
+- AIkoGUITools.py (015 or greater).
 - AIkoStreamingTools.py (029 or greater).
 - AIkoVoice.py (115 or greater) and its requirements.
 
@@ -27,6 +27,9 @@ Changelog:
 005:
 - Reorganized thread_twitch_chat function into a class.
 - Reorganized thread_chat_youtube function into a class.
+006:
+- Reorganized YouTube and Twitch chat loop classes into a single class.
+- Added mute, chat_pause and chat_clear commands.
 """
 import os
 import socket
@@ -38,11 +41,11 @@ from random import choice, uniform, randint
 import pytchat
 
 from AIko import AIko, txt_to_list
-from AIkoStreamingGUI import LiveGUI
+from AIkoGUITools import LiveGUI
 from AIkoINIhandler import handle_ini
 from AIkoVoice import Synthesizer, Recognizer
 from AIkoStreamingTools import MasterQueue, Pytwitch
-build = '005'
+build = '006'
 
 handle_ini()
 
@@ -72,8 +75,10 @@ def cmd_toggle_mic():
     mute_event.set()
 
 
-# not a cmdl command, sets the function to be called when the mute button is pressed
+# first, sets the function to be called when the mute button is pressed
 app.bind_mute_button(cmd_toggle_mic)
+# then adds a mute/un-mute command which invokes the button
+app.add_command('mute', app.bp_button_mute.press, 'Mutes/un-mutes the microphone.')
 
 
 def cmd_help():
@@ -156,6 +161,25 @@ def cmd_send_sys_message(message: str):
 app.add_command('send_sys_msg', cmd_send_sys_message, 'Sends a system message to be immediately answered by the char.')
 
 
+def cmd_chat_clear():
+    app.chat_button_pause.press()
+    for i in range(0, 10):
+        master_queue.delete_chat_message(i)
+    app.chat_button_pause.press()
+    app.print_to_cmdl('Clearing chat messages...')
+
+
+app.add_command('chat_clear', cmd_chat_clear, 'Clears all chat messages currently in queue.')
+
+
+def cmd_chat_pause():
+    app.chat_button_pause.press()
+    app.print_to_cmdl('Paused/un-paused the chat queue.')
+
+
+app.add_command('chat_pause', cmd_chat_pause, 'Pauses/unpauses the chat queue.')
+
+
 def cmd_close_protocol():
     global running
 
@@ -166,21 +190,28 @@ def cmd_close_protocol():
 
 app.add_command('exit', cmd_close_protocol, 'Closes the app.')
 # also sets this function to run when the app is closed
+
 app.set_close_protocol(cmd_close_protocol)
 
 
 # ------------------------------------- THREADED LOOP CLASSES / FUNCTIONS ----------------------------------------------
 
-class TwitchChatThread:
-    def __init__(self, queue: MasterQueue, ui_app: LiveGUI):
+class ChatLoop:
+    def __init__(self, queue: MasterQueue, ui_app: LiveGUI, youtube: bool = False, yt_id: str = None):
         self.__queue = queue
         self.__app = ui_app
+
+        if youtube:
+            self.__chat = pytchat.create(video_id=yt_id)
+            self.__loop = self.__loop_youtube
+        else:
+            self.__loop = self.__loop_twitch
 
         self.__running = False
 
     def start(self):
         self.__running = True
-        Thread(target=self.__thread).start()
+        Thread(target=self.__loop).start()
 
     def stop(self):
         self.__running = False
@@ -218,7 +249,7 @@ class TwitchChatThread:
                 self.__app.print_to_cmdl('Attempted a message merge, but exception occurred.')
                 return False
 
-    def __thread(self):
+    def __loop_twitch(self):
         # starts pytwitch object
         chat = Pytwitch(open('keys/key_twitch.txt').read().strip(), "aikochannel")
         # last author variable for merging messages
@@ -245,37 +276,7 @@ class TwitchChatThread:
             # to keep CPU usage from maxing out
             sleep(0.1)
 
-
-class YoutubeChatThread:
-    def __init__(self, queue: MasterQueue, ui_app: LiveGUI, chat: pytchat.core.PytchatCore):
-        self.__queue = queue
-        self.__app = app
-        self.__chat = chat
-
-        self.__running = False
-
-    def start(self):
-        self.__running = True
-        Thread(target = self.__thread).start()
-
-    def stop(self):
-        self.__running = False
-
-    def __attempt_merge(self, message, author):
-        if author == self.__last_author:
-            merged_message = f'{self.__last_message} {message}'
-            try:
-                self.__queue.edit_chat_message(self.__last_message, merged_message)
-                self.__app.print_to_cmdl(f'Merge triggered: {self.__last_message} + {message}')
-                self.__last_message = merged_message
-
-                self.__app.update_chat_widget()
-                return True
-            except ValueError:
-                self.__app.print_to_cmdl('Attempted a message merge, but exception occurred.')
-                return False
-
-    def __thread(self):
+    def __loop_youtube(self):
         self.__last_author = None
 
         while self.__chat.is_alive():
@@ -298,36 +299,6 @@ class YoutubeChatThread:
 
             # to keep CPU usage from maxing out
             sleep(0.1)
-
-
-# unused, kept in case YoutubeChatThread doesnt work
-def thread_chat_youtube(chat: pytchat.core.PytchatCore):
-    last_author = None
-
-    while chat.is_alive():
-        for c in chat.get().sync_items():
-            # merges current message with last message if the same user immediately follows up with a second message
-            if c.author.name == last_author:
-                merged_message = f'{last_message} {c.message}'
-                try:
-                    master_queue.edit_chat_message(last_message, merged_message)
-                    app.print_to_cmdl(f'Merge triggered: {last_message} + {c.message}')
-                    last_message = merged_message
-
-                    continue
-                except ValueError:
-                    app.print_to_cmdl('Attempted merge, but exception occurred.')
-
-            last_author = c.author.name
-            last_message = f'{last_author}: {c.message}'
-
-            # adds message to queue
-            master_queue.add_message(last_message, "chat")
-
-            app.update_chat_widget()
-
-        # to keep CPU usage from maxing out
-        sleep(0.1)
 
 
 def thread_remote_receiver():
@@ -497,15 +468,8 @@ def thread_talk():
 
 platform = config.get('LIVESTREAM', 'platform').lower()
 
-if platform == 'twitch':
-    twitch_thread = TwitchChatThread(master_queue, app)
-    twitch_thread.start()
-    # Thread(target=thread_chat_twitch).start()
-elif platform == 'youtube':
-    yt_chat = pytchat.create(video_id=config.get('LIVESTREAM', 'liveid'))
-    youtube_thread = YoutubeChatThread(master_queue, app, yt_chat)
-    youtube_thread.start()
-    # Thread(target=thread_chat_youtube, kwargs={'chat': yt_chat}).start()
+chat_loop = ChatLoop(master_queue, app, platform == 'youtube', config.get('LIVESTREAM', 'liveid'))
+chat_loop.start()
 
 Thread(target=thread_remote_receiver).start()
 Thread(target=thread_speech_recognition).start()

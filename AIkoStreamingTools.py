@@ -8,37 +8,8 @@ Requirements:
 
 Changelog:
 
-020:
-- Added edit_message(original_content, new_content) to MessagePool class which allows finding and editing messages by
-content.
-- Added edit_chat_message(original_content, new_content) to MasterQueue class - it's just a helper method that calls
-the MessagePool method described above on the MasterQueue's on instance of the MessagePool.
-- Interaction loop: If an user immediately follows up with a second message after sending an initial message, the first
-message is edited to also include the contents of the second message.
-- Improved MessagePool.is_empty() method reliability. Should now be infallible.
-021:
-- Added a message when a remote side prompt is received
-022:
-- Faster speech rates when reading chat messages aloud, using VoiceLink 060's new feature.
-023:
-- Interaction loop: Updated to work with latest VoiceLink.
-024:
-- Interaction loop: Now specifies a neutral speech style when reading chat messages.
-025:
-- Interaction loop: try/except block now only catches ValueError exceptions, to make sure an exception is actually
-raised if an actual error appears.
-026:
-- Changed some lines to fit PEP8 guidelines.
-- Added get_pool_reference method to MessagePool class.
-027:
-- Added pause method to MessagePool class.
-028:
-- Added delete_message (by index) to MessagePool class.
-029:
-- Moved interaction loop into a separate script.
-- Added PyTwitch class for handling twitch chat.
-030:
-- Parsed twitch API ping messages out of outputs Pytwitch returned values.
+031:
+- Removed redundant double underlines from MasterQueue attribute names.
 """
 
 # ----------------------------- Imports -------------------------------------
@@ -300,43 +271,43 @@ class MasterQueue:
     - edit_chat_message(original_content : str, new_content : str): Edit "chat" type messages by content.
     - get_next(): Retrieves the next message from the master queue based on priority.
     """
-    __instance__ = None
-    __lock__ = Lock()
+    __instance = None
+    __lock = Lock()
 
     def __new__(cls):
         """
         Ensures that only one instance of the class can be created.
         """
-        if cls.__instance__ is None: 
-            with cls.__lock__:
-                if not cls.__instance__:
-                    cls.__instance__ = super().__new__(cls)
-                    cls.__instance__.__initialized__ = False
-        return cls.__instance__
+        if cls.__instance is None:
+            with cls.__lock:
+                if not cls.__instance:
+                    cls.__instance = super().__new__(cls)
+                    cls.__instance.__initialized = False
+        return cls.__instance
 
     def __init__(self):
-        if (self.__initialized__):
+        if self.__initialized:
             return
 
-        self.__initialized__ = True
+        self.__initialized = True
 
-        self.__system_messages__ = MessageQueue()
-        self.__mic_messages__ = MessageContainer()
-        self.__chat_messages__ = MessagePool()
+        self.__system_messages = MessageQueue()
+        self.__mic_messages = MessageContainer()
+        self.__chat_messages = MessagePool()
 
-        self.__allow_chat__ = True
+        self.__allow_chat = True
 
         # gets chat cooldown times from config
         config = ConfigParser()
         config.read('AIkoPrefs.ini')
 
-        self.__chat_min_cooldown__ = config.getint('LIVESTREAM', 'chat_min_cooldown')
-        self.__chat_max_cooldown__ = config.getint('LIVESTREAM', 'chat_max_cooldown')
+        self.__chat_min_cooldown = config.getint('LIVESTREAM', 'chat_min_cooldown')
+        self.__chat_max_cooldown = config.getint('LIVESTREAM', 'chat_max_cooldown')
 
     def __chat_cooldown__(self, cooldown : int):
-        self.__allow_chat__ = False
+        self.__allow_chat = False
         time.sleep(cooldown)
-        self.__allow_chat__ = True
+        self.__allow_chat = True
 
     def add_message(self, message : str, message_type : str):
         """
@@ -350,11 +321,11 @@ class MasterQueue:
         - TypeError: If the message_type is not a valid type.
         """
         if message_type == "system":
-            self.__system_messages__.add_message(message)
+            self.__system_messages.add_message(message)
         elif message_type == "mic":
-            self.__mic_messages__.switch_message(message)
+            self.__mic_messages.switch_message(message)
         elif message_type == "chat":
-            self.__chat_messages__.add_message(message)
+            self.__chat_messages.add_message(message)
         else:
             raise TypeError(f"{message_type} is not a valid message type")
 
@@ -362,13 +333,13 @@ class MasterQueue:
         """
         Useful for display/check needs. If you want to modify the object, use the MasterQueue's own methods.
         """
-        return self.__chat_messages__
+        return self.__chat_messages
 
     def edit_chat_message(self, original_content : str, new_content : str):
-        self.__chat_messages__.edit_message(original_content, new_content)
+        self.__chat_messages.edit_message(original_content, new_content)
 
     def delete_chat_message(self, index: int):
-        self.__chat_messages__.delete_message(index)
+        self.__chat_messages.delete_message(index)
 
     def get_next(self):
         """
@@ -378,22 +349,22 @@ class MasterQueue:
         - A tuple containing the message type and the message content.
         - A tuple containing empty strings if there are no messages in the queue / 'chat' is in cooldown mode.
         """
-        msg = self.__system_messages__.get_next()
+        msg = self.__system_messages.get_next()
 
         if not is_empty_string(msg):
-            return ("system", msg)
+            return "system", msg
 
-        msg = self.__mic_messages__.get_message()
+        msg = self.__mic_messages.get_message()
 
         if not is_empty_string(msg):
-            return ("mic", msg)
+            return "mic", msg
 
-        if self.__allow_chat__:
-            cooldown_time = random.randint(self.__chat_min_cooldown__, self.__chat_max_cooldown__)
+        if self.__allow_chat:
+            cooldown_time = random.randint(self.__chat_min_cooldown, self.__chat_max_cooldown)
             Thread(target=self.__chat_cooldown__, kwargs={'cooldown': cooldown_time}).start()
-            return ("chat", self.__chat_messages__.pick_message())
+            return "chat", self.__chat_messages.pick_message()
 
-        return ('', '')
+        return '', ''
 
 
 class Pytwitch:

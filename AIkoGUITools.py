@@ -1,5 +1,5 @@
 """
-AIkoStreamingGUI.py
+AIkoGUITools.py
 
 Requirements:
 - AIkoStreamingTools.py (027 or greater)
@@ -24,6 +24,10 @@ Changelog:
 16:
 - Added descriptions feature to CommandLine commands.
 - Updated SP button to use renamed command.
+17:
+- Made mute mic and pause chat buttons public attributes of the LiveGUI class.
+- Descriptions are now optional when adding commands to the LiveGUI class.
+- Added press method to ImageButton class, which invokes the buttons command while also updating its state.
 """
 from tkinter import *
 from tkinter import ttk
@@ -50,7 +54,7 @@ class ImageButton(ttk.Button):
         self.toggleState = 1
         self.bind("<Button-1>", self.click_function)
 
-    def click_function(self, anything):
+    def click_function(self, anything = None):
         # Ignore click if button is disabled
         if self.cget("state") != "disabled":
             self.toggleState *= -1
@@ -58,6 +62,10 @@ class ImageButton(ttk.Button):
                 self.config(image=self.on_image)
             else:
                 self.config(image=self.off_image)
+
+    def press(self):
+        self.invoke()
+        self.click_function()
 
 
 class CommandLine:
@@ -251,7 +259,7 @@ class LiveGUI:
         self.__cmd_terminal.bind('<Leave>', self.__invert_cmd_scrolling_variable)
         self.__cmd_entry.bind('<Return>', self.__execute_command)
 
-    def add_command(self, command: str, func: callable, desc: str):
+    def add_command(self, command: str, func: callable, desc: str = ''):
         self.__interpreter.add_command(command, func, desc)
 
     def print_to_cmdl(self, text: str):
@@ -307,7 +315,7 @@ class LiveGUI:
         self.__chat_listbox.configure(xscrollcommand=self.__chat_scrollbar.set)
 
         # pause button widget
-        self.__chat_button_pause = ImageButton(
+        self.chat_button_pause = ImageButton(
             self.__chat_frame, on_image='uiassets/locked.png', off_image='uiassets/unlocked.png',
             command=self.__pause_chat
             )
@@ -327,7 +335,7 @@ class LiveGUI:
 
         # grids widgets to chat frame
         self.__chat_listbox.grid(column=0, row=0)
-        self.__chat_button_pause.grid(column=1, row=0, sticky=(N, W))
+        self.chat_button_pause.grid(column=1, row=0, sticky=(N, W))
         self.__chat_button_delete.grid(column=2, row=0, sticky=(N, W))
         self.__chat_scrollbar.grid(column=0, row=1, sticky=(N, W, E))
 
@@ -364,7 +372,7 @@ class LiveGUI:
         self.__bp_frame = ttk.Frame(self.__mainframe, padding=5)
 
         # mute button widget
-        self.__bp_button_mute = ImageButton(
+        self.bp_button_mute = ImageButton(
             self.__bp_frame, on_image='uiassets/unmuted.png', off_image='uiassets/muted.png',
             # command=None
         )
@@ -389,7 +397,7 @@ class LiveGUI:
         self.__bp_button_clear_cmd.grid(column=0, row=0, sticky=(S, W))
         self.__bp_button_sys_msg.grid(column=1, row=0, sticky=(S, W))
         self.__bp_button_side_prompt.grid(column=2, row=0, sticky=(S, W))
-        self.__bp_button_mute.grid(column=3, row=0, sticky=(S, W))
+        self.bp_button_mute.grid(column=3, row=0, sticky=(S, W))
 
     def __insert_cmd(self, command: str):
         self.__cmd_entry.delete(0, 'end')
@@ -447,7 +455,7 @@ class LiveGUI:
         self.__root.destroy()
 
     def bind_mute_button(self, func: callable):
-        self.__bp_button_mute.configure(command=func)
+        self.bp_button_mute.configure(command=func)
 
     def set_close_protocol(self, protocol: callable):
         self.__root.protocol("WM_DELETE_WINDOW", protocol)

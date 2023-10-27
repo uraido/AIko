@@ -30,6 +30,8 @@ Changelog:
 006:
 - Reorganized YouTube and Twitch chat loop classes into a single class.
 - Added mute, chat_pause and chat_clear commands.
+007:
+- Skips user mentions (unless mentioning Aiko herself)
 """
 import os
 import socket
@@ -45,7 +47,7 @@ from AIkoGUITools import LiveGUI
 from AIkoINIhandler import handle_ini
 from AIkoVoice import Synthesizer, Recognizer
 from AIkoStreamingTools import MasterQueue, Pytwitch
-build = '006'
+build = '007'
 
 handle_ini()
 
@@ -220,6 +222,12 @@ class ChatLoop:
         # skips chat commands
         if message[0] == '!':
             return True
+
+        if '@' in message:
+            if 'aikochannel' in message:
+                pass
+            else:
+                return True
 
         # parses follow alerts and sends them as system messages
         if author.lower() == 'streamelements' and 'just followed!' in message.lower():

@@ -39,6 +39,8 @@ in order to allow the GUI app to access it.
 156beta:
 - Moved interaction loop into a separate file.
 - Added check scenario method to AIko class.
+157beta:
+- Max number of context and side prompts is now adjustable.
 ===================================================================
 """
 # ----------------- Imports -----------------
@@ -304,13 +306,14 @@ class BlackBox:
 
     return False
 
+
 class Context:
 
-  def __init__(self, personality: str, scenario : str):
+  def __init__(self, personality: str, scenario: str, sp_slots: int = 5, mem_slots: int = 10):
     self.__personality = personality
 
-    self.__context = MessageList(10)
-    self.__side_prompts = MessageList(5)
+    self.__context = MessageList(mem_slots)
+    self.__side_prompts = MessageList(sp_slots)
     self.__scenario = MessageList(1)
 
     self.__scenario.add_item(scenario, "system")
@@ -369,7 +372,6 @@ class AIko:
     Attributes:
         character_name (str): The name of the AI character.
         personality_file (str): The filename of the personality file.
-        key (str): Your OpenAI API key.
 
     Parameters:
         scenario (str): The scenario in which the character currently finds itself in.  
@@ -382,12 +384,13 @@ class AIko:
         change_scenario(scenario : str):
             Changes the current scenario.
   """
-  def __init__(self, character_name : str, personality_filename : str, scenario : str = ''):
+  def __init__(self, character_name: str, personality_filename: str, scenario: str = '', sp_slots: int = 5, mem_slots: int = 10):
     self.character_name = character_name
 
     self.__personality_file = personality_filename
     self.__black_box = BlackBox()
-    self.__context = Context(txt_to_string(personality_filename), scenario)
+
+    self.__context = Context(txt_to_string(personality_filename), scenario, sp_slots, mem_slots)
 
     self.__log = self.__create_log()
     self.__keywords = gather_txts('prompts\keywords')

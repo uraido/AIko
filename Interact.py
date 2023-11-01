@@ -13,18 +13,18 @@ config.read('AIkoPrefs.ini')
 synthesizer = Synthesizer()
 
 # creates an AIko object
-aiko = AIko('Aiko', 'prompts\AIko.txt', open('keys/key_openai.txt').read().strip())
+aiko = AIko('Aiko', 'prompts/AIko.txt', open('keys/key_openai.txt').read().strip())
 
 # enables dynamic scenario if enabled in config
 dynamic_scenarios = config.getboolean('GENERAL', 'dynamic_scenarios')
 if dynamic_scenarios:
-    scenarios = txt_to_list('prompts\scenarios.txt')
+    scenarios = txt_to_list('prompts/scenarios.txt')
     aiko.change_scenario(choice(scenarios))
 
 username = config.get('GENERAL', 'username')
 breaker = config.get('GENERAL', 'breaker_phrase')
 
-spontaneous_messages = txt_to_list('prompts\spontaneous_messages.txt')
+spontaneous_messages = txt_to_list('prompts/spontaneous_messages.txt')
 
 # interaction loop
 while True:
@@ -34,7 +34,7 @@ while True:
     use_system = False
 
     if timeout:
-        #prompt = choice(spontaneous_messages)
+        # prompt = choice(spontaneous_messages)
         use_system = True
     elif breaker.lower() in message.lower():
         break

@@ -2,6 +2,7 @@
 AIkoGUITools.py
 
 Requirements:
+- AIko.py (159beta or greater)
 - AIkoStreamingTools.py (027 or greater)
 - uiassets folder
 
@@ -28,6 +29,8 @@ Changelog:
 - Made mute mic and pause chat buttons public attributes of the LiveGUI class.
 - Descriptions are now optional when adding commands to the LiveGUI class.
 - Added press method to ImageButton class, which invokes the buttons command while also updating its state.
+18:
+- Updated to work with Aiko.py 159beta.
 """
 from tkinter import *
 from tkinter import ttk
@@ -172,7 +175,7 @@ class LiveGUI:
 
         # attributes necessary for displaying chat and side_prompts
         self.__pool = queue.get_chat_messages()
-        self.__side_prompts = char.get_side_prompt_object()
+        self.__side_prompts = char.context.side_prompts
 
         # creates widgets
         self.__create_log_widgets()

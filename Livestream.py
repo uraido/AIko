@@ -4,7 +4,7 @@ GUI interaction loop for livestreaming.
 Requirements:
 
 .py:
-- AIko.py (156beta or greater) and its requirements.
+- AIko.py (159beta or greater) and its requirements.
 - AIkoINIHandler.py (24 or greater).
 - AIkoGUITools.py (015 or greater).
 - AIkoStreamingTools.py (029 or greater).
@@ -32,6 +32,8 @@ Changelog:
 - Added mute, chat_pause and chat_clear commands.
 007:
 - Skips user mentions (unless mentioning Aiko herself)
+008:
+- Updated to work with AIko.py 159beta.
 """
 import os
 import socket
@@ -47,7 +49,7 @@ from AIkoGUITools import LiveGUI
 from AIkoINIhandler import handle_ini
 from AIkoVoice import Synthesizer, Recognizer
 from AIkoStreamingTools import MasterQueue, Pytwitch
-build = '007'
+build = '008'
 
 handle_ini()
 
@@ -146,7 +148,7 @@ app.add_command('sp_add', add_side_prompt, "Injects a side-prompt into the chara
 
 def cmd_clear_side_prompts():
     for i in range(0, 5):
-        aiko.delete_side_prompt(i)
+        aiko.context.side_prompts.delete_item(i)
 
     app.update_side_prompts_widget()
     app.print_to_cmdl('Cleared all side prompts.')

@@ -45,6 +45,10 @@ in order to allow the GUI app to access it.
 158beta:
 - Added a Score class for future use with the FOM system.
 - Made Aiko's log a separate class.
+159beta:
+- Made Context, SidePrompts and Scenario attributes of Context class public, to avoid method redundancy between classes
+which have a Context attribute.
+- Reduced redundant functions in AIko/Context class and made AIko's Context attribute public.
 ===================================================================
 """
 # ----------------- Imports -----------------
@@ -57,7 +61,7 @@ import os  # gathering files from folder
 
 # -------------------------------------------
 # PLEASE set it if making a new build. for logging purposes
-build_version = 'Aiko158beta'.upper()
+build_version = 'Aiko159beta'.upper()
 
 # ------------- Set variables ---------------
 # reads config file
@@ -326,32 +330,17 @@ class Context:
     def __init__(self, personality: str, scenario: str, sp_slots: int = 5, mem_slots: int = 10):
         self.__personality = personality
 
-        self.__context = MessageList(mem_slots)
-        self.__side_prompts = MessageList(sp_slots)
-        self.__scenario = MessageList(1)
+        self.context = MessageList(mem_slots)
+        self.side_prompts = MessageList(sp_slots)
+        self.scenario = MessageList(1)
 
-        self.__scenario.add_item(scenario, "system")
+        self.scenario.add_item(scenario, "system")
         self.__profile = txt_to_string('prompts/profile.txt')
 
-    def add_side_prompt(self, message: str):
-        self.__side_prompts.add_item(message, "system")
-
-    def delete_side_prompt(self, index: str):
-        self.__side_prompts.delete_item(index)
-
-    def add_to_context(self, message: str, role: str):
-        self.__context.add_item(message, role)
-
-    def change_scenario(self, scenario: str):
-        self.__scenario.add_item(scenario, "system")
-
-    def get_scenario(self):
-        return self.__scenario.get_reference()[0]['content']
-
     def __append_message_lists(self, list_to_append: list):
-        self.__scenario.append_items(list_to_append)
-        self.__side_prompts.append_items(list_to_append)
-        self.__context.append_items(list_to_append)
+        self.scenario.append_items(list_to_append)
+        self.side_prompts.append_items(list_to_append)
+        self.context.append_items(list_to_append)
 
     def build_context(self, message: str, use_profile: bool = False):
         """
@@ -364,20 +353,6 @@ class Context:
             messages.append({"role": "system", "content": self.__profile})
 
         return messages
-
-    def get_side_prompt_reference(self):
-        """
-        Returns a reference to the MessageList class' private side prompt list object. Useful for display/consulting needs -
-        if you want to modify the list, use this class' built in methods.
-        """
-        return self.__side_prompts.get_reference()
-
-    def get_side_prompt_object(self):
-        """
-        Returns a reference to the MessageList object itself. Useful for display/consulting needs -
-        if you want to modify the object's data, use this class' built in methods.
-        """
-        return self.__side_prompts
 
 
 class Score:
@@ -483,42 +458,16 @@ class AIko:
         self.__personality_file = personality_filename
         self.__black_box = BlackBox()
 
-        self.__context = Context(txt_to_string(personality_filename), scenario, sp_slots, mem_slots)
+        self.context = Context(txt_to_string(personality_filename), scenario, sp_slots, mem_slots)
 
         self.__log = Log(personality_filename)
         self.__keywords = gather_txts('prompts\keywords')
 
-    def add_side_prompt(self, side_prompt: str):
-        """
-          Injects a side prompt into the character's memory.
-        """
-        self.__context.add_side_prompt(side_prompt)
-
-    def delete_side_prompt(self, index: int):
-        self.__context.delete_side_prompt(index)
-
-    def get_side_prompt_reference(self):
-        """
-        Returns a reference to the MessageList class' private side prompt list object. Useful for display/consulting needs -
-        if you want to modify the list, use this class' built in methods.
-        """
-        return self.__context.get_side_prompt_reference()
-
-    def get_side_prompt_object(self):
-        """
-        Returns a reference to the MessageList object itself. Useful for display/consulting needs -
-        if you want to modify the object's data, use this class' built in methods.
-        """
-        return self.__context.get_side_prompt_object()
-
     def change_scenario(self, scenario: str):
-        """
-          Changes the current scenario.
-        """
-        self.__context.change_scenario(scenario)
+        self.context.scenario.add_item(scenario, 'system')
 
-    def check_scenario(self):
-        return self.__context.get_scenario()
+    def add_side_prompt(self, side_prompt: str):
+        self.context.side_prompts.add_item(side_prompt, 'system')
 
     def has_keyword(self, message: str):
         for keyword in self.__keywords:
@@ -532,7 +481,7 @@ class AIko:
           Interacts with the AI character by providing a message.
         """
         use_profile = self.__black_box.message_meets_criteria(message)
-        messages = self.__context.build_context(message, use_profile)
+        messages = self.context.build_context(message, use_profile)
 
         has_keyword = False
         if use_system_role:
@@ -548,10 +497,10 @@ class AIko:
         output = completion[0]
 
         if use_system_role:
-            self.__context.add_to_context(output, "assistant")
+            self.context.context.add_item(output, "assistant")
         else:
-            self.__context.add_to_context(message, "user")
-            self.__context.add_to_context(output, "assistant")
+            self.context.context.add_item(message, "user")
+            self.context.context.add_item(output, "assistant")
 
         self.__log.update_log(message, completion)
 

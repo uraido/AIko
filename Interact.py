@@ -13,7 +13,7 @@ config.read('AIkoPrefs.ini')
 synthesizer = Synthesizer()
 
 # creates an AIko object
-aiko = AIko('Aiko', 'prompts/AIko.txt', open('keys/key_openai.txt').read().strip())
+aiko = AIko('Aiko')
 
 # enables dynamic scenario if enabled in config
 dynamic_scenarios = config.getboolean('GENERAL', 'dynamic_scenarios')

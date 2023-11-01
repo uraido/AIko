@@ -18,37 +18,8 @@ txt files:
 
 Changelog:
 
-150beta:
-- Separated context functionality into the new Context() class.
-- Separated black box functionality (AKA "does this prompt need information from the profile?") into its own class.
-- Added append_items() method to the MessageList class, which allows the direct appending of the populated items from a
-MessageList into an existing python list object.
-151beta:
-- When using keywords, the keyword will be parsed out of the char's output, if it happens to be included.
-152beta:
-- Fixed exception when using context introduced in 151
-153beta:
-- Encapsulation hell: Added get_side_prompt_reference method to AIko class, to allow the GUI app to display it. Also
-added delete_side_prompt method, and helper methods in all classes between AIko and the MessageList, to allow for those
-methods to work.
-154beta:
-- Added get_side_prompt_object method to Context class and intermediate method with the same name to AIko class
-in order to allow the GUI app to access it.
-155beta:
-- Added get_scenario method to Context class.
-156beta:
-- Moved interaction loop into a separate file.
-- Added check scenario method to AIko class.
-157beta:
-- Max number of context and side prompts is now adjustable.
-- Reformatted the whole file.
-158beta:
-- Added a Score class for future use with the FOM system.
-- Made Aiko's log a separate class.
-159beta:
-- Made Context, SidePrompts and Scenario attributes of Context class public, to avoid method redundancy between classes
-which have a Context attribute.
-- Reduced redundant functions in AIko/Context class and made AIko's Context attribute public.
+160beta:
+- Added FrameOfMind class for handling frame of mind feature.
 ===================================================================
 """
 # ----------------- Imports -----------------
@@ -327,8 +298,9 @@ class BlackBox:
 
 class Context:
 
-    def __init__(self, personality: str, scenario: str, sp_slots: int = 5, mem_slots: int = 10):
-        self.__personality = personality
+    def __init__(self, scenario: str, sp_slots: int = 5, mem_slots: int = 10):
+        self.__personalities = gather_txts('prompts/personalities')
+        self.__personality = self.__personalities['BASE']
 
         self.context = MessageList(mem_slots)
         self.side_prompts = MessageList(sp_slots)
@@ -342,7 +314,7 @@ class Context:
         self.side_prompts.append_items(list_to_append)
         self.context.append_items(list_to_append)
 
-    def build_context(self, message: str, use_profile: bool = False):
+    def build_context(self, use_profile: bool = False):
         """
           Builds context dictionary list with the currently relevant information.
         """
@@ -429,6 +401,31 @@ class Log:
             log.write('\n')
 
 
+class FrameOfMind:
+    def __init__(self):
+        self.mood_score = Score()
+        self.__thresholds = {
+            'negative': range(-100000, -2500), 'neutral': range(-2500, 2500), 'positive': range(2500, 100000)
+            }
+
+    def update_mood(self, message: str):
+        # calculate score of given message
+        sentiment, score = sentiment_analysis(message)
+        # update score value
+        match sentiment:
+            case 'positive':
+                self.mood_score.update_score(score)
+            case'negative':
+                self.mood_score(score - 0)
+
+        print('CURRENT SCORE:', self.mood_score.score)
+        # return current mood by checking which threshold the score is currently in
+        for state, threshold in self.__thresholds.items():
+            if self.mood_score.score in threshold:
+                self.__state = state
+                return state
+
+
 class AIko:
     """
       A class that can be used for interacting with custom-made AI characters.
@@ -451,17 +448,16 @@ class AIko:
               Changes the current scenario.
     """
 
-    def __init__(self, character_name: str, personality_filename: str, scenario: str = '', sp_slots: int = 5,
+    def __init__(self, character_name: str, scenario: str = '', sp_slots: int = 5,
                  mem_slots: int = 10):
         self.character_name = character_name
 
-        self.__personality_file = personality_filename
         self.__black_box = BlackBox()
 
-        self.context = Context(txt_to_string(personality_filename), scenario, sp_slots, mem_slots)
+        self.context = Context(scenario, sp_slots, mem_slots)
 
-        self.__log = Log(personality_filename)
-        self.__keywords = gather_txts('prompts\keywords')
+        self.__log = Log('prompts/personalities/base.txt')
+        self.__keywords = gather_txts('prompts/keywords')
 
     def change_scenario(self, scenario: str):
         self.context.scenario.add_item(scenario, 'system')
@@ -481,7 +477,7 @@ class AIko:
           Interacts with the AI character by providing a message.
         """
         use_profile = self.__black_box.message_meets_criteria(message)
-        messages = self.context.build_context(message, use_profile)
+        messages = self.context.build_context(use_profile)
 
         has_keyword = False
         if use_system_role:
@@ -516,6 +512,7 @@ class AIko:
 
 
 if __name__ == '__main__':
-    mood = Score()
-    mood.update_score(-1)
-    print(mood.score)
+    mood = FrameOfMind()
+    print('Ulaidh said: I love you.')
+    for i in range(0, 2):
+        print('current mood:', mood.update_mood('I love you.'))

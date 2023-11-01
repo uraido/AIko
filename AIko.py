@@ -42,18 +42,22 @@ in order to allow the GUI app to access it.
 157beta:
 - Max number of context and side prompts is now adjustable.
 - Reformatted the whole file.
+158beta:
+- Added a Score class for future use with the FOM system.
+- Made Aiko's log a separate class.
 ===================================================================
 """
 # ----------------- Imports -----------------
 import openai  # gpt3
 from datetime import datetime  # for logging
 from configparser import ConfigParser  # ini file config
+from AikoSentiment import sentiment_analysis  # for the mood system
 from func_timeout import func_timeout, FunctionTimedOut  # for handling openAI ratelimit errors
 import os  # gathering files from folder
 
 # -------------------------------------------
 # PLEASE set it if making a new build. for logging purposes
-build_version = 'Aiko156beta'.upper()
+build_version = 'Aiko158beta'.upper()
 
 # ------------- Set variables ---------------
 # reads config file
@@ -376,39 +380,24 @@ class Context:
         return self.__side_prompts
 
 
-class AIko:
-    """
-      A class that can be used for interacting with custom made AI characters.
+class Score:
 
-      Attributes:
-          character_name (str): The name of the AI character.
-          personality_file (str): The filename of the personality file.
+    def __init__(self):
+        self.__score = 0
 
-      Parameters:
-          scenario (str): The scenario in which the character currently finds itself in.
+    def update_score(self, value: int):
+        self.__score += value
 
-      Methods:
-          interact(username: str, message: str):
-              Interacts with the AI character by providing a username and a message.
-          add_side_prompt(side_prompt : str):
-              Injects a side prompt into the character's memory.
-          change_scenario(scenario : str):
-              Changes the current scenario.
-    """
+    @property
+    def score(self):
+        return self.__score
 
-    def __init__(self, character_name: str, personality_filename: str, scenario: str = '', sp_slots: int = 5,
-                 mem_slots: int = 10):
-        self.character_name = character_name
 
-        self.__personality_file = personality_filename
-        self.__black_box = BlackBox()
+class Log:
+    def __init__(self, personality_file: str):
+        self.__log = self.__create_log(personality_file)
 
-        self.__context = Context(txt_to_string(personality_filename), scenario, sp_slots, mem_slots)
-
-        self.__log = self.__create_log()
-        self.__keywords = gather_txts('prompts\keywords')
-
-    def __create_log(self):
+    def __create_log(self, personality_file: str):
         """
           Creates a log file and reports initial information.
 
@@ -430,16 +419,74 @@ class AIko:
             log.write(f'{hour}\n')
             log.write('\n')
             log.write(f'AIKO.PY BUILD VERSION: {build_version} \n')
-            log.write(f'{self.__personality_file}: \n')
-            with open(self.__personality_file, 'r') as aiko_txt:
+            log.write(f'{personality_file}: \n')
+            with open(personality_file, 'r') as aiko_txt:
                 for line in aiko_txt:
                     log.write(line)
             log.write('\n')
             log.write('\n')
-            log.write(f'---------------END OF "{self.__personality_file}"---------------\n')
+            log.write(f'---------------END OF "{personality_file}"---------------\n')
             log.write('\n')
 
         return log_filename
+
+    def update_log(self, user_string: str, completion_data: tuple):
+        """
+          Updates the log file with the user's input and the generated output.
+
+          Args:
+              user_string (str): The user's input message.
+              completion_data (tuple): A tuple containing the generated output and token usage information.
+        """
+        time = datetime.now()
+        hour = f'[{time.hour}:{time.minute}:{time.second}]'
+
+        self.__session_token_usage__ += completion_data[1][2]
+
+        with open(self.__log, 'a') as log:
+            log.write(f'{hour}\n')
+            log.write('\n')
+            log.write(f'Prompt: {user_string} --TOKENS USED: {completion_data[1][0]}\n')
+            log.write(f'Output: {completion_data[0]} --TOKENS USED: {completion_data[1][1]}\n')
+            log.write(f'Total tokens used: {completion_data[1][2]}\n')
+            log.write('\n')
+            log.write(f'Tokens used this session: {self.__session_token_usage__}\n')
+            log.write('\n')
+
+
+class AIko:
+    """
+      A class that can be used for interacting with custom-made AI characters.
+
+      Attributes:
+          character_name (str): The name of the AI character.
+
+      Parameters:
+          scenario (str): The scenario in which the character currently finds itself in.
+          personality_filename (str): The filename of the personality file.
+          sp_slots (int): The max number of side prompt slots.
+          mem_slots (int): The max number of context slots.
+
+      Methods:
+          interact(username: str, message: str):
+              Interacts with the AI character by providing a username and a message.
+          add_side_prompt(side_prompt : str):
+              Injects a side prompt into the character's memory.
+          change_scenario(scenario : str):
+              Changes the current scenario.
+    """
+
+    def __init__(self, character_name: str, personality_filename: str, scenario: str = '', sp_slots: int = 5,
+                 mem_slots: int = 10):
+        self.character_name = character_name
+
+        self.__personality_file = personality_filename
+        self.__black_box = BlackBox()
+
+        self.__context = Context(txt_to_string(personality_filename), scenario, sp_slots, mem_slots)
+
+        self.__log = Log(personality_filename)
+        self.__keywords = gather_txts('prompts\keywords')
 
     def add_side_prompt(self, side_prompt: str):
         """
@@ -472,29 +519,6 @@ class AIko:
 
     def check_scenario(self):
         return self.__context.get_scenario()
-
-    def __update_log(self, user_string: str, completion_data: tuple):
-        """
-          Updates the log file with the user's input and the generated output.
-
-          Args:
-              user_string (str): The user's input message.
-              completion_data (tuple): A tuple containing the generated output and token usage information.
-        """
-        time = datetime.now()
-        hour = f'[{time.hour}:{time.minute}:{time.second}]'
-
-        self.__session_token_usage__ += completion_data[1][2]
-
-        with open(self.__log, 'a') as log:
-            log.write(f'{hour}\n')
-            log.write('\n')
-            log.write(f'Prompt: {user_string} --TOKENS USED: {completion_data[1][0]}\n')
-            log.write(f'Output: {completion_data[0]} --TOKENS USED: {completion_data[1][1]}\n')
-            log.write(f'Total tokens used: {completion_data[1][2]}\n')
-            log.write('\n')
-            log.write(f'Tokens used this session: {self.__session_token_usage__}\n')
-            log.write('\n')
 
     def has_keyword(self, message: str):
         for keyword in self.__keywords:
@@ -529,7 +553,7 @@ class AIko:
             self.__context.add_to_context(message, "user")
             self.__context.add_to_context(output, "assistant")
 
-        self.__update_log(message, completion)
+        self.__log.update_log(message, completion)
 
         # parses completion before returning it if a keyword is included, when using keywords
         if has_keyword and f'{keyword.lower()}:' in output.lower()[:len(keyword) + 2]:
@@ -540,3 +564,9 @@ class AIko:
 
         return output
 # -------------------------------------------
+
+
+if __name__ == '__main__':
+    mood = Score()
+    mood.update_score(-1)
+    print(mood.score)

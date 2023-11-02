@@ -20,10 +20,17 @@ Changelog:
 
 160beta:
 - Added FrameOfMind class for handling frame of mind feature.
+161beta:
+- Added switch_personality method to Context class.
+- Separated FrameOfMind class update_mood method into two separate methods: update_score and check_mood.
+- Initial implementation of the frame of mind feature into the AIko class.
+- Score class can now be given a starting value as an argument.
+- Fixed typo in FOM class which caused errors when getting negative scores.
 ===================================================================
 """
 # ----------------- Imports -----------------
 import openai  # gpt3
+from threading import Thread, Lock  # thread safe Score class
 from datetime import datetime  # for logging
 from configparser import ConfigParser  # ini file config
 from AikoSentiment import sentiment_analysis  # for the mood system
@@ -32,7 +39,7 @@ import os  # gathering files from folder
 
 # -------------------------------------------
 # PLEASE set it if making a new build. for logging purposes
-build_version = 'Aiko159beta'.upper()
+build_version = 'Aiko161beta'.upper()
 
 # ------------- Set variables ---------------
 # reads config file
@@ -326,14 +333,23 @@ class Context:
 
         return messages
 
+    def switch_personality(self, personality: str):
+        personality = personality.upper()
+        if personality not in self.__personalities:
+            raise ValueError('Invalid personality.')
+
+        self.__personality = self.__personalities[personality]
+
 
 class Score:
 
-    def __init__(self):
-        self.__score = 0
+    def __init__(self, start: int = 0):
+        self.__score = start
+        self.__lock = Lock()
 
     def update_score(self, value: int):
-        self.__score += value
+        with self.__lock:
+            self.__score += value
 
     @property
     def score(self):
@@ -402,26 +418,48 @@ class Log:
 
 
 class FrameOfMind:
-    def __init__(self):
-        self.mood_score = Score()
-        self.__thresholds = {
-            'negative': range(-100000, -2500), 'neutral': range(-2500, 2500), 'positive': range(2500, 100000)
-            }
+    """
+    A class for managing and analyzing the mood of a conversation based on sentiment analysis scores.
 
-    def update_mood(self, message: str):
+    The `FrameOfMind` class allows you to track and update the mood of a conversation by assigning sentiment scores to
+    text messages and determining the current mood state based on defined score thresholds.
+
+    Arguments:
+        - thresholds (dict, optional): A dictionary specifying mood score ranges (range objects) for different moods.
+        Example {'angry': range(-10000, -2500), 'neutral': range(-2500, 2500), 'happy': range(2500, 10000)}.
+    Methods:
+        - update_score(self, message: str): Update the mood score based on the sentiment of a given message.
+        - check_mood(self): Check and print the current mood state and mood score.
+    """
+    def __init__(self, thresholds: dict = None):
+        self.__mood_score = Score()
+
+        # sets default thresholds if no threshold dictionary is given
+        if thresholds is None:
+            self.__thresholds = {
+                'negative': range(-100000, -2500), 'neutral': range(-2500, 2500), 'positive': range(2500, 100000)
+                }
+        else:
+            self.__thresholds = thresholds
+
+        # sets starting mood
+        self.__state = self.check_mood()
+
+    def update_score(self, message: str):
         # calculate score of given message
-        sentiment, score = sentiment_analysis(message)
+        sentiment, points = sentiment_analysis(message)
         # update score value
         match sentiment:
             case 'positive':
-                self.mood_score.update_score(score)
+                self.__mood_score.update_score(points)
             case'negative':
-                self.mood_score(score - 0)
+                self.__mood_score.update_score(points - points * 2)
 
-        print('CURRENT SCORE:', self.mood_score.score)
+    def check_mood(self):
+        print('CURRENT SCORE:', self.__mood_score.score)
         # return current mood by checking which threshold the score is currently in
         for state, threshold in self.__thresholds.items():
-            if self.mood_score.score in threshold:
+            if self.__mood_score.score in threshold:
                 self.__state = state
                 return state
 
@@ -451,11 +489,16 @@ class AIko:
     def __init__(self, character_name: str, scenario: str = '', sp_slots: int = 5,
                  mem_slots: int = 10):
         self.character_name = character_name
-
         self.__black_box = BlackBox()
-
         self.context = Context(scenario, sp_slots, mem_slots)
 
+        # frame of mind
+        thresholds = {
+            'angry': range(-100000, -2500),
+            'base': range(-2500, 2500),
+            'happy': range(2500, 100000),
+        }
+        self.__mood = FrameOfMind(thresholds)
         self.__log = Log('prompts/personalities/base.txt')
         self.__keywords = gather_txts('prompts/keywords')
 
@@ -476,22 +519,31 @@ class AIko:
         """
           Interacts with the AI character by providing a message.
         """
+        # performs sentiment analysis on message to update her mood, done on a separate thread to avoid extra latency
+        Thread(target=self.__mood.update_score, kwargs={'message': message}).start()
+
         use_profile = self.__black_box.message_meets_criteria(message)
         messages = self.context.build_context(use_profile)
 
         has_keyword = False
+        # appends the message under the chosen role (user/system)
         if use_system_role:
+            # checks for keyword
             has_keyword, keyword_instructions, keyword = self.has_keyword(message)
             if has_keyword:
                 messages.append(keyword_instructions)
 
+            # appends as system
             messages.append({"role": "system", "content": message})
         else:
+            # appends as user
             messages.append({"role": "user", "content": message})
 
+        # requests completion
         completion = generate_gpt_completion_timeout(messages)
         output = completion[0]
 
+        # saves interaction to context
         if use_system_role:
             self.context.context.add_item(output, "assistant")
         else:
@@ -500,12 +552,15 @@ class AIko:
 
         self.__log.update_log(message, completion)
 
-        # parses completion before returning it if a keyword is included, when using keywords
+        # parses keyword out of output, if using keywords
         if has_keyword and f'{keyword.lower()}:' in output.lower()[:len(keyword) + 2]:
             output = output[len(keyword) + 1:]
-        # parses completion before returning it if character's name (E.G, "Aiko: bla bla") happens to be included
+        # parses character name (EG "Aiko: bla bla") out of output
         if f'{self.character_name}:' in output[:len(self.character_name) + 2]:
             output = output[len(self.character_name) + 1:]
+
+        # updates personality after checking current mood
+        self.context.switch_personality(self.__mood.check_mood())
 
         return output
 # -------------------------------------------
@@ -515,4 +570,5 @@ if __name__ == '__main__':
     mood = FrameOfMind()
     print('Ulaidh said: I love you.')
     for i in range(0, 2):
-        print('current mood:', mood.update_mood('I love you.'))
+        mood.update_score('I love you.')
+        print('current mood:', mood.check_mood())

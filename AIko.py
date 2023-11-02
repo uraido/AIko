@@ -449,11 +449,12 @@ class FrameOfMind:
         # calculate score of given message
         sentiment, points = sentiment_analysis(message)
         # update score value
-        match sentiment:
-            case 'positive':
-                self.__mood_score.update_score(points)
-            case'negative':
-                self.__mood_score.update_score(points - points * 2)
+
+        if sentiment == 'positive':
+            #case 'positive':
+            self.__mood_score.update_score(points)
+        elif sentiment == 'negative':
+            self.__mood_score.update_score(points - points * 2)
 
     def check_mood(self):
         print('CURRENT SCORE:', self.__mood_score.score)

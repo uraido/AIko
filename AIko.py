@@ -307,7 +307,7 @@ class Context:
 
     def __init__(self, scenario: str, sp_slots: int = 5, mem_slots: int = 10):
         self.__personalities = gather_txts('prompts/personalities')
-        self.__personality = self.__personalities['BASE']
+        self.__personality = self.__personalities['AIKO']
 
         self.context = MessageList(mem_slots)
         self.side_prompts = MessageList(sp_slots)
@@ -494,12 +494,23 @@ class AIko:
 
         # frame of mind
         thresholds = {
-            'angry': range(-100000, -2500),
-            'base': range(-2500, 2500),
-            'happy': range(2500, 100000),
+            'aiko_hulk': range(-100000, -4000),
+            'aiko_angry_lvl2': range(-4000, -3500),
+            'aiko_angry_lvl1': range(-3500, -2500),
+            'aiko': range(-2500, 2500),
+            'aiko_happy_lvl1': range(2500, 100000),
         }
-        self.__mood = FrameOfMind(thresholds)
-        self.__log = Log('prompts/personalities/base.txt')
+
+        # frame of mind
+        thresholds1 = {
+            'aiko_hulk': range(-100000, -100),
+            # 'aiko_angry_lvl2': range(-400, -350),
+            'aiko_angry_lvl1': range(-100, -50),
+            'aiko': range(-50, 100),
+            'aiko_happy_lvl1': range(100, 100000),
+        }
+        self.__mood = FrameOfMind(thresholds1)
+        self.__log = Log('prompts/personalities/aiko.txt')
         self.__keywords = gather_txts('prompts/keywords')
 
     def change_scenario(self, scenario: str):
@@ -560,7 +571,9 @@ class AIko:
             output = output[len(self.character_name) + 1:]
 
         # updates personality after checking current mood
-        self.context.switch_personality(self.__mood.check_mood())
+        personality = self.__mood.check_mood()
+        self.context.switch_personality(personality)
+        print('CURRENT MOOD:', personality)
 
         return output
 # -------------------------------------------

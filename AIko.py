@@ -494,22 +494,14 @@ class AIko:
 
         # frame of mind
         thresholds = {
-            'aiko_hulk': range(-100000, -4000),
-            'aiko_angry_lvl2': range(-4000, -3500),
-            'aiko_angry_lvl1': range(-3500, -2500),
-            'aiko': range(-2500, 2500),
-            'aiko_happy_lvl1': range(2500, 100000),
+            'aiko_hulk': range(-100000, -1500),
+            # 'aiko_angry_lvl2': range(-4000, -3500),
+            'aiko_angry_lvl1': range(-1500, -1000),
+            'aiko': range(-1000, 1000),
+            'aiko_happy_lvl1': range(1000, 100000),
         }
 
-        # frame of mind
-        thresholds1 = {
-            'aiko_hulk': range(-100000, -100),
-            # 'aiko_angry_lvl2': range(-400, -350),
-            'aiko_angry_lvl1': range(-100, -50),
-            'aiko': range(-50, 100),
-            'aiko_happy_lvl1': range(100, 100000),
-        }
-        self.__mood = FrameOfMind(thresholds1)
+        self.__mood = FrameOfMind(thresholds)
         self.__log = Log('prompts/personalities/aiko.txt')
         self.__keywords = gather_txts('prompts/keywords')
 

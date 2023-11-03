@@ -17,6 +17,8 @@ Changelog:
 - Added default_style and default_rate options to VOICE section.
 24:
 - Added platform option to LIVESTREAM section.
+25:
+- Added default_pitch option to VOICE section.
 '''
 
 from configparser import ConfigParser
@@ -51,6 +53,7 @@ def handle_ini(ini : str = 'AIkoPrefs.ini'):
         ('mic_device', 'Cable-B Output'),
         ('default_style', 'neutral'),
         ('default_rate', '1.0'),
+        ('default_pitch', '0.0'),
     ]
 
     SPONTANEOUS_TALKING = [

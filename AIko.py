@@ -6,6 +6,7 @@ Objects for interaction with custom-made AI characters.
 Requirements:
 - AIkoVoice.py (100 or greater) and its requirements
 - AIkoINIhandler.py
+- AikoSentiment.py
 
 pip install:
 - openai
@@ -26,6 +27,12 @@ Changelog:
 - Initial implementation of the frame of mind feature into the AIko class.
 - Score class can now be given a starting value as an argument.
 - Fixed typo in FOM class which caused errors when getting negative scores.
+162beta:
+- Specified log encoding to utf-8 in order to stop emojis from crashing it.
+- Added check_personality method to Context class.
+- Made AIko's FrameOfMind object public.
+- Added check_score method to FrameOfMind class.
+- Replaced match case statements with if/else statements in order to support older python versions.
 ===================================================================
 """
 # ----------------- Imports -----------------
@@ -39,7 +46,7 @@ import os  # gathering files from folder
 
 # -------------------------------------------
 # PLEASE set it if making a new build. for logging purposes
-build_version = 'Aiko161beta'.upper()
+build_version = 'Aiko162beta'.upper()
 
 # ------------- Set variables ---------------
 # reads config file
@@ -340,6 +347,10 @@ class Context:
 
         self.__personality = self.__personalities[personality]
 
+    def check_personality(self):
+        # looks for personality key value matching current personality in the personalities dictionary and returns it
+        return list(self.__personalities.keys())[list(self.__personalities.values()).index(self.__personality)]
+
 
 class Score:
 
@@ -406,7 +417,8 @@ class Log:
 
         self.__session_token_usage__ += completion_data[1][2]
 
-        with open(self.__log, 'a') as log:
+        # writes to log in utf-8 encoding to avoid special characters such as emojis causing exceptions
+        with open(self.__log, 'a', encoding="utf-8") as log:
             log.write(f'{hour}\n')
             log.write('\n')
             log.write(f'Prompt: {user_string} --TOKENS USED: {completion_data[1][0]}\n')
@@ -443,21 +455,21 @@ class FrameOfMind:
             self.__thresholds = thresholds
 
         # sets starting mood
-        self.__state = self.check_mood()
+        self.__state = self.check_fom()
 
     def update_score(self, message: str):
         # calculate score of given message
         sentiment, points = sentiment_analysis(message)
         # update score value
-
         if sentiment == 'positive':
-            #case 'positive':
             self.__mood_score.update_score(points)
         elif sentiment == 'negative':
             self.__mood_score.update_score(points - points * 2)
 
-    def check_mood(self):
-        print('CURRENT SCORE:', self.__mood_score.score)
+    def check_score(self):
+        return self.__mood_score.score
+
+    def check_fom(self):
         # return current mood by checking which threshold the score is currently in
         for state, threshold in self.__thresholds.items():
             if self.__mood_score.score in threshold:
@@ -502,7 +514,7 @@ class AIko:
             'aiko_happy_lvl1': range(1000, 100000),
         }
 
-        self.__mood = FrameOfMind(thresholds)
+        self.fom = FrameOfMind(thresholds)
         self.__log = Log('prompts/personalities/aiko.txt')
         self.__keywords = gather_txts('prompts/keywords')
 
@@ -524,7 +536,7 @@ class AIko:
           Interacts with the AI character by providing a message.
         """
         # performs sentiment analysis on message to update her mood, done on a separate thread to avoid extra latency
-        Thread(target=self.__mood.update_score, kwargs={'message': message}).start()
+        Thread(target=self.fom.update_score, kwargs={'message': message}).start()
 
         use_profile = self.__black_box.message_meets_criteria(message)
         messages = self.context.build_context(use_profile)
@@ -564,9 +576,8 @@ class AIko:
             output = output[len(self.character_name) + 1:]
 
         # updates personality after checking current mood
-        personality = self.__mood.check_mood()
+        personality = self.fom.check_fom()
         self.context.switch_personality(personality)
-        print('CURRENT MOOD:', personality)
 
         return output
 # -------------------------------------------
@@ -577,4 +588,4 @@ if __name__ == '__main__':
     print('Ulaidh said: I love you.')
     for i in range(0, 2):
         mood.update_score('I love you.')
-        print('current mood:', mood.check_mood())
+        print('current mood:', mood.check_fom())

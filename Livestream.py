@@ -36,6 +36,8 @@ Changelog:
 - Updated to work with AIko.py 159beta.
 009:
 - Added debug_fom command, which enables FOM printouts (current score, current mood).
+010:
+- Added local READ_ONLY keyword to system messages. Character will read the message, then save it as a side prompt.
 """
 import os
 import socket
@@ -48,7 +50,7 @@ import pytchat
 
 from AIko import AIko, txt_to_list
 from AIkoGUITools import LiveGUI
-from AIkoINIhandler import handle_ini
+from AikoINIhandler import handle_ini
 from AIkoVoice import Synthesizer, Recognizer
 from AIkoStreamingTools import MasterQueue, Pytwitch
 build = '009'
@@ -460,6 +462,15 @@ def thread_talk():
         if msg_type == 'chat':
             app.update_chat_widget()
 
+        # READ_ONLY keyword
+        elif msg_type == 'system' and message.startswith('READ_ONLY:'):
+            message = message.strip('READ_ONLY:')
+            synthesizer.say(message, rate=(uniform(1.2, 1.4)))
+            aiko.add_side_prompt(message)
+            app.update_side_prompts_widget()
+            continue
+
+        # no messages in queue
         if message == '':
             continue
 

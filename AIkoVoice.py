@@ -20,6 +20,9 @@ Changelog:
 - Default speech rate is now also configurable.
 111:
 - Recognizer class now uses event toggle instead of hotkey.
+112:
+- Added "pitch" parameter to synthesizer's say method.
+- Default pitch when no parameter is given is configurable.
 """
 import azure.cognitiveservices.speech as speechsdk
 import subprocess
@@ -125,6 +128,7 @@ class Synthesizer:
         self.voice = voice
         self.default_style = config.get('VOICE', 'default_style')
         self.default_rate = config.getfloat('VOICE', 'default_rate')
+        self.default_pitch = config.getfloat('VOICE', 'default_pitch')
 
     def __set_speech_config(self):
         # builds SpeechConfig class
@@ -156,18 +160,22 @@ class Synthesizer:
             audio_config=self.__audio_config
             )
 
-    def say(self, text : str, rate : int = None, style : str = None):
-        if rate == None:
+    def say(self, text: str, rate: int = None, style: str = None, pitch: str = None):
+        if rate is None:
             rate = self.default_rate
-        if style == None:
+        if style is None:
             style = self.default_style
+        if pitch is None:
+            pitch = self.default_pitch
+
+        pitch = f'{int(pitch * 10)}%'
 
         ssml = f"""
         <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis"
         xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="en-US">
             <voice name="{self.voice}">
                 <mstts:express-as style="{style}" styledegree="2">
-                    <prosody rate="{rate}">{text}</prosody>
+                    <prosody pitch="{pitch}" rate="{rate}">{text}</prosody>
                 </mstts:express-as>
             </voice>
         </speak>"""
@@ -176,35 +184,9 @@ class Synthesizer:
 
 
 if __name__ == '__main__':
-    from threading import Thread
+    from AIkoINIhandler import handle_ini
 
-    event = Event()
-
+    handle_ini()
     # tests synthesizer class
     synthesizer = Synthesizer()
-    synthesizer.say('Hello there!')
-
-    # sets up a function to be called on the speech_recognizer.recognized event
-    def parse_event(evt):
-        event = str(evt)
-
-        keyword = 'text="'
-        stt_start = event.index(keyword)
-        stt_end = event.index('",')
-        
-        message = event[stt_start + len(keyword):stt_end]
-
-        if message != '':
-            print(message)
-
-    recognizer = Recognizer()
-    # to handle stopping the speech recognition.
-    def stop_recognition_thread():
-        while True:
-            if keyboard.is_pressed('space'):
-                event.set()
-
-
-    # starts threads
-    Thread(target=recognizer.start, kwargs={'parse_func': parse_event, 'event': event}).start()
-    Thread(target=stop_recognition_thread).start()
+    synthesizer.say('AIKO SMASH! AIKO NOT LIKE YOU!', pitch=-4.0)

@@ -34,6 +34,8 @@ Changelog:
 - Skips user mentions (unless mentioning Aiko herself)
 008:
 - Updated to work with AIko.py 159beta.
+009:
+- Added debug_fom command, which enables FOM printouts (current score, current mood).
 """
 import os
 import socket
@@ -49,7 +51,7 @@ from AIkoGUITools import LiveGUI
 from AIkoINIhandler import handle_ini
 from AIkoVoice import Synthesizer, Recognizer
 from AIkoStreamingTools import MasterQueue, Pytwitch
-build = '008'
+build = '009'
 
 handle_ini()
 
@@ -69,6 +71,9 @@ running = True
 mute_event = Event()
 allow_silence_breaker = Event()
 speaking = Event()
+
+# globals
+debug_fom = False
 
 # time tracker (to track silence time)
 last_time_spoken = time()
@@ -136,14 +141,14 @@ def cmd_check_scenario():
 app.add_command('scenario_check', cmd_check_scenario, 'Prints the current scenario.')
 
 
-def add_side_prompt(side_prompt: str):
+def cmd_add_side_prompt(side_prompt: str):
     aiko.add_side_prompt(side_prompt)
     app.update_side_prompts_widget()
 
     app.print_to_cmdl(f'Added local SP: "{side_prompt}"')
 
 
-app.add_command('sp_add', add_side_prompt, "Injects a side-prompt into the character's memory.")
+app.add_command('sp_add', cmd_add_side_prompt, "Injects a side-prompt into the character's memory.")
 
 
 def cmd_clear_side_prompts():
@@ -182,6 +187,16 @@ def cmd_chat_pause():
 
 
 app.add_command('chat_pause', cmd_chat_pause, 'Pauses/unpauses the chat queue.')
+
+
+def cmd_debug_fom(debug: str):
+    global debug_fom
+    debug_fom = bool(debug.capitalize())
+    app.print_to_cmdl(f'Set debug_fom to {debug.upper()}.')
+
+
+app.add_command('debug_fom', cmd_debug_fom,
+                'Enables FrameOfMind feature debugging printouts. Usage: debug_fom true/false')
 
 
 def cmd_close_protocol():
@@ -461,6 +476,11 @@ def thread_talk():
 
         app.print(f'({msg_type.upper()}) {message}')
         app.print(f'Aiko: {output}\n')
+
+        # FOM debug printouts
+        if debug_fom:
+            app.print(f'CURRENT SCORE: {aiko.fom.check_score()}')
+            app.print(f'NEXT MOOD: {aiko.context.check_personality()}\n')
 
         speaking.set()
         synthesizer.say(output)

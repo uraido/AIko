@@ -1,8 +1,6 @@
 '''
 AIkoINIhandler.py
 
-Version 2.3
-
 Parses Aikos INI configuration file and adds any missing values to avoid raising any missing value exceptions.
 
 Changelog:
@@ -19,6 +17,8 @@ Changelog:
 - Added platform option to LIVESTREAM section.
 25:
 - Added default_pitch option to VOICE section.
+26:
+- Added max_side_prompts option to GENERAL.
 '''
 
 from configparser import ConfigParser
@@ -44,6 +44,7 @@ def handle_ini(ini : str = 'AIkoPrefs.ini'):
         ('breaker_phrase', 'code red'),
         ('dynamic_scenarios', 'True'),
         ('completion_timeout', '10'),
+        ('max_side_prompts', '5'),
     ]
 
     VOICE = [

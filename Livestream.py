@@ -19,6 +19,9 @@ Changelog:
 - Replaced silence breaker and 'talk' threaded functions with AnswerLoops class.
 - AnswerLoops class has its own keyword system, with keywords such as READ_ONLY to force the character to read
 the incoming system message.
+021:
+- Added 'PARSE' variants of READ and READ_ONLY AnswerLoops system message keywords.
+- Added keywords command to cmdl which prints both AnswerLoops and AIko's system message keywords.
 """
 import os
 import socket
@@ -34,7 +37,7 @@ from AIkoGUITools import LiveGUI
 from AIkoINIhandler import handle_ini
 from AIkoVoice import Synthesizer, Recognizer
 from AIkoStreamingTools import MasterQueue, Pytwitch
-build = '020'
+build = '021'
 
 handle_ini()
 
@@ -168,6 +171,7 @@ class AnswerLoops:
     def __init__(self, char: AIko, ui_app: LiveGUI, queue: MasterQueue):
         self.__last_time_spoken = time()
 
+        # aiko object, app object, message queue object
         self.__char = char
         self.__app = ui_app
         self.__queue = queue
@@ -180,9 +184,19 @@ class AnswerLoops:
         self.__config = ConfigParser()
         self.__config.read('AikoPrefs.ini')
 
+        # voices aiko
         self.__synthesizer = Synthesizer()
 
-        self.__keywords = {'DEFAULT_SYS': self.__kw_default, 'READ_ONLY': self.__kw_read_only, 'READ': self.__kw_read}
+        # keyword system
+        self.__keywords = {
+            'DEFAULT_SYS': self.__kw_default,
+            # read only
+            'READ_ONLY': self.__kw_read_only,
+            'READ_ONLY_PARSE': self.__kw_read_only_parse,
+            # read and answer
+            'READ': self.__kw_read,
+            'READ_PARSE': self.__kw_read_parse,
+        }
 
     # ----------------------------- KEYWORD CALLED FUNCTIONS
     def __kw_default(self, message: str):
@@ -190,41 +204,53 @@ class AnswerLoops:
         self.__app.print(f'(SYS) {message}')
         self.__app.print(f'Aiko: {output}\n')
 
-        self.__speaking.set()
-        self.__synthesizer.say(output)
-        self.__speaking.clear()
+        self.__say(output)
 
         # FOM debug printouts
         if self.__debug_fom:
             self.__app.print(f'CURRENT SCORE: {aiko.fom.check_score()}')
             self.__app.print(f'NEXT MOOD: {aiko.context.check_personality()}\n')
 
-    def __kw_read_only(self, message: str):
+    def __kw_read_only(self, message: str, parse=False):
         self.__app.print(f'(READ){message}\n')
 
-        self.__synthesizer.say(message, rate=(uniform(1.2, 1.4)), style="neutral")
-        self.__char.add_side_prompt(message)
-        self.__app.update_side_prompts_widget()
+        self.__say(parse_msg(message, after=True) if parse else message, reading=True)
 
-    def __kw_read(self, message: str):
+        # adds read message to side prompts so the character can "remember" reading it
+        self.__add_sp(message)
+
+    def __kw_read(self, message: str, parse=False):
         output = self.__char.interact(message, True)
 
         self.__app.print(f'(READ){message}')
         self.__app.print(f'Aiko: {output}\n')
 
-        self.__speaking.set()
-        self.__synthesizer.say(message, rate=uniform(1.2, 1.4), style="neutral")
-        self.__synthesizer.say(output)
-        self.__speaking.clear()
+        self.__say(parse_msg(message, after=True) if parse else message, reading=True)
+        self.__say(output)
+
+        # adds read message to side prompts so the character can "remember" reading it
+        self.__add_sp(message)
 
         # FOM debug printouts
         if self.__debug_fom:
             self.__app.print(f'CURRENT SCORE: {aiko.fom.check_score()}')
             self.__app.print(f'NEXT MOOD: {aiko.context.check_personality()}\n')
 
+    def __kw_read_only_parse(self, message: str):
+        self.__kw_read_only(message, parse=True)
+
+    def __kw_read_parse(self, message: str):
+        self.__kw_read(message, parse=True)
+
     # ----------------------------------------
+    @property
+    def keywords(self):
+        return sorted(list(self.__keywords.keys()) + self.__char.keywords)
 
     def __check_for_kw(self, message: str):
+        """
+        Checks if message contains a keyword, and executes the corresponding keyword function.
+        """
         if ':' in message:
             keyword = parse_msg(message)
             if keyword in self.__keywords:
@@ -234,9 +260,31 @@ class AnswerLoops:
 
         self.__keywords['DEFAULT_SYS'](message)
 
+    def __say(self, message: str, rate: float = None, style: str = None, pitch: float = None, reading: bool = False):
+        """
+        Sets self.__speaking event in order to declare silence has been broken and voices the given message.
+        """
+        if reading:
+            self.__speaking.set()
+            self.__synthesizer.say(message, rate=uniform(1.2, 1.4), style="neutral")
+            self.__speaking.set()
+            return
+
+        # uses default/given parameters
+        self.__speaking.set()
+        self.__synthesizer.say(message, rate, style, pitch)
+        self.__speaking.set()
+
+    def __add_sp(self, side_prompt: str):
+        self.__char.add_side_prompt(side_prompt)
+        self.__app.update_side_prompts_widget()
+
     # --------------------------------- LOOPS
     # interacts with the character AI
     def __talk_loop(self):
+        """
+        Character's answer loop.
+        """
 
         while running:
             msg_type, message = self.__queue.get_next()
@@ -255,7 +303,7 @@ class AnswerLoops:
 
             # reads message before answering, if message is a chat message.
             if msg_type == 'chat':
-                self.__synthesizer.say(parse_msg(message, after=True), rate=uniform(1.2, 1.4), style="neutral")
+                self.__say(parse_msg(message, after=True), reading=True)
 
             self.__app.print(f'({msg_type.upper()}) {message}')
             self.__app.print(f'Aiko: {output}\n')
@@ -265,9 +313,7 @@ class AnswerLoops:
                 self.__app.print(f'CURRENT SCORE: {aiko.fom.check_score()}')
                 self.__app.print(f'NEXT MOOD: {aiko.context.check_personality()}\n')
 
-            self.__speaking.set()
-            self.__synthesizer.say(output)
-            self.__speaking.clear()
+            self.__say(output)
 
             # resets timer
             self.__last_time_spoken = time()
@@ -276,6 +322,9 @@ class AnswerLoops:
 
     # silence breaker
     def __sb_loop(self):
+        """
+        Silence breaker loop.
+        """
         system_prompts = txt_to_list('prompts/spontaneous_messages.txt')
         generic_messages = txt_to_list('prompts/generic_messages.txt')
 
@@ -318,16 +367,25 @@ class AnswerLoops:
     # -------------------------------- PUBLIC
 
     def sb_allow(self):
+        """
+        Resumes/Initiates silence breaker.
+        """
         self.__last_time_spoken = time()
         self.__allow_sb.set()
 
     def sb_stop(self):
+        """
+        Pauses the silence breaker.
+        """
         self.__allow_sb.clear()
 
     def set_debug_fom(self, debug: str):
         self.__debug_fom = bool(debug.capitalize())
 
     def start(self):
+        """
+        Starts loops in separate threads.
+        """
         Thread(target=self.__talk_loop).start()
         Thread(target=self.__sb_loop).start()
 
@@ -458,6 +516,19 @@ def cmd_debug_fom(debug: str):
 
 app.add_command('debug_fom', cmd_debug_fom,
                 'Enables FrameOfMind feature debugging printouts. Usage: debug_fom true/false')
+
+
+def cmd_keywords():
+    help_string = ''
+    for keyword in answer_loops.keywords:
+        if keyword == 'DEFAULT_SYS':
+            continue
+        help_string += f'{keyword}\n\n'
+
+    app.print_to_cmdl(f'KEYWORDS: \n\n{help_string[:-1]}')
+
+
+app.add_command('keywords', cmd_keywords, 'Prints available system message keywords.')
 
 
 def cmd_close_protocol():

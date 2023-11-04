@@ -33,6 +33,8 @@ Changelog:
 - Made AIko's FrameOfMind object public.
 - Added check_score method to FrameOfMind class.
 - Replaced match case statements with if/else statements in order to support older python versions.
+163beta:
+- Added keywords property to AIko which returns available system message keywords in a list.
 ===================================================================
 """
 # ----------------- Imports -----------------
@@ -517,6 +519,10 @@ class AIko:
         self.fom = FrameOfMind(thresholds)
         self.__log = Log('prompts/personalities/aiko.txt')
         self.__keywords = gather_txts('prompts/keywords')
+
+    @property
+    def keywords(self):
+        return sorted(list(self.__keywords.keys()))
 
     def change_scenario(self, scenario: str):
         self.context.scenario.add_item(scenario, 'system')

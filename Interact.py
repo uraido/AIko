@@ -1,9 +1,7 @@
-from AIko import *
-from AIkoINIhandler import handle_ini
+from configparser import ConfigParser
 from AIkoVoice import Synthesizer
 from random import choice
-
-handle_ini()
+from AIko import AIko, txt_to_list
 
 # gets config
 config = ConfigParser()

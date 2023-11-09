@@ -34,12 +34,9 @@ import pytchat
 
 from AIko import AIko, txt_to_list
 from AIkoGUITools import LiveGUI
-from AIkoINIhandler import handle_ini
 from AIkoVoice import Synthesizer, Recognizer
 from AIkoStreamingTools import MasterQueue, Pytwitch
 build = '021'
-
-handle_ini()
 
 # loop controller
 running = True

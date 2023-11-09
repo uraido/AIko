@@ -35,6 +35,10 @@ Changelog:
 - Replaced match case statements with if/else statements in order to support older python versions.
 163beta:
 - Added keywords property to AIko which returns available system message keywords in a list.
+164beta:
+- GPT model can now be set in INI file
+- Fixed INI errors by calling handle_ini here instead of in other scripts
+- Writes model currently in use to log file.
 ===================================================================
 """
 # ----------------- Imports -----------------
@@ -45,17 +49,21 @@ from configparser import ConfigParser  # ini file config
 from AikoSentiment import sentiment_analysis  # for the mood system
 from func_timeout import func_timeout, FunctionTimedOut  # for handling openAI ratelimit errors
 import os  # gathering files from folder
+from AIkoINIhandler import handle_ini
 
 # -------------------------------------------
 # PLEASE set it if making a new build. for logging purposes
-build_version = 'Aiko162beta'.upper()
+build_version = 'Aiko164beta'.upper()
 
 # ------------- Set variables ---------------
 # reads config file
+handle_ini()
+
 config = ConfigParser()
 config.read('AIkoPrefs.ini')
 # Sets variable according to config
 completion_timeout = config.getint('GENERAL', 'completion_timeout')
+model = config.get('GENERAL', 'model')
 
 openai.api_key = open('keys/key_openai.txt', 'r').read().strip()
 
@@ -65,13 +73,13 @@ openai.api_key = open('keys/key_openai.txt', 'r').read().strip()
 
 # -------------- Functions ------------------
 def create_limited_list(length: int):
-  """
-  Returns a limited list of empty strings.
-  """
-  new_list = []
-  for i in range(length):
-      new_list.append('')
-  return new_list
+    """
+    Returns a limited list of empty strings.
+    """
+    new_list = []
+    for n in range(length):
+        new_list.append('')
+    return new_list
 
 
 def txt_to_string(filename: str):
@@ -120,21 +128,21 @@ def generate_gpt_completion(messages: list):
 
     try:
         request = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model=model,
             messages=messages
         )
 
         completion = request.choices[0].message.content
         token_usage = (request.usage.prompt_tokens, request.usage.completion_tokens, request.usage.total_tokens)
 
-        return (completion, token_usage)
+        return completion, token_usage
 
     except openai.error.RateLimitError as e:
         print('Aiko.py:')
         print(e)
         print()
 
-        return ('', (0, 0, 0))
+        return '', (0, 0, 0)
 
 
 def generate_gpt_completion_timeout(messages: list, timeout: int = completion_timeout):
@@ -154,7 +162,7 @@ def generate_gpt_completion_timeout(messages: list, timeout: int = completion_ti
     except FunctionTimedOut:
         completion_request = generate_gpt_completion(messages)
 
-    return (completion_request)
+    return completion_request
 
 
 def txt_to_list(txt_filename: str):
@@ -394,8 +402,9 @@ class Log:
         with open(r'log/{}.txt'.format(time), 'w') as log:
             log.write(f'{hour}\n')
             log.write('\n')
-            log.write(f'AIKO.PY BUILD VERSION: {build_version} \n')
-            log.write(f'{personality_file}: \n')
+            log.write(f'AIKO.PY BUILD VERSION: {build_version} \n\n')
+            log.write(f'GPT MODEL IN USE: {model} \n\n')
+            log.write(f'{personality_file}: \n\n')
             with open(personality_file, 'r') as aiko_txt:
                 for line in aiko_txt:
                     log.write(line)

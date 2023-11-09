@@ -21,6 +21,8 @@ Changelog:
 - Added max_side_prompts option to GENERAL.
 27:
 - Added model section to GENERAL.
+28:
+- Added FRAME_OF_MIND section with irritability_threshold option.
 '''
 
 from configparser import ConfigParser
@@ -35,6 +37,7 @@ def handle_ini(ini : str = 'AIkoPrefs.ini'):
     sections = [
         'GENERAL',
         'VOICE',
+        'FRAME_OF_MIND',
         'SPONTANEOUS_TALKING',
         'LIVESTREAM',
         'REMOTE_SIDE_PROMPTING',
@@ -58,6 +61,10 @@ def handle_ini(ini : str = 'AIkoPrefs.ini'):
         ('default_style', 'neutral'),
         ('default_rate', '1.0'),
         ('default_pitch', '0.0'),
+    ]
+
+    FRAME_OF_MIND = [
+        ('irritability_threshold', '300')
     ]
 
     SPONTANEOUS_TALKING = [
@@ -84,6 +91,7 @@ def handle_ini(ini : str = 'AIkoPrefs.ini'):
     options = {
         'GENERAL': GENERAL,
         'VOICE': VOICE,
+        'FRAME_OF_MIND': FRAME_OF_MIND,
         'SPONTANEOUS_TALKING': SPONTANEOUS_TALKING,
         'LIVESTREAM': LIVESTREAM,
         'REMOTE_SIDE_PROMPTING': REMOTE_SIDE_PROMPTING,

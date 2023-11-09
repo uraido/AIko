@@ -39,6 +39,8 @@ Changelog:
 - GPT model can now be set in INI file
 - Fixed INI errors by calling handle_ini here instead of in other scripts
 - Writes model currently in use to log file.
+165beta:
+- Added irritability threshold functionality to FrameOfMind class. Configurable.
 ===================================================================
 """
 # ----------------- Imports -----------------
@@ -53,7 +55,7 @@ from AIkoINIhandler import handle_ini
 
 # -------------------------------------------
 # PLEASE set it if making a new build. for logging purposes
-build_version = 'Aiko164beta'.upper()
+build_version = 'Aiko165beta'.upper()
 
 # ------------- Set variables ---------------
 # reads config file
@@ -450,11 +452,13 @@ class FrameOfMind:
     Arguments:
         - thresholds (dict, optional): A dictionary specifying mood score ranges (range objects) for different moods.
         Example {'angry': range(-10000, -2500), 'neutral': range(-2500, 2500), 'happy': range(2500, 10000)}.
+        - irritability_threshold (int, optional): If the mood score surpasses this threshold, either in the positive or
+         the negative range, neutral comments will start to affect the mood score.
     Methods:
         - update_score(self, message: str): Update the mood score based on the sentiment of a given message.
         - check_mood(self): Check and print the current mood state and mood score.
     """
-    def __init__(self, thresholds: dict = None):
+    def __init__(self, thresholds: dict = None, irritability_threshold: int = None):
         self.__mood_score = Score()
 
         # sets default thresholds if no threshold dictionary is given
@@ -464,6 +468,13 @@ class FrameOfMind:
                 }
         else:
             self.__thresholds = thresholds
+
+        # sets default irritability if no value is given
+        if irritability_threshold is None:
+            irritability_threshold = config.getint('FRAME_OF_MIND', 'irritability_threshold')
+
+        # non-irritable zone (neutral comments' scores will affect her mood if past this zone)
+        self.__non_irritable_zone = range(irritability_threshold * -1, irritability_threshold)
 
         # sets starting mood
         self.__state = self.check_fom()
@@ -475,7 +486,14 @@ class FrameOfMind:
         if sentiment == 'positive':
             self.__mood_score.update_score(points)
         elif sentiment == 'negative':
-            self.__mood_score.update_score(points - points * 2)
+            self.__mood_score.update_score(points * -1)
+        elif sentiment == 'neutral':
+            # neutral comments will affect mood if irritability threshold has been reached
+
+            points = points // 2  # reduces neutral score impact by half
+
+            if self.__mood_score.score not in self.__non_irritable_zone:
+                self.__mood_score.update_score(points if self.__mood_score.score > 0 else points * -1)
 
     def check_score(self):
         return self.__mood_score.score
@@ -600,7 +618,18 @@ class AIko:
 
 if __name__ == '__main__':
     mood = FrameOfMind()
-    print('Ulaidh said: I love you.')
-    for i in range(0, 2):
-        mood.update_score('I love you.')
-        print('current mood:', mood.check_fom())
+    print('Hello Aiko!')
+    mood.update_score('Hello Aiko')
+    score = mood.check_score()
+    print('Initial score:', score)
+    while score < 300:
+        print('I love you')
+        mood.update_score('I love you')
+        score = mood.check_score()
+        print('Current score:', score)
+
+    print('THRESHOLD REACHED')
+    print('Hello Aiko!')
+    mood.update_score('Hello Aiko')
+    print('Final score:', mood.check_score())
+

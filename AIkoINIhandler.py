@@ -19,6 +19,8 @@ Changelog:
 - Added default_pitch option to VOICE section.
 26:
 - Added max_side_prompts option to GENERAL.
+27:
+- Added model section to GENERAL.
 '''
 
 from configparser import ConfigParser
@@ -45,6 +47,7 @@ def handle_ini(ini : str = 'AIkoPrefs.ini'):
         ('dynamic_scenarios', 'True'),
         ('completion_timeout', '10'),
         ('max_side_prompts', '5'),
+        ('model', 'gpt-3.5-turbo'),
     ]
 
     VOICE = [

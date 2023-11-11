@@ -13,7 +13,7 @@ pip install:
 - func_timeout
 
 txt files:
-- AIko.txt
+- 0.txt
 - key_openai.txt
 - scenarios.txt
 
@@ -41,6 +41,8 @@ Changelog:
 - Writes model currently in use to log file.
 165beta:
 - Added irritability threshold functionality to FrameOfMind class. Configurable.
+166beta:
+- FOM mood's new naming convention and dynamic threshold system.
 ===================================================================
 """
 # ----------------- Imports -----------------
@@ -55,7 +57,7 @@ from AIkoINIhandler import handle_ini
 
 # -------------------------------------------
 # PLEASE set it if making a new build. for logging purposes
-build_version = 'Aiko165beta'.upper()
+build_version = 'Aiko166beta'.upper()
 
 # ------------- Set variables ---------------
 # reads config file
@@ -326,7 +328,7 @@ class Context:
 
     def __init__(self, scenario: str, sp_slots: int = 5, mem_slots: int = 10):
         self.__personalities = gather_txts('prompts/personalities')
-        self.__personality = self.__personalities['AIKO']
+        self.__personality = self.__personalities['0']
 
         self.context = MessageList(mem_slots)
         self.side_prompts = MessageList(sp_slots)
@@ -339,6 +341,10 @@ class Context:
         self.scenario.append_items(list_to_append)
         self.side_prompts.append_items(list_to_append)
         self.context.append_items(list_to_append)
+
+    @property
+    def personality_count(self):
+        return len(self.__personalities)
 
     def build_context(self, use_profile: bool = False):
         """
@@ -450,24 +456,28 @@ class FrameOfMind:
     text messages and determining the current mood state based on defined score thresholds.
 
     Arguments:
-        - thresholds (dict, optional): A dictionary specifying mood score ranges (range objects) for different moods.
-        Example {'angry': range(-10000, -2500), 'neutral': range(-2500, 2500), 'happy': range(2500, 10000)}.
+        - mood_range (int): How many mood levels to account for. E.G; if a value of 3 is given, there will be three mood
+        levels, -1, 0, and 1. Must be an odd number.
+        - threshold (int, optional): If the mood score surpasses this threshold, the mood will change from neutral to
+        either the positive or negative mood, depending on the score. This number will be halved for the next mood
+        levels.
         - irritability_threshold (int, optional): If the mood score surpasses this threshold, either in the positive or
          the negative range, neutral comments will start to affect the mood score.
     Methods:
         - update_score(self, message: str): Update the mood score based on the sentiment of a given message.
         - check_mood(self): Check and print the current mood state and mood score.
     """
-    def __init__(self, thresholds: dict = None, irritability_threshold: int = None):
+    def __init__(self, mood_range: int, threshold: int = None, irritability_threshold: int = None):
         self.__mood_score = Score()
 
-        # sets default thresholds if no threshold dictionary is given
-        if thresholds is None:
-            self.__thresholds = {
-                'negative': range(-100000, -2500), 'neutral': range(-2500, 2500), 'positive': range(2500, 100000)
-                }
-        else:
-            self.__thresholds = thresholds
+        if mood_range % 2 == 0:
+            raise ValueError('mood_range must be an odd number.')
+
+        # sets default threshold value if no value is given
+        if threshold is None:
+            threshold = 600
+
+        self.__thresholds = self.__build_threshold_dict(mood_range, threshold)
 
         # sets default irritability if no value is given
         if irritability_threshold is None:
@@ -478,6 +488,38 @@ class FrameOfMind:
 
         # sets starting mood
         self.__state = self.check_fom()
+
+    def __build_threshold_dict(self, mood_range: int, threshold: int):
+        # calculates number of jumps to be made from 0 in both negative and positive in order to reach desired number of
+        # levels
+        jumps = mood_range // 2
+
+        # defines a list with the threshold limits, both negative and positive
+        # puts initial threshold value into the list
+        negative_thresholds = [threshold * -1]
+        positive_thresholds = [threshold]
+
+        # divides threshold by 2 and adds it to the lists, for x jumps
+        for i in range(jumps):
+            threshold //= 2
+            negative_thresholds.append(threshold * -1)
+            positive_thresholds.append(threshold)
+
+        # reverses negative thresholds list before concatenating both lists
+        negative_thresholds.reverse()
+        threshold_limits = negative_thresholds + positive_thresholds
+
+        # builds the dictionary of mood levels with the right values
+        thresholds = {}
+        level_index = jumps * -1
+        for i in range(len(threshold_limits)):
+            try:
+                thresholds[level_index] = range(threshold_limits[i], threshold_limits[i + 1])
+            except IndexError:
+                pass
+            level_index += 1
+
+        return thresholds
 
     def update_score(self, message: str):
         # calculate score of given message
@@ -502,8 +544,8 @@ class FrameOfMind:
         # return current mood by checking which threshold the score is currently in
         for state, threshold in self.__thresholds.items():
             if self.__mood_score.score in threshold:
-                self.__state = state
-                return state
+                self.__state = str(state)
+                return str(state)
 
 
 class AIko:
@@ -534,17 +576,9 @@ class AIko:
         self.__black_box = BlackBox()
         self.context = Context(scenario, sp_slots, mem_slots)
 
-        # frame of mind
-        thresholds = {
-            'aiko_hulk': range(-100000, -1500),
-            # 'aiko_angry_lvl2': range(-4000, -3500),
-            'aiko_angry_lvl1': range(-1500, -1000),
-            'aiko': range(-1000, 1000),
-            'aiko_happy_lvl1': range(1000, 100000),
-        }
-
-        self.fom = FrameOfMind(thresholds)
-        self.__log = Log('prompts/personalities/aiko.txt')
+        self.fom = FrameOfMind(
+            self.context.personality_count if self.context.personality_count % 2 != 0 else self.context.personality_count + 1)
+        self.__log = Log('prompts/personalities/0.txt')
         self.__keywords = gather_txts('prompts/keywords')
 
     @property
@@ -632,4 +666,3 @@ if __name__ == '__main__':
     print('Hello Aiko!')
     mood.update_score('Hello Aiko')
     print('Final score:', mood.check_score())
-

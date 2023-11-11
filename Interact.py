@@ -17,7 +17,8 @@ aiko = AIko('Aiko')
 dynamic_scenarios = config.getboolean('GENERAL', 'dynamic_scenarios')
 if dynamic_scenarios:
     scenarios = txt_to_list('prompts/scenarios.txt')
-    aiko.change_scenario(choice(scenarios))
+    # aiko.change_scenario(choice(scenarios))
+    aiko.change_scenario('Aiko is tending to her garden.')
 
 username = config.get('GENERAL', 'username')
 breaker = config.get('GENERAL', 'breaker_phrase')
@@ -40,5 +41,5 @@ while True:
         prompt = f'{username}: {message}'
 
     output = aiko.interact(prompt, use_system)
-    print(f'\nAiko:{output}\n')
+    print(f'\nAiko: {output}\n')
     synthesizer.say(output)

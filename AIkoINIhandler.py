@@ -23,6 +23,8 @@ Changelog:
 - Added model section to GENERAL.
 28:
 - Added FRAME_OF_MIND section with irritability_threshold option.
+29:
+- Added mood_change_threshold option to FRAME_OF_MIND section.
 '''
 
 from configparser import ConfigParser
@@ -64,7 +66,8 @@ def handle_ini(ini : str = 'AIkoPrefs.ini'):
     ]
 
     FRAME_OF_MIND = [
-        ('irritability_threshold', '300')
+        ('irritability_threshold', '300'),
+        ('mood_change_threshold', '600'),
     ]
 
     SPONTANEOUS_TALKING = [

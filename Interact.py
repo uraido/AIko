@@ -17,8 +17,7 @@ aiko = AIko('Aiko')
 dynamic_scenarios = config.getboolean('GENERAL', 'dynamic_scenarios')
 if dynamic_scenarios:
     scenarios = txt_to_list('prompts/scenarios.txt')
-    # aiko.change_scenario(choice(scenarios))
-    aiko.change_scenario('Aiko is tending to her garden.')
+    aiko.change_scenario(choice(scenarios))
 
 username = config.get('GENERAL', 'username')
 breaker = config.get('GENERAL', 'breaker_phrase')
@@ -27,6 +26,7 @@ spontaneous_messages = txt_to_list('prompts/spontaneous_messages.txt')
 
 # interaction loop
 while True:
+    print('current mood:', aiko.fom.fom, 'score:', aiko.fom.check_score())
     # message, timeout = timedInput(f'{username}: ', randint(60, 300))
     timeout = False
     message = input(f'{username}: ')

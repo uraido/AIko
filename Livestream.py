@@ -22,6 +22,8 @@ the incoming system message.
 021:
 - Added 'PARSE' variants of READ and READ_ONLY AnswerLoops system message keywords.
 - Added keywords command to cmdl which prints both AnswerLoops and AIko's system message keywords.
+022:
+- Updated to work with latest AIko's FOM changes.
 """
 import os
 import socket
@@ -392,7 +394,7 @@ class AnswerLoops:
 config = ConfigParser()
 config.read('AikoPrefs.ini')
 
-aiko = AIko('Aiko', 'prompts/AIko.txt', sp_slots=config.getint('GENERAL', 'max_side_prompts'))
+aiko = AIko('Aiko', 'prompts/personalities/0.txt', sp_slots=config.getint('GENERAL', 'max_side_prompts'))
 master_queue = MasterQueue()
 app = LiveGUI(master_queue, aiko)
 

@@ -5,7 +5,7 @@ Objects for interaction with custom-made AI characters.
 
 Requirements:
 - AIkoVoice.py (100 or greater) and its requirements
-- AIkoINIhandler.py
+- AIkoINIhandler.py (29 or greater)
 - AikoSentiment.py
 
 pip install:
@@ -43,6 +43,10 @@ Changelog:
 - Added irritability threshold functionality to FrameOfMind class. Configurable.
 166beta:
 - FOM mood's new naming convention and dynamic threshold system.
+167beta:
+- Now FOM grabs mood change threshold from ini if no threshold parameter is given.
+- Fixed FOM threshold dictionary being built with wrong values. FOM class now works as it should.
+- Added fom property to FOM class, for a quick way of checking the current mood.
 ===================================================================
 """
 # ----------------- Imports -----------------
@@ -57,7 +61,7 @@ from AIkoINIhandler import handle_ini
 
 # -------------------------------------------
 # PLEASE set it if making a new build. for logging purposes
-build_version = 'Aiko166beta'.upper()
+build_version = 'Aiko167beta'.upper()
 
 # ------------- Set variables ---------------
 # reads config file
@@ -475,7 +479,7 @@ class FrameOfMind:
 
         # sets default threshold value if no value is given
         if threshold is None:
-            threshold = 600
+            threshold = config.getint('FRAME_OF_MIND', 'mood_change_threshold')
 
         self.__thresholds = self.__build_threshold_dict(mood_range, threshold)
 
@@ -487,7 +491,7 @@ class FrameOfMind:
         self.__non_irritable_zone = range(irritability_threshold * -1, irritability_threshold)
 
         # sets starting mood
-        self.__state = self.check_fom()
+        self.__state = '0'  # self.check_fom()
 
     def __build_threshold_dict(self, mood_range: int, threshold: int):
         # calculates number of jumps to be made from 0 in both negative and positive in order to reach desired number of
@@ -502,8 +506,8 @@ class FrameOfMind:
         # divides threshold by 2 and adds it to the lists, for x jumps
         for i in range(jumps):
             threshold //= 2
-            negative_thresholds.append(threshold * -1)
-            positive_thresholds.append(threshold)
+            negative_thresholds.append(negative_thresholds[-1] - threshold)
+            positive_thresholds.append(positive_thresholds[-1] + threshold)
 
         # reverses negative thresholds list before concatenating both lists
         negative_thresholds.reverse()
@@ -514,7 +518,7 @@ class FrameOfMind:
         level_index = jumps * -1
         for i in range(len(threshold_limits)):
             try:
-                thresholds[level_index] = range(threshold_limits[i], threshold_limits[i + 1])
+                thresholds[str(level_index)] = range(threshold_limits[i], threshold_limits[i + 1])
             except IndexError:
                 pass
             level_index += 1
@@ -540,7 +544,11 @@ class FrameOfMind:
     def check_score(self):
         return self.__mood_score.score
 
-    def check_fom(self):
+    @property
+    def fom(self):
+        return self.__state
+
+    def update_fom(self):
         # return current mood by checking which threshold the score is currently in
         for state, threshold in self.__thresholds.items():
             if self.__mood_score.score in threshold:
@@ -643,7 +651,7 @@ class AIko:
             output = output[len(self.character_name) + 1:]
 
         # updates personality after checking current mood
-        personality = self.fom.check_fom()
+        personality = self.fom.update_fom()
         self.context.switch_personality(personality)
 
         return output
@@ -651,18 +659,4 @@ class AIko:
 
 
 if __name__ == '__main__':
-    mood = FrameOfMind()
-    print('Hello Aiko!')
-    mood.update_score('Hello Aiko')
-    score = mood.check_score()
-    print('Initial score:', score)
-    while score < 300:
-        print('I love you')
-        mood.update_score('I love you')
-        score = mood.check_score()
-        print('Current score:', score)
-
-    print('THRESHOLD REACHED')
-    print('Hello Aiko!')
-    mood.update_score('Hello Aiko')
-    print('Final score:', mood.check_score())
+    pass

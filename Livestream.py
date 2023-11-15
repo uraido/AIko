@@ -24,6 +24,10 @@ the incoming system message.
 - Added keywords command to cmdl which prints both AnswerLoops and AIko's system message keywords.
 022:
 - Updated to work with latest AIko's FOM changes.
+023:
+- Added greet/goodbye commands.
+- Moved silence breaker time reset to say method instead of having it at the end of the loop. The loop itself hasn't
+been fixed, though.
 """
 import os
 import socket
@@ -38,7 +42,7 @@ from AIko import AIko, txt_to_list
 from AIkoGUITools import LiveGUI
 from AIkoVoice import Synthesizer, Recognizer
 from AIkoStreamingTools import MasterQueue, Pytwitch
-build = '021'
+build = '023'
 
 # loop controller
 running = True
@@ -267,12 +271,14 @@ class AnswerLoops:
             self.__speaking.set()
             self.__synthesizer.say(message, rate=uniform(1.2, 1.4), style="neutral")
             self.__speaking.set()
-            return
+        else:
+            # uses default/given parameters
+            self.__speaking.set()
+            self.__synthesizer.say(message, rate, style, pitch)
+            self.__speaking.set()
 
-        # uses default/given parameters
-        self.__speaking.set()
-        self.__synthesizer.say(message, rate, style, pitch)
-        self.__speaking.set()
+        # resets timer
+        self.__last_time_spoken = time()
 
     def __add_sp(self, side_prompt: str):
         self.__char.add_side_prompt(side_prompt)
@@ -313,9 +319,6 @@ class AnswerLoops:
                 self.__app.print(f'NEXT MOOD: {aiko.context.check_personality()}\n')
 
             self.__say(output)
-
-            # resets timer
-            self.__last_time_spoken = time()
 
             sleep(0.1)
 
@@ -528,6 +531,20 @@ def cmd_keywords():
 
 
 app.add_command('keywords', cmd_keywords, 'Prints available system message keywords.')
+
+
+def cmd_greet():
+    master_queue.add_message("SPONTANEOUS: You have just started your livestream. Greet the audience.", "system")
+
+
+app.add_command('greet', cmd_greet, 'Queues a system message ordering the character to greet the audience.')
+
+
+def cmd_goodbye():
+    master_queue.add_message("SPONTANEOUS: You are about to end your livestream. Say goodbye to the audience.")
+
+
+app.add_command('goodbye', cmd_goodbye, 'Queues a system message ordering the character to bid goodbye to the audience.')
 
 
 def cmd_close_protocol():

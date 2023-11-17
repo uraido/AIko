@@ -28,6 +28,9 @@ the incoming system message.
 - Added greet/goodbye commands.
 - Moved silence breaker time reset to say method instead of having it at the end of the loop. The loop itself hasn't
 been fixed, though.
+024:
+- Fixed silence breaker (say function was not clearing the speaking event, which prevented the loop from continuing)
+- Added base 'you are streaming' scenario when instantiating the AIko object.
 """
 import os
 import socket
@@ -42,7 +45,7 @@ from AIko import AIko, txt_to_list
 from AIkoGUITools import LiveGUI
 from AIkoVoice import Synthesizer, Recognizer
 from AIkoStreamingTools import MasterQueue, Pytwitch
-build = '023'
+build = '024'
 
 # loop controller
 running = True
@@ -270,12 +273,12 @@ class AnswerLoops:
         if reading:
             self.__speaking.set()
             self.__synthesizer.say(message, rate=uniform(1.2, 1.4), style="neutral")
-            self.__speaking.set()
+            self.__speaking.clear()
         else:
             # uses default/given parameters
             self.__speaking.set()
             self.__synthesizer.say(message, rate, style, pitch)
-            self.__speaking.set()
+            self.__speaking.clear()
 
         # resets timer
         self.__last_time_spoken = time()
@@ -397,7 +400,9 @@ class AnswerLoops:
 config = ConfigParser()
 config.read('AikoPrefs.ini')
 
-aiko = AIko('Aiko', 'prompts/personalities/0.txt', sp_slots=config.getint('GENERAL', 'max_side_prompts'))
+platform = config.get('LIVESTREAM', 'platform')
+
+aiko = AIko('Aiko', f'You are livestreaming on {platform}.', sp_slots=config.getint('GENERAL', 'max_side_prompts'))
 master_queue = MasterQueue()
 app = LiveGUI(master_queue, aiko)
 
@@ -408,7 +413,7 @@ speaking = Event()
 
 # loops
 chat_loop = ChatLoop(
-    master_queue, app, config.get('LIVESTREAM', 'platform') == 'youtube', config.get('LIVESTREAM', 'liveid')
+    master_queue, app, platform == 'youtube', config.get('LIVESTREAM', 'liveid')
 )
 answer_loops = AnswerLoops(aiko, app, master_queue)
 

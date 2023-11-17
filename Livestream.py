@@ -233,7 +233,7 @@ class AnswerLoops:
         self.__app.print(f'Aiko: {output}\n')
 
         self.__say(parse_msg(message, after=True) if parse else message, reading=True)
-        sleep(uniform(0.3, 0.7))
+        sleep(uniform(0.10, 0.15))
         self.__say(output)
 
         # adds read message to side prompts so the character can "remember" reading it
@@ -404,7 +404,7 @@ config.read('AikoPrefs.ini')
 
 platform = config.get('LIVESTREAM', 'platform')
 
-aiko = AIko('Aiko', f'You are livestreaming on {platform}.', sp_slots=config.getint('GENERAL', 'max_side_prompts'))
+aiko = AIko('Aiko', f'You are doing a "JUST CHATTING STREAM" on {platform}.', sp_slots=config.getint('GENERAL', 'max_side_prompts'))
 master_queue = MasterQueue()
 app = LiveGUI(master_queue, aiko)
 

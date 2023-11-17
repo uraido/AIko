@@ -31,6 +31,7 @@ been fixed, though.
 024:
 - Fixed silence breaker (say function was not clearing the speaking event, which prevented the loop from continuing)
 - Added base 'you are streaming' scenario when instantiating the AIko object.
+- Introduced a short delay between reading and answering when using the read keyword, for more naturality.
 """
 import os
 import socket
@@ -232,6 +233,7 @@ class AnswerLoops:
         self.__app.print(f'Aiko: {output}\n')
 
         self.__say(parse_msg(message, after=True) if parse else message, reading=True)
+        sleep(uniform(0.3, 0.7))
         self.__say(output)
 
         # adds read message to side prompts so the character can "remember" reading it

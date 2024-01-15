@@ -47,6 +47,8 @@ Changelog:
 - Now FOM grabs mood change threshold from ini if no threshold parameter is given.
 - Fixed FOM threshold dictionary being built with wrong values. FOM class now works as it should.
 - Added fom property to FOM class, for a quick way of checking the current mood.
+168beta:
+- AIko now knows the date and time.
 ===================================================================
 """
 # ----------------- Imports -----------------
@@ -58,6 +60,7 @@ from AikoSentiment import sentiment_analysis  # for the mood system
 from func_timeout import func_timeout, FunctionTimedOut  # for handling openAI ratelimit errors
 import os  # gathering files from folder
 from AIkoINIhandler import handle_ini
+from datetime import datetime
 
 # -------------------------------------------
 # PLEASE set it if making a new build. for logging purposes
@@ -359,6 +362,10 @@ class Context:
 
         if use_profile:
             messages.append({"role": "system", "content": self.__profile})
+
+        # adds date and time to context
+        current_time = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+        messages.append({"role": "system", "content": f'Current time (d-m-y): {datetime.now()}'})
 
         return messages
 
